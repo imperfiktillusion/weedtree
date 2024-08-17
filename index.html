@@ -146,7 +146,7 @@
     color: black;
   }
   #attribute-buttons-row {
-    display: none;
+    display: flex;
   }
   #output-button {
     position: fixed;
@@ -296,10 +296,10 @@
 <body>
 <div id="filter">
   <div class="special-buttons">
-    <button id="nz-prescribable-button" class="special-button" onclick="filterNZPrescribable()">Prescribable in NZ</button>
+    <button id="nz-prescribable-button" class="special-button" onclick="toggleNZPrescribable()">Prescribable in NZ</button>
     <button id="show-all-button" class="special-button" onclick="showAllStrains()">Show all strains</button>
   </div>
-  <div id="attribute-buttons-row">
+  <div id="attribute-buttons-row" style="display: none;">
     <div class="attribute-buttons">
       <button id="non-irradiated-button" class="attribute-button" onclick="filterByAttribute('Treated', 'Non-irradiated')">Non-irradiated only</button>
       <button id="by-brand-button" class="attribute-button" onclick="toggleAttributeButtons('Brand')">By Brand</button>
@@ -343,7 +343,6 @@
   <h3>Selected Strain Data Array</h3>
   <pre id="strain-data-content"></pre>
   <pre id="output-content"></pre>
-
 </div>
 
 <div id="loading-message" style="display: none;">Loading strains...</div>
@@ -396,7 +395,7 @@ function fetchData() {
         });
         if (!obj.MyStrain) obj.MyStrain = ''; // Initialize MyStrain attribute if not present
         return obj;
-      }).filter(obj => Object.values(obj).some(val => val !== ''));
+      }).filter(obj => Object.values(obj).some(val => val !== '') && !obj.Strain.toLowerCase().includes('unknown'));
 
       // Load MyStrain attributes from localStorage
       loadMyStrainAttributes();
@@ -440,71 +439,89 @@ function updateFilterList() {
     groupedData[''] = filteredData;
   }
   
-  for (let [group, strains] of Object.entries(groupedData)) {
-    if (group !== '') {
-      const groupDiv = document.createElement('div');
-      groupDiv.className = 'mystrain-group';
-      const groupTitle = document.createElement('div');
-      groupTitle.className = 'mystrain-group-title';
-      groupTitle.textContent = `${group} Strains`;
-      groupDiv.appendChild(groupTitle);
-      filterList.appendChild(groupDiv);
-    }
-    
-    // Sort strains based on Product attribute if showing NZ Prescribable, otherwise sort by Strain
-    strains.sort((a, b) => {
-      if (showNZPrescribable && a.Product && b.Product) {
-        return a.Product.localeCompare(b.Product);
-      } else {
-        return a.Strain.localeCompare(b.Strain);
+  // Define the order of groups
+  const groupOrder = ['Good', 'Meh', 'Bad', ''];
+  
+  groupOrder.forEach(group => {
+    if (groupedData[group] && groupedData[group].length > 0) {
+      if (group !== '') {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'mystrain-group';
+        const groupTitle = document.createElement('div');
+        groupTitle.className = 'mystrain-group-title';
+        groupTitle.textContent = getGroupTitle(group);
+        groupDiv.appendChild(groupTitle);
+        filterList.appendChild(groupDiv);
       }
-    }).forEach(strain => {
-      const li = document.createElement('li');
       
-      // Add MyStrain buttons
-      const myStrainButtons = document.createElement('div');
-      myStrainButtons.className = 'mystrain-buttons';
-      
-      const createMyStrainButton = (type, value) => {
-        const button = document.createElement('button');
-        button.className = `mystrain-button ${type}`;
-        button.onclick = () => setMyStrain(strain.Strain, value);
-        if (strain.MyStrain === value) button.classList.add('active');
-        return button;
-      };
-      
-      myStrainButtons.appendChild(createMyStrainButton('smile', 'Good'));
-      myStrainButtons.appendChild(createMyStrainButton('meh', 'Meh'));
-      myStrainButtons.appendChild(createMyStrainButton('sad', 'Bad'));
-      
-      li.appendChild(myStrainButtons);
-      
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.className = 'strain-checkbox';
-      checkbox.checked = selectedStrains.has(strain.Strain);
-      checkbox.addEventListener('change', (e) => {
-        if (e.target.checked) {
-          selectedStrains.add(strain.Strain);
+      // Sort strains based on Product attribute if showing NZ Prescribable, otherwise sort by Strain
+      groupedData[group].sort((a, b) => {
+        if (showNZPrescribable && a.Product && b.Product) {
+          return a.Product.localeCompare(b.Product);
         } else {
-          selectedStrains.delete(strain.Strain);
+          return a.Strain.localeCompare(b.Strain);
         }
-        updateStrainCount();
-        updateSelectedStrainDataArray();
+      }).forEach(strain => {
+        const li = document.createElement('li');
+        
+        // Add MyStrain buttons
+        const myStrainButtons = document.createElement('div');
+        myStrainButtons.className = 'mystrain-buttons';
+        
+        const createMyStrainButton = (type, value) => {
+          const button = document.createElement('button');
+          button.className = `mystrain-button ${type}`;
+          button.onclick = () => setMyStrain(strain.Strain, value);
+          if (strain.MyStrain === value) button.classList.add('active');
+          return button;
+        };
+        
+        myStrainButtons.appendChild(createMyStrainButton('smile', 'Good'));
+        myStrainButtons.appendChild(createMyStrainButton('meh', 'Meh'));
+        myStrainButtons.appendChild(createMyStrainButton('sad', 'Bad'));
+        
+        li.appendChild(myStrainButtons);
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'strain-checkbox';
+        checkbox.checked = selectedStrains.has(strain.Strain);
+        checkbox.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            selectedStrains.add(strain.Strain);
+          } else {
+            selectedStrains.delete(strain.Strain);
+          }
+          updateStrainCount();
+          updateSelectedStrainDataArray();
+        });
+        li.appendChild(checkbox);
+        
+        const span = document.createElement('span');
+        span.className = 'strain-name';
+        span.textContent = showNZPrescribable && strain.Product ? `${strain.Product} (${strain.Strain})` : strain.Strain;
+        li.appendChild(span);
+        
+        filterList.appendChild(li);
       });
-      li.appendChild(checkbox);
-      
-      const span = document.createElement('span');
-      span.className = 'strain-name';
-      span.textContent = showNZPrescribable && strain.Product ? `${strain.Product} (${strain.Strain})` : strain.Strain;
-      li.appendChild(span);
-      
-      filterList.appendChild(li);
-    });
-  }
+    }
+  });
   
   updateStrainCount();
   updateSelectedStrainDataArray();
+}
+
+function getGroupTitle(group) {
+  switch (group) {
+    case 'Good':
+      return 'Strains I like';
+    case 'Meh':
+      return 'Meh Strains';
+    case 'Bad':
+      return "Strains I don't like";
+    default:
+      return '';
+  }
 }
 
 function setMyStrain(strainName, value) {
@@ -596,177 +613,162 @@ function filterByAttribute(attribute, value = null) {
   applyFilters();
 }
 
-function applyFilters(searchValue = '') {
+function applyFilters(filterValue = '') {
   filteredData = strainData.filter(strain => {
-    if (activeDominanceFilter && strain.Dominance !== activeDominanceFilter) {
-      return false;
-    }
+    const matchesFilter = strain.Strain.toLowerCase().includes(filterValue) ||
+      (strain['Also known as'] && strain['Also known as'].toLowerCase().includes(filterValue));
     
-    for (const [attribute, value] of Object.entries(activeAttributeFilters)) {
-      if (value === true) continue; // Skip non-specific attribute filters
-      if (strain[attribute] !== value) {
-        return false;
+    const matchesDominance = !activeDominanceFilter || strain.Dominance === activeDominanceFilter;
+    
+    const matchesAttributes = Object.entries(activeAttributeFilters).every(([attr, value]) => {
+      if (attr === 'Treated' && value === 'Non-irradiated') {
+        return strain[attr] === 'Non-irradiated';
       }
-    }
+      return strain[attr] && strain[attr].includes(value);
+    });
+
+    const matchesProductFilter = !showNZPrescribable || (strain.Product && strain.Product.trim() !== '');
     
-    for (const [attribute, values] of Object.entries(activeAttributeValues)) {
-      if (values.length > 0) {
-        const strainValues = strain[attribute].split(',').map(v => v.trim());
-        if (!values.some(value => strainValues.includes(value))) {
-          return false;
-        }
-      }
-    }
+    const matchesMyStrainFilter = activeMyStrainFilters.size === 0 || activeMyStrainFilters.has(strain.MyStrain);
     
-    if (showNZPrescribable && (strain.Special !== 'NZ Medical' || !strain.Product)) {
-      return false;
-    }
+    const matchesAttributeValues = Object.entries(activeAttributeValues).every(([category, values]) => {
+      if (values.length === 0) return true;
+      return values.some(value => strain[category] && strain[category].includes(value));
+    });
     
-    if (activeMyStrainFilters.size > 0 && !activeMyStrainFilters.has(strain.MyStrain)) {
-      return false;
-    }
-    
-    if (searchValue) {
-      const strainName = showNZPrescribable && strain.Product ? `${strain.Product} (${strain.Strain})` : strain.Strain;
-      return strainName.toLowerCase().includes(searchValue.toLowerCase());
-    }
-    
-    return true;
+    return matchesFilter && matchesDominance && matchesAttributes && matchesProductFilter && matchesMyStrainFilter && matchesAttributeValues;
   });
   
   updateFilterList();
 }
 
+function toggleAttributeButtons(category) {
+  const buttonsContainer = document.getElementById(`${category.toLowerCase()}-buttons`);
+  const button = document.getElementById(`by-${category.toLowerCase()}-button`);
+  
+  if (buttonsContainer.style.display === 'none') {
+    buttonsContainer.style.display = 'flex';
+    button.classList.add('active');
+  } else {
+    buttonsContainer.style.display = 'none';
+    button.classList.remove('active');
+    // Clear active filters for this category
+    activeAttributeValues[category] = [];
+    document.querySelectorAll(`.${category.toLowerCase()}-button`).forEach(btn => btn.classList.remove('active'));
+  }
+  
+  applyFilters();
+}
+
 function createAttributeButtons() {
-  const attributes = ['Brand', 'Cannabinoids', 'Terpenes', 'Origin'];
-  attributes.forEach(attribute => {
-    const buttonContainer = document.getElementById(`${attribute.toLowerCase()}-buttons`);
-    const values = [...new Set(strainData.flatMap(strain => strain[attribute].split(',').map(v => v.trim())))].filter(value => value !== "");
+  const categories = ['Brand', 'Terpenes', 'Cannabinoids', 'Origin'];
+  
+  categories.forEach(category => {
+    const values = new Set();
+    strainData.forEach(strain => {
+      if (strain[category]) {
+        strain[category].split(',').forEach(value => values.add(value.trim()));
+      }
+    });
     
-    // Sort values alphabetically
-    values.sort((a, b) => a.localeCompare(b));
+    const container = document.getElementById(`${category.toLowerCase()}-buttons`);
+    container.innerHTML = '';
     
-    values.forEach(value => {
+    Array.from(values).sort().forEach(value => {
       const button = document.createElement('button');
+      button.className = `${category.toLowerCase()}-button`;
       button.textContent = value;
-      button.className = `${attribute.toLowerCase()}-button`;
-      button.onclick = () => toggleAttributeFilter(attribute, value);
-      buttonContainer.appendChild(button);
+      button.onclick = () => toggleAttributeValue(category, value, button);
+      container.appendChild(button);
     });
   });
 }
 
-function toggleAttributeFilter(attribute, value) {
-  const index = activeAttributeValues[attribute].indexOf(value);
+function toggleAttributeValue(category, value, button) {
+  const index = activeAttributeValues[category].indexOf(value);
   if (index > -1) {
-    activeAttributeValues[attribute].splice(index, 1);
-  } else {
-    activeAttributeValues[attribute].push(value);
-  }
-  
-  document.querySelectorAll(`.${attribute.toLowerCase()}-button`).forEach(button => {
-    if (button.textContent === value) {
-      button.classList.toggle('active');
-    }
-  });
-  
-  applyFilters();
-}
-
-function toggleAttributeButtons(attribute) {
-  const buttonContainer = document.getElementById(`${attribute.toLowerCase()}-buttons`);
-  const toggleButton = document.getElementById(`by-${attribute.toLowerCase()}-button`);
-  
-  if (buttonContainer.style.display === 'none') {
-    buttonContainer.style.display = 'flex';
-    toggleButton.classList.add('active');
-  } else {
-    buttonContainer.style.display = 'none';
-    toggleButton.classList.remove('active');
-    activeAttributeValues[attribute] = [];
-    document.querySelectorAll(`.${attribute.toLowerCase()}-button`).forEach(button => button.classList.remove('active'));
-  }
-  
-  applyFilters();
-}
-
-function filterNZPrescribable() {
-  showNZPrescribable = !showNZPrescribable;
-  const button = document.getElementById('nz-prescribable-button');
-  button.classList.toggle('active');
-  document.getElementById('attribute-buttons-row').style.display = showNZPrescribable ? 'block' : 'none';
-  applyFilters();
-}
-
-function filterMyStrain(value) {
-  const button = document.getElementById(`my-strain-${value.toLowerCase()}-button`);
-  if (activeMyStrainFilters.has(value)) {
-    activeMyStrainFilters.delete(value);
+    activeAttributeValues[category].splice(index, 1);
     button.classList.remove('active');
   } else {
-    activeMyStrainFilters.add(value);
+    activeAttributeValues[category].push(value);
     button.classList.add('active');
   }
   applyFilters();
 }
 
+function toggleNZPrescribable() {
+  showNZPrescribable = !showNZPrescribable;
+  const button = document.getElementById('nz-prescribable-button');
+  button.classList.toggle('active');
+  
+  const attributeButtonsRow = document.getElementById('attribute-buttons-row');
+  attributeButtonsRow.style.display = showNZPrescribable ? 'flex' : 'none';
+  
+  if (!showNZPrescribable) {
+    // Clear all attribute filters
+    activeAttributeFilters = {};
+    activeAttributeValues = {
+      Brand: [],
+      Terpenes: [],
+      Cannabinoids: [],
+      Origin: []
+    };
+    document.querySelectorAll('.attribute-button, .brand-button, .terpenes-button, .cannabinoids-button, .origin-button').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#brand-buttons, #terpenes-buttons, #cannabinoids-buttons, #origin-buttons').forEach(container => container.style.display = 'none');
+  }
+  
+  applyFilters();
+}
+
 function showAllStrains() {
-  // Reset all filters
+  showNZPrescribable = false;
+  const nzPrescribableButton = document.getElementById('nz-prescribable-button');
+  nzPrescribableButton.classList.remove('active');
+  
   activeDominanceFilter = null;
   activeAttributeFilters = {};
-  Object.keys(activeAttributeValues).forEach(key => {
-    activeAttributeValues[key] = [];
-  });
-  showNZPrescribable = false;
+  activeAttributeValues = {
+    Brand: [],
+    Terpenes: [],
+    Cannabinoids: [],
+    Origin: []
+  };
   activeMyStrainFilters.clear();
-
-  // Reset all button states
-  document.querySelectorAll('.dominance-button, .attribute-button, .special-button, .brand-button, .terpenes-button, .cannabinoids-button, .origin-button, .my-strain-filter-button').forEach(button => {
-    button.classList.remove('active');
-  });
-
+  
+  document.querySelectorAll('.dominance-button, .attribute-button, .brand-button, .terpenes-button, .cannabinoids-button, .origin-button, .my-strain-filter-button').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('#brand-buttons, #terpenes-buttons, #cannabinoids-buttons, #origin-buttons').forEach(container => container.style.display = 'none');
   document.getElementById('attribute-buttons-row').style.display = 'none';
-  document.querySelectorAll('.brand-buttons, .cannabinoids-buttons, .terpenes-buttons, .origin-buttons').forEach(container => {
-    container.style.display = 'none';
-  });
-
-  // Clear the search input
+  
   document.getElementById('filter-input').value = '';
+  
+  applyFilters();
+}
 
-  // Reset the filtered data to show all strains
-  filteredData = [...strainData];
-  updateFilterList();
+function filterMyStrain(category) {
+  const button = document.getElementById(`my-strain-${category.toLowerCase()}-button`);
+  
+  if (activeMyStrainFilters.has(category)) {
+    activeMyStrainFilters.delete(category);
+    button.classList.remove('active');
+  } else {
+    activeMyStrainFilters.add(category);
+    button.classList.add('active');
+  }
+  
+  applyFilters();
+}
+
+function updateSelectedStrainDataArray() {
+  const selectedStrainData = strainData.filter(strain => selectedStrains.has(strain.Strain));
+  document.getElementById('strain-data-content').textContent = JSON.stringify(selectedStrainData, null, 2);
 }
 
 function showOutputPopup() {
-  const popup = document.getElementById('output-popup');
-  const outputContent = document.getElementById('output-content');
-  const strainDataContent = document.getElementById('strain-data-content');
-  
-  // Generate output string
-  let output = '';
-  filteredData.forEach(strain => {
-    if (selectedStrains.has(strain.Strain)) {
-      output += `${strain.Strain}\n`;
-    }
-  });
-  
-  // Generate selected strain data array
-  const selectedStrainData = filteredData.filter(strain => selectedStrains.has(strain.Strain));
-  
-  outputContent.textContent = output;
-  strainDataContent.textContent = JSON.stringify(selectedStrainData, null, 2);
-  popup.style.display = 'block';
+  document.getElementById('output-popup').style.display = 'block';
 }
 
 function hideOutputPopup() {
   document.getElementById('output-popup').style.display = 'none';
-}
-
-function updateSelectedStrainDataArray() {
-  const selectedStrainData = filteredData.filter(strain => selectedStrains.has(strain.Strain));
-  const strainDataContent = document.getElementById('strain-data-content');
-  strainDataContent.textContent = JSON.stringify(selectedStrainData, null, 2);
 }
 
 function saveMyStrainAttributes() {
@@ -780,9 +782,9 @@ function saveMyStrainAttributes() {
 }
 
 function loadMyStrainAttributes() {
-  const savedMyStrainData = localStorage.getItem('myStrainAttributes');
-  if (savedMyStrainData) {
-    const myStrainData = JSON.parse(savedMyStrainData);
+  const savedData = localStorage.getItem('myStrainAttributes');
+  if (savedData) {
+    const myStrainData = JSON.parse(savedData);
     strainData.forEach(strain => {
       if (myStrainData[strain.Strain]) {
         strain.MyStrain = myStrainData[strain.Strain];
@@ -793,10 +795,8 @@ function loadMyStrainAttributes() {
 
 document.getElementById('filter-input').addEventListener('input', filterStrains);
 
-const fontSizeSlider = document.getElementById('font-size-slider');
-fontSizeSlider.addEventListener('input', () => {
-  const fontSize = fontSizeSlider.value;
-  document.getElementById('filter-list').style.fontSize = `${fontSize}px`;
+document.getElementById('font-size-slider').addEventListener('input', function(e) {
+  document.getElementById('filter-list').style.fontSize = e.target.value + 'px';
 });
 
 fetchData();
