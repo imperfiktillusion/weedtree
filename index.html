@@ -1,805 +1,576 @@
-<html><head><base href="https://websim.example.com/">
-<title>Strain Filter</title>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+<html><head><base href="https://www.weedtree.com/strain_lineage_chart">
+<title>WeedTree Strain Lineage Chart</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  body, html {
-    margin: 0;
-    padding: 0;
-    font-family: 'Poppins', sans-serif;
-    height: 100%;
-    overflow: hidden;
-  }
-  #filter {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: white;
-    padding: 20px;
-    overflow-y: auto;
-    font-size: 10px;
-  }
-  #filter-list {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-    max-height: calc(100% - 160px);
-    overflow-y: auto;
-    column-width: 200px;
-    column-gap: 20px;
-  }
-  #filter-list li {
-    padding: 0;
-    margin: 1px 0;
-    display: flex;
-    align-items: center;
-    break-inside: avoid-column;
-  }
-  .strain-checkbox {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
-    border: 3px solid #434343;
-    border-radius: 50%;
-    margin-right: 5px;
-    cursor: pointer;
-    position: relative;
-    transition: background-color 0.3s;
-    flex-shrink: 0;
-  }
-  .strain-checkbox:hover {
-    background-color: rgba(67, 67, 67, 0.1);
-  }
-  .strain-checkbox:checked {
-    background-color: #434343;
-  }
-  .strain-checkbox:checked::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 8px;
-    height: 8px;
-    background-color: white;
-    border-radius: 50%;
-  }
-  #strain-count {
-    margin-bottom: 5px;
-    display: block;
-  }
-  .filter-controls {
-    display: flex;
-    align-items: center;
-    margin-bottom: 5px;
-    gap: 5px;
-  }
-  #filter-input {
-    padding: 4px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    flex-grow: 1;
-  }
-  .filter-button {
-    background-color: #434343;
-    color: white;
-    border: none;
-    border-radius: 18px;
-    padding: 4px 13px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    font-family: 'Poppins', sans-serif;
-    white-space: nowrap;
-    font-size: 11.7px;
-  }
-  .filter-button:hover {
-    background-color: #666;
-  }
-  .dominance-buttons, .attribute-buttons, .brand-buttons, .special-buttons, .terpenes-buttons, .cannabinoids-buttons, .origin-buttons {
-    margin-bottom: 10px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-  .dominance-button, .attribute-button, .brand-button, .special-button, .terpenes-button, .cannabinoids-button, .origin-button {
-    background-color: transparent;
-    color: #434343;
-    border: 1px solid #434343;
-    border-radius: 18px;
-    padding: 4px 13px;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-family: 'Poppins', sans-serif;
-    white-space: nowrap;
-    font-size: 11.7px;
-  }
-  .dominance-button.active, .attribute-button.active, .brand-button.active, .special-button.active, .terpenes-button.active, .cannabinoids-button.active, .origin-button.active {
-    color: black;
-    background-color: #e0e0e0;
-  }
-  #indica-button.active {
-    background-color: #adcbc9ff;
-    border-color: #adcbc9ff;
-  }
-  #sativa-button.active {
-    background-color: #ebdc70ff;
-    border-color: #ebdc70ff;
-  }
-  #hybrid-button.active {
-    background-color: #ccd094ff;
-    border-color: #ccd094ff;
-  }
-  #non-irradiated-button.active, #nz-prescribable-button.active {
-    background-color: #434343;
-    color: white;
-  }
-  .brand-button, .terpenes-button, .cannabinoids-button, .origin-button {
-    background-color: #cccccc;
-    color: #333;
-  }
-  .brand-button.active, .terpenes-button.active, .cannabinoids-button.active, .origin-button.active {
-    background-color: #a6a6a6;
-    color: black;
-  }
-  #attribute-buttons-row {
-    display: flex;
-  }
-  #output-button {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    z-index: 1000;
-  }
-  #output-popup {
-    display: none;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.3);
-    z-index: 1001;
-    max-width: 80%;
-    max-height: 80%;
-    overflow-y: auto;
-  }
-  #output-popup h2 {
-    margin-top: 0;
-  }
-  #output-popup pre {
-    white-space: pre-wrap;
-    word-wrap: break-word;
-  }
-  #close-popup {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    cursor: pointer;
-    font-size: 20px;
-  }
-  .mystrain-buttons {
-    display: flex;
-    gap: 1px;
-    margin-right: 2px;
-  }
-  .mystrain-button {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 0px solid;
-    cursor: pointer;
-    transition: all 0.3s;
-    padding: 0;
-    background-color: white;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    flex-shrink: 0;
-  }
-  .mystrain-button.smile {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="%23808080" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="%23808080"/><circle cx="16" cy="9" r="1.5" fill="%23808080"/><path d="M7 14.5C8 16.5 10 18 12 18s4-1.5 5-3.5" fill="none" stroke="%23808080" stroke-width="1" stroke-linecap="round"/></svg>');
-  }
-  .mystrain-button.meh {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="%23808080" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="%23808080"/><circle cx="16" cy="9" r="1.5" fill="%23808080"/><line x1="8" y1="15" x2="16" y2="15" stroke="%23808080" stroke-width="1" stroke-linecap="round"/></svg>');
-  }
-  .mystrain-button.sad {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="%23808080" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="%23808080"/><circle cx="16" cy="9" r="1.5" fill="%23808080"/><path d="M7 16.5C8 14.5 10 13 12 13s4 1.5 5 3.5" fill="none" stroke="%23808080" stroke-width="1" stroke-linecap="round"/></svg>');
-  }
-  .mystrain-button.smile.active {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="black" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="black"/><circle cx="16" cy="9" r="1.5" fill="black"/><path d="M7 14.5C8 16.5 10 18 12 18s4-1.5 5-3.5" fill="none" stroke="black" stroke-width="1" stroke-linecap="round"/></svg>');
-    background-color: #8cd82d;
-  }
-  .mystrain-button.meh.active {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="black" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="black"/><circle cx="16" cy="9" r="1.5" fill="black"/><line x1="8" y1="15" x2="16" y2="15" stroke="black" stroke-width="1" stroke-linecap="round"/></svg>');
-    background-color: lightgray;
-  }
-  .mystrain-button.sad.active {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="black" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="black"/><circle cx="16" cy="9" r="1.5" fill="black"/><path d="M7 16.5C8 14.5 10 13 12 13s4 1.5 5 3.5" fill="none" stroke="black" stroke-width="1" stroke-linecap="round"/></svg>');
-    background-color: lightskyblue;
-  }
-  .strain-name {
-    flex-grow: 1;
-    padding-top: 1px;
-  }
-  .my-strain-filter-button {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: 0px solid;
-    background-color: white;
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-position: center;
-    cursor: pointer;
-    transition: all 0.3s;
-    margin-left: 3px;
-  }
-  #my-strain-good-button {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="black" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="black"/><circle cx="16" cy="9" r="1.5" fill="black"/><path d="M7 14.5C8 16.5 10 18 12 18s4-1.5 5-3.5" fill="none" stroke="black" stroke-width="1" stroke-linecap="round"/></svg>');
-  }
-  #my-strain-meh-button {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="black" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="black"/><circle cx="16" cy="9" r="1.5" fill="black"/><line x1="8" y1="15" x2="16" y2="15" stroke="black" stroke-width="1" stroke-linecap="round"/></svg>');
-  }
-  #my-strain-bad-button {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="black" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="black"/><circle cx="16" cy="9" r="1.5" fill="black"/><path d="M7 16.5C8 14.5 10 13 12 13s4 1.5 5 3.5" fill="none" stroke="black" stroke-width="1" stroke-linecap="round"/></svg>');
-  }
-  #my-strain-good-button.active {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="black" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="black"/><circle cx="16" cy="9" r="1.5" fill="black"/><path d="M7 14.5C8 16.5 10 18 12 18s4-1.5 5-3.5" fill="none" stroke="black" stroke-width="1" stroke-linecap="round"/></svg>');
-    background-color: #8cd82d;
-  }
-  #my-strain-meh-button.active {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="black" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="black"/><circle cx="16" cy="9" r="1.5" fill="black"/><line x1="8" y1="15" x2="16" y2="15" stroke="black" stroke-width="1" stroke-linecap="round"/></svg>');
-    background-color: lightgray;
-  }
-  #my-strain-bad-button.active {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="black" stroke-width="1"/><circle cx="8" cy="9" r="1.5" fill="black"/><circle cx="16" cy="9" r="1.5" fill="black"/><path d="M7 16.5C8 14.5 10 13 12 13s4 1.5 5 3.5" fill="none" stroke="black" stroke-width="1" stroke-linecap="round"/></svg>');
-    background-color: lightskyblue;
-  }
-  .my-strain-filter-buttons {
-    display: flex;
-    gap: 2px;
-  }
-  #font-size-control {
-    display: flex;
-    align-items: center;
-    margin-left: 10px;
-  }
-  #font-size-slider {
-    width: 100px;
-  }
-  .mystrain-group {
-    margin-bottom: 10px;
-  }
-  .mystrain-group-title {
-    font-weight: bold;
-    margin-bottom: 5px;
-  }
-  #loading-message {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(255, 255, 255, 0.8);
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.3);
-    z-index: 1000;
-  }
+body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;padding:0;font-size:14px;height:100%;overflow:hidden}.header-ribbon{background-color:#434343;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center}.header-ribbon h1{margin:0;font-size:1.8em;color:#fff;margin-left:6px}.subhead{font-size:.4em;font-weight:400;margin-left:3px}.container{height:calc(100vh - 50px);display:flex;flex-direction:column}.chart-container{flex-grow:1;width:100%;overflow:hidden}#lineageChart{width:100%;height:100%}.header-buttons{display:flex;gap:10px;align-items:center}.btn{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;cursor:pointer;font-size:.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease}.btn:hover{background-color:rgba(255,255,255,.1)}.node text{font-size:10px;fill:#434343;text-anchor:start;dominant-baseline:middle;font-family:'Poppins',Arial,sans-serif;font-weight:700}.node text.product{font-size:12px;font-weight:400}.node.dimmed rect{opacity:.15}.node.dimmed text{opacity:.15}.link.dimmed{opacity:.15}.node.highlighted rect{stroke:#f0f;stroke-width:3px}.link.highlighted{stroke:#f0f!important;stroke-width:3px}.node.clicked rect{stroke:#f0f;stroke-width:3px}.popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:94%;height:90%;background-color:#fff;border:2px solid #434343;border-radius:15px;z-index:1000;display:none;overflow:auto;padding:20px}.popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,.5);z-index:999;display:none}#dataLog{white-space:pre-wrap;font-family:monospace;font-size:12px}#loading-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background-color:rgba(255,255,255,0.8);padding:20px;border-radius:10px;z-index:1001;display:none}
 </style>
+<script src="https://d3js.org/d3.v6.min.js"></script>
 </head>
 <body>
-<div id="filter">
-  <div class="special-buttons">
-    <button id="nz-prescribable-button" class="special-button" onclick="toggleNZPrescribable()">Prescribable in NZ</button>
-    <button id="show-all-button" class="special-button" onclick="showAllStrains()">Show all strains</button>
-  </div>
-  <div id="attribute-buttons-row" style="display: none;">
-    <div class="attribute-buttons">
-      <button id="non-irradiated-button" class="attribute-button" onclick="filterByAttribute('Treated', 'Non-irradiated')">Non-irradiated only</button>
-      <button id="by-brand-button" class="attribute-button" onclick="toggleAttributeButtons('Brand')">By Brand</button>
-      <button id="by-cannabinoids-button" class="attribute-button" onclick="toggleAttributeButtons('Cannabinoids')">By Cannabinoids</button>
-      <button id="by-terpenes-button" class="attribute-button" onclick="toggleAttributeButtons('Terpenes')">By Terpenes</button>
-      <button id="by-origin-button" class="attribute-button" onclick="toggleAttributeButtons('Origin')">By Origin</button>
+<div class="header-ribbon">
+    <h1>WeedTree Strain Lineage Chart <span class="subhead">Work in progress, errors probable</span></h1>
+    <div class="header-buttons">
+        <button id="btn1" class="btn">Filter</button>
+        <button id="btn2" class="btn">My Strains</button>
+        <button id="btn3" class="btn">About</button>
+        <button id="btnDataLog" class="btn">Data Log</button>
     </div>
-  </div>
-  <div id="brand-buttons" class="brand-buttons" style="display: none;"></div>
-  <div id="cannabinoids-buttons" class="cannabinoids-buttons" style="display: none;"></div>
-  <div id="terpenes-buttons" class="terpenes-buttons" style="display: none;"></div>
-  <div id="origin-buttons" class="origin-buttons" style="display: none;"></div>
-  <div class="dominance-buttons">
-    <button id="indica-button" class="dominance-button" onclick="filterByDominance('Indica dominant')">Indicas only</button>
-    <button id="sativa-button" class="dominance-button" onclick="filterByDominance('Sativa dominant')">Sativas only</button>
-    <button id="hybrid-button" class="dominance-button" onclick="filterByDominance('Balanced hybrid')">Hybrids only</button>
-    <div class="my-strain-filter-buttons">
-      <button id="my-strain-good-button" class="my-strain-filter-button" onclick="filterMyStrain('Good')"></button>
-      <button id="my-strain-meh-button" class="my-strain-filter-button" onclick="filterMyStrain('Meh')"></button>
-      <button id="my-strain-bad-button" class="my-strain-filter-button" onclick="filterMyStrain('Bad')"></button>
-    </div>
-  </div>
-  <div class="filter-controls">
-    <input type="text" id="filter-input" placeholder="Filter strains...">
-    <button class="filter-button" onclick="selectAll()">Select All</button>
-    <button class="filter-button" onclick="deselectAll()">Deselect All</button>
-    <div id="font-size-control">
-      <label for="font-size-slider">Font Size:</label>
-      <input type="range" id="font-size-slider" min="8" max="18" value="10" step="1">
-    </div>
-  </div>
-  <span id="strain-count">0 selected of 0 filtered strains</span>
-  <ul id="filter-list"></ul>
 </div>
-
-<button id="output-button" class="filter-button" onclick="showOutputPopup()">Show Output Data</button>
-
-<div id="output-popup">
-  <span id="close-popup" onclick="hideOutputPopup()">&times;</span>
-  <h2>Output Data</h2>
-  <h3>Selected Strain Data Array</h3>
-  <pre id="strain-data-content"></pre>
-  <pre id="output-content"></pre>
+<div class="container">
+    <div class="chart-container">
+        <div id="lineageChart"></div>
+    </div>
 </div>
-
-<div id="loading-message" style="display: none;">Loading strains...</div>
+<div class="popup-overlay"></div>
+<div id="popup1" class="popup"><h2>Filter the chart - coming soon</h2></div>
+<div id="popup2" class="popup"><h2>Record and rate your strains - coming soon</h2></div>
+<div id="popup3" class="popup"><h2>coming soon</h2></div>
+<div id="popupDataLog" class="popup"><h2>Data Log</h2><div id="dataLog"></div></div>
+<div id="loading-message">Loading data, please wait...</div>
 
 <script>
-let strainData = [];
-let filteredData = [];
-let attributes = [];
-let activeDominanceFilter = null;
-let activeAttributeFilters = {};
-let activeAttributeValues = {
-  Brand: [],
-  Terpenes: [],
-  Cannabinoids: [],
-  Origin: []
+let strainData = [], dataLog = [], attributes = [];
+
+const logData = (message, data) => {
+    const timestamp = new Date().toISOString();
+    let logEntry = `[${timestamp}] ${message}\n`;
+    if (data) logEntry += JSON.stringify(data, null, 2) + '\n';
+    dataLog.push(logEntry);
+    document.getElementById('dataLog').textContent = dataLog.join('\n');
 };
-let selectedStrains = new Set();
-let showNZPrescribable = false;
-let activeMyStrainFilters = new Set();
+
+const showError = (message) => {
+    document.getElementById('loading-message').style.display = 'none';
+    alert(message);
+    logData("Error: " + message);
+};
 
 function fetchData() {
-  document.getElementById('loading-message').style.display = 'block';
-  fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pubhtml?gid=1070299978&single=true')
-    .then(response => response.text())
-    .then(html => {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const table = doc.querySelector('table');
-      if (!table) {
-        showError("No table found in the spreadsheet.");
-        return;
-      }
-      const rows = Array.from(table.querySelectorAll('tr')).filter(row => row.textContent.trim() !== '');
-      if (rows.length < 2) {
-        showError("Not enough data in the spreadsheet.");
-        return;
-      }
-      
-      const headerRowIndex = rows.findIndex(row => row.querySelector('td').textContent.trim() === 'Strain');
-      if (headerRowIndex === -1) {
-        showError("Could not find a row starting with 'Strain'.");
-        return;
-      }
-      
-      attributes = Array.from(rows[headerRowIndex].querySelectorAll('td')).map(td => td.textContent.trim());
-      strainData = rows.slice(headerRowIndex + 1).map(row => {
-        let obj = {};
-        Array.from(row.querySelectorAll('td')).forEach((td, index) => {
-          obj[attributes[index]] = td.textContent.trim();
+    document.getElementById('loading-message').style.display = 'block';
+    fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pubhtml?gid=1070299978&single=true')
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const table = doc.querySelector('table');
+            if (!table) {
+                showError("No table found in the spreadsheet.");
+                return;
+            }
+            const rows = Array.from(table.querySelectorAll('tr')).filter(row => row.textContent.trim() !== '');
+            if (rows.length < 2) {
+                showError("Not enough data in the spreadsheet.");
+                return;
+            }
+            
+            const headerRowIndex = rows.findIndex(row => row.querySelector('td').textContent.trim() === 'Strain');
+            if (headerRowIndex === -1) {
+                showError("Could not find a row starting with 'Strain'.");
+                return;
+            }
+            
+            attributes = Array.from(rows[headerRowIndex].querySelectorAll('td')).map(td => td.textContent.trim());
+            strainData = rows.slice(headerRowIndex + 1).map(row => {
+                let obj = {};
+                Array.from(row.querySelectorAll('td')).forEach((td, index) => {
+                    obj[attributes[index]] = td.textContent.trim();
+                });
+                return obj;
+            }).filter(obj => Object.values(obj).some(value => value !== '')); // Filter out completely empty rows
+
+            logData("Fetched and parsed strain data:", strainData);
+            document.getElementById('loading-message').style.display = 'none';
+            createLineageChart();
+        })
+        .catch(error => {
+            showError("Error fetching data: " + error.message);
         });
-        if (!obj.MyStrain) obj.MyStrain = ''; // Initialize MyStrain attribute if not present
-        return obj;
-      }).filter(obj => Object.values(obj).some(val => val !== '') && !obj.Strain.toLowerCase().includes('unknown'));
-
-      // Load MyStrain attributes from localStorage
-      loadMyStrainAttributes();
-      
-      // Select all strains with a 'special' attribute
-      strainData.forEach(strain => {
-      if (strain.Special && strain.Special.trim() !== '') {
-      selectedStrains.add(strain.Strain);
-      }
-      });
-      filteredData = [...strainData];
-      updateFilterList();
-      adjustFilterInputWidth();
-      createAttributeButtons();
-      document.getElementById('loading-message').style.display = 'none';
-    })
-    .catch(error => {
-      showError("Error fetching data: " + error);
-      document.getElementById('loading-message').style.display = 'none';
-    });
 }
 
-function showError(message) {
-  document.getElementById('filter').innerHTML = `<p style="color: red; font-weight: bold;">${message}</p>`;
-}
-
-function updateFilterList() {
-  const filterList = document.getElementById('filter-list');
-  filterList.innerHTML = '';
-  
-  let groupedData = {};
-  if (activeMyStrainFilters.size > 0) {
-    groupedData = filteredData.reduce((acc, strain) => {
-      if (!acc[strain.MyStrain]) {
-        acc[strain.MyStrain] = [];
-      }
-      acc[strain.MyStrain].push(strain);
-      return acc;
-    }, {});
-  } else {
-    groupedData[''] = filteredData;
-  }
-  
-  // Define the order of groups
-  const groupOrder = ['Good', 'Meh', 'Bad', ''];
-  
-  groupOrder.forEach(group => {
-    if (groupedData[group] && groupedData[group].length > 0) {
-      if (group !== '') {
-        const groupDiv = document.createElement('div');
-        groupDiv.className = 'mystrain-group';
-        const groupTitle = document.createElement('div');
-        groupTitle.className = 'mystrain-group-title';
-        groupTitle.textContent = getGroupTitle(group);
-        groupDiv.appendChild(groupTitle);
-        filterList.appendChild(groupDiv);
-      }
-      
-      // Sort strains based on Product attribute if showing NZ Prescribable, otherwise sort by Strain
-      groupedData[group].sort((a, b) => {
-        if (showNZPrescribable && a.Product && b.Product) {
-          return a.Product.localeCompare(b.Product);
-        } else {
-          return a.Strain.localeCompare(b.Strain);
+const createLineageChart = () => {
+    const chartContainer = document.querySelector('.chart-container');
+    const width = chartContainer.clientWidth, height = chartContainer.clientHeight;
+    d3.select("#lineageChart").selectAll("*").remove();
+    const svg = d3.select("#lineageChart").append("svg").attr("width", width).attr("height", height);
+    const g = svg.append("g");
+    const zoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", (event) => g.attr("transform", event.transform));
+    svg.call(zoom);
+    let nodes = strainData.map(strain => ({
+        id: strain.Strain,
+        name: strain.Strain,
+        displayName: strain.Strain.toLowerCase().includes('unknown') ? strain.Strain.replace(/\d+$/, '').trim() : strain.Strain,
+        dominance: strain.Dominance,
+        parents: [strain.Parent1, strain.Parent2, strain.Parent3, strain.Parent4].filter(p => p),
+        generation: 0,
+        special: strain.Special,
+        product: strain.Product,
+        variant: strain.Variant
+    }));
+    logData("Created nodes:", nodes);
+    nodes = nodes.filter(node => {
+        if (node.name.toLowerCase().includes('unknown')) {
+            const hasChildren = nodes.some(n => n.parents.includes(node.id));
+            return hasChildren || (node.special && node.special.toLowerCase() === 'origin') || node.variant;
         }
-      }).forEach(strain => {
-        const li = document.createElement('li');
-        
-        // Add MyStrain buttons
-        const myStrainButtons = document.createElement('div');
-        myStrainButtons.className = 'mystrain-buttons';
-        
-        const createMyStrainButton = (type, value) => {
-          const button = document.createElement('button');
-          button.className = `mystrain-button ${type}`;
-          button.onclick = () => setMyStrain(strain.Strain, value);
-          if (strain.MyStrain === value) button.classList.add('active');
-          return button;
-        };
-        
-        myStrainButtons.appendChild(createMyStrainButton('smile', 'Good'));
-        myStrainButtons.appendChild(createMyStrainButton('meh', 'Meh'));
-        myStrainButtons.appendChild(createMyStrainButton('sad', 'Bad'));
-        
-        li.appendChild(myStrainButtons);
-        
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'strain-checkbox';
-        checkbox.checked = selectedStrains.has(strain.Strain);
-        checkbox.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            selectedStrains.add(strain.Strain);
-          } else {
-            selectedStrains.delete(strain.Strain);
-          }
-          updateStrainCount();
-          updateSelectedStrainDataArray();
+        return true;
+    });
+    logData("Filtered nodes:", nodes);
+    const links = [];
+    nodes.forEach(node => {
+        if (node.variant) {
+            const parentNode = nodes.find(n => n.name === node.variant);
+            if (parentNode) links.push({ source: parentNode.id, target: node.id });
+        } else {
+            node.parents.forEach(parent => {
+                if (parent && nodes.some(n => n.id === parent)) links.push({ source: parent, target: node.id });
+            });
+        }
+    });
+    logData("Created links:", links);
+    const assignGenerations = () => {
+        let changed = true;
+        while (changed) {
+            changed = false;
+            nodes.forEach(node => {
+                if (node.special && node.special.toLowerCase() === 'origin') {
+                    if (node.generation !== 0) {
+                        node.generation = 0;
+                        changed = true;
+                    }
+                } else if (node.special && node.special.toLowerCase() === 'landrace') {
+                    if (node.generation !== 1) {
+                        node.generation = 1;
+                        changed = true;
+                    }
+                } else if (node.variant) {
+                    const parentNode = nodes.find(n => n.name === node.variant);
+                    if (parentNode && node.generation !== parentNode.generation) {
+                        node.generation = parentNode.generation;
+                        changed = true;
+                    }
+                } else if (node.name.toLowerCase().includes('unknown')) {
+                    const children = nodes.filter(n => n.parents.includes(node.id));
+                    if (children.length > 0) {
+                        const minChildGen = Math.min(...children.map(child => child.generation));
+                        if (node.generation !== Math.max(2, minChildGen - 1)) {
+                            node.generation = Math.max(2, minChildGen - 1);
+                            changed = true;
+                        }
+                    } else if (node.generation !== 2) {
+                        node.generation = 2;
+                        changed = true;
+                    }
+                } else {
+                    const parentGens = node.parents.map(parentId => {
+                        const parent = nodes.find(n => n.id === parentId);
+                        return parent ? parent.generation : -1;
+                    }).filter(gen => gen !== -1);
+                    if (parentGens.length > 0) {
+                        const maxParentGen = Math.max(...parentGens);
+                        if (node.generation !== maxParentGen + 1) {
+                            node.generation = maxParentGen + 1;
+                            changed = true;
+                        }
+                    }
+                }
+            });
+        }
+        // Additional pass to handle strains with only unknown ancestors
+        nodes.forEach(node => {
+            if (!node.special && !node.variant && !node.name.toLowerCase().includes('unknown')) {
+                const hasOnlyUnknownAncestors = node.parents.every(parentId => {
+                    const parent = nodes.find(n => n.id === parentId);
+                    return parent && parent.name.toLowerCase().includes('unknown');
+                });
+                if (hasOnlyUnknownAncestors) {
+                    const children = nodes.filter(n => n.parents.includes(node.id));
+                    if (children.length > 0) {
+                        const minChildGen = Math.min(...children.map(child => child.generation));
+                        node.generation = minChildGen - 1;
+                    }
+                }
+            }
         });
-        li.appendChild(checkbox);
-        
-        const span = document.createElement('span');
-        span.className = 'strain-name';
-        span.textContent = showNZPrescribable && strain.Product ? `${strain.Product} (${strain.Strain})` : strain.Strain;
-        li.appendChild(span);
-        
-        filterList.appendChild(li);
-      });
-    }
-  });
-  
-  updateStrainCount();
-  updateSelectedStrainDataArray();
-}
-
-function getGroupTitle(group) {
-  switch (group) {
-    case 'Good':
-      return 'Strains I like';
-    case 'Meh':
-      return 'Meh Strains';
-    case 'Bad':
-      return "Strains I don't like";
-    default:
-      return '';
-  }
-}
-
-function setMyStrain(strainName, value) {
-  const strain = strainData.find(s => s.Strain === strainName);
-  if (strain) {
-    if (strain.MyStrain === value) {
-      // If the button is already active, deselect it
-      strain.MyStrain = '';
-    } else {
-      strain.MyStrain = value;
-    }
-    saveMyStrainAttributes();
-    applyFilters();
-  }
-}
-
-function updateStrainCount() {
-  const totalStrains = filteredData.length;
-  const selectedStrains = document.querySelectorAll('#filter-list li input:checked').length;
-  document.getElementById('strain-count').textContent = `${selectedStrains} selected of ${totalStrains} filtered strains`;
-}
-
-function selectAll() {
-  filteredData.forEach(strain => {
-    selectedStrains.add(strain.Strain);
-  });
-  updateFilterList();
-}
-
-function deselectAll() {
-  selectedStrains.clear();
-  updateFilterList();
-}
-
-function filterStrains() {
-  const filterValue = document.getElementById('filter-input').value.toLowerCase();
-  applyFilters(filterValue);
-}
-
-function adjustFilterInputWidth() {
-  const filterInput = document.getElementById('filter-input');
-  const longestStrainName = strainData.reduce((longest, strain) => {
-    const mainStrainLength = strain.Strain.length;
-    const aliasesLength = strain['Also known as'] ? Math.max(...strain['Also known as'].split(',').map(s => s.trim().length)) : 0;
-    return Math.max(longest, mainStrainLength, aliasesLength);
-  }, 0);
-
-  filterInput.style.width = `${longestStrainName * 10}px`;
-  filterInput.style.maxWidth = '300px';
-}
-
-function filterByDominance(dominance) {
-  const button = document.querySelector(`.dominance-button[onclick*="${dominance}"]`);
-  
-  if (activeDominanceFilter === dominance) {
-    activeDominanceFilter = null;
-    button.classList.remove('active');
-  } else {
-    activeDominanceFilter = dominance;
-    document.querySelectorAll('.dominance-button').forEach(btn => btn.classList.remove('active'));
-    button.classList.add('active');
-  }
-  
-  applyFilters();
-}
-
-function filterByAttribute(attribute, value = null) {
-  const button = document.querySelector(`.attribute-button[onclick*="${attribute}"]`);
-  
-  if (value) {
-    if (activeAttributeFilters[attribute] === value) {
-      delete activeAttributeFilters[attribute];
-      button.classList.remove('active');
-    } else {
-      activeAttributeFilters[attribute] = value;
-      button.classList.add('active');
-    }
-  } else {
-    // For buttons without specific values, toggle active state
-    if (button.classList.contains('active')) {
-      button.classList.remove('active');
-      delete activeAttributeFilters[attribute];
-    } else {
-      button.classList.add('active');
-      activeAttributeFilters[attribute] = true;
-    }
-  }
-  
-  applyFilters();
-}
-
-function applyFilters(filterValue = '') {
-  filteredData = strainData.filter(strain => {
-    const matchesFilter = strain.Strain.toLowerCase().includes(filterValue) ||
-      (strain['Also known as'] && strain['Also known as'].toLowerCase().includes(filterValue));
-    
-    const matchesDominance = !activeDominanceFilter || strain.Dominance === activeDominanceFilter;
-    
-    const matchesAttributes = Object.entries(activeAttributeFilters).every(([attr, value]) => {
-      if (attr === 'Treated' && value === 'Non-irradiated') {
-        return strain[attr] === 'Non-irradiated';
-      }
-      return strain[attr] && strain[attr].includes(value);
-    });
-
-    const matchesProductFilter = !showNZPrescribable || (strain.Product && strain.Product.trim() !== '');
-    
-    const matchesMyStrainFilter = activeMyStrainFilters.size === 0 || activeMyStrainFilters.has(strain.MyStrain);
-    
-    const matchesAttributeValues = Object.entries(activeAttributeValues).every(([category, values]) => {
-      if (values.length === 0) return true;
-      return values.some(value => strain[category] && strain[category].includes(value));
-    });
-    
-    return matchesFilter && matchesDominance && matchesAttributes && matchesProductFilter && matchesMyStrainFilter && matchesAttributeValues;
-  });
-  
-  updateFilterList();
-}
-
-function toggleAttributeButtons(category) {
-  const buttonsContainer = document.getElementById(`${category.toLowerCase()}-buttons`);
-  const button = document.getElementById(`by-${category.toLowerCase()}-button`);
-  
-  if (buttonsContainer.style.display === 'none') {
-    buttonsContainer.style.display = 'flex';
-    button.classList.add('active');
-  } else {
-    buttonsContainer.style.display = 'none';
-    button.classList.remove('active');
-    // Clear active filters for this category
-    activeAttributeValues[category] = [];
-    document.querySelectorAll(`.${category.toLowerCase()}-button`).forEach(btn => btn.classList.remove('active'));
-  }
-  
-  applyFilters();
-}
-
-function createAttributeButtons() {
-  const categories = ['Brand', 'Terpenes', 'Cannabinoids', 'Origin'];
-  
-  categories.forEach(category => {
-    const values = new Set();
-    strainData.forEach(strain => {
-      if (strain[category]) {
-        strain[category].split(',').forEach(value => values.add(value.trim()));
-      }
-    });
-    
-    const container = document.getElementById(`${category.toLowerCase()}-buttons`);
-    container.innerHTML = '';
-    
-    Array.from(values).sort().forEach(value => {
-      const button = document.createElement('button');
-      button.className = `${category.toLowerCase()}-button`;
-      button.textContent = value;
-      button.onclick = () => toggleAttributeValue(category, value, button);
-      container.appendChild(button);
-    });
-  });
-}
-
-function toggleAttributeValue(category, value, button) {
-  const index = activeAttributeValues[category].indexOf(value);
-  if (index > -1) {
-    activeAttributeValues[category].splice(index, 1);
-    button.classList.remove('active');
-  } else {
-    activeAttributeValues[category].push(value);
-    button.classList.add('active');
-  }
-  applyFilters();
-}
-
-function toggleNZPrescribable() {
-  showNZPrescribable = !showNZPrescribable;
-  const button = document.getElementById('nz-prescribable-button');
-  button.classList.toggle('active');
-  
-  const attributeButtonsRow = document.getElementById('attribute-buttons-row');
-  attributeButtonsRow.style.display = showNZPrescribable ? 'flex' : 'none';
-  
-  if (!showNZPrescribable) {
-    // Clear all attribute filters
-    activeAttributeFilters = {};
-    activeAttributeValues = {
-      Brand: [],
-      Terpenes: [],
-      Cannabinoids: [],
-      Origin: []
     };
-    document.querySelectorAll('.attribute-button, .brand-button, .terpenes-button, .cannabinoids-button, .origin-button').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('#brand-buttons, #terpenes-buttons, #cannabinoids-buttons, #origin-buttons').forEach(container => container.style.display = 'none');
-  }
-  
-  applyFilters();
-}
-
-function showAllStrains() {
-  showNZPrescribable = false;
-  const nzPrescribableButton = document.getElementById('nz-prescribable-button');
-  nzPrescribableButton.classList.remove('active');
-  
-  activeDominanceFilter = null;
-  activeAttributeFilters = {};
-  activeAttributeValues = {
-    Brand: [],
-    Terpenes: [],
-    Cannabinoids: [],
-    Origin: []
-  };
-  activeMyStrainFilters.clear();
-  
-  document.querySelectorAll('.dominance-button, .attribute-button, .brand-button, .terpenes-button, .cannabinoids-button, .origin-button, .my-strain-filter-button').forEach(btn => btn.classList.remove('active'));
-  document.querySelectorAll('#brand-buttons, #terpenes-buttons, #cannabinoids-buttons, #origin-buttons').forEach(container => container.style.display = 'none');
-  document.getElementById('attribute-buttons-row').style.display = 'none';
-  
-  document.getElementById('filter-input').value = '';
-  
-  applyFilters();
-}
-
-function filterMyStrain(category) {
-  const button = document.getElementById(`my-strain-${category.toLowerCase()}-button`);
-  
-  if (activeMyStrainFilters.has(category)) {
-    activeMyStrainFilters.delete(category);
-    button.classList.remove('active');
-  } else {
-    activeMyStrainFilters.add(category);
-    button.classList.add('active');
-  }
-  
-  applyFilters();
-}
-
-function updateSelectedStrainDataArray() {
-  const selectedStrainData = strainData.filter(strain => selectedStrains.has(strain.Strain));
-  document.getElementById('strain-data-content').textContent = JSON.stringify(selectedStrainData, null, 2);
-}
-
-function showOutputPopup() {
-  document.getElementById('output-popup').style.display = 'block';
-}
-
-function hideOutputPopup() {
-  document.getElementById('output-popup').style.display = 'none';
-}
-
-function saveMyStrainAttributes() {
-  const myStrainData = strainData.reduce((acc, strain) => {
-    if (strain.MyStrain) {
-      acc[strain.Strain] = strain.MyStrain;
-    }
-    return acc;
-  }, {});
-  localStorage.setItem('myStrainAttributes', JSON.stringify(myStrainData));
-}
-
-function loadMyStrainAttributes() {
-  const savedData = localStorage.getItem('myStrainAttributes');
-  if (savedData) {
-    const myStrainData = JSON.parse(savedData);
-    strainData.forEach(strain => {
-      if (myStrainData[strain.Strain]) {
-        strain.MyStrain = myStrainData[strain.Strain];
-      }
+    assignGenerations();
+    logData("Assigned generations to nodes:", nodes);
+    const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
+    const standardPillWidth = Math.max(maxWidth, 150);
+    const pillHeight = 30, lineWidth = 2, minNodeSpacing = lineWidth * 5, variantSpacing = lineWidth * 1;
+    const maxGeneration = Math.max(...nodes.map(n => n.generation));
+    const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.8);
+    const originOrder = [
+        "Original Central Asia Indica",
+        "Introduced naturalised Indica",
+        "Original Bay of Bengal Sativa",
+        "Introduced naturalised Sativa"
+    ];
+    const landraceOrder = [
+        "Afghan Indica Landraces",
+        "Purple Afghan Indica Landraces",
+        "Hindu Kush Landraces",
+        "Nepalese Indica Landraces",
+        "North American Indica Landraces",
+        "South India Sativa Landraces",
+        "Burmese Sativa Landraces",
+        "Cambodia Sativa Landraces",
+        "Thai Sativa Landraces",
+        "Chocolate Thai Sativa Landraces",
+        "Purple Thai Sativa Landraces",
+        "Indonesia Sativa Landraces",
+        "North African Sativa Landraces",
+        "East African Sativa landraces",
+        "South African Sativa Landraces",
+        "Jamaican Sativa Landraces",
+        "California Sativa Landraces",
+        "Mexico Sativa Landraces",
+        "Panama Sativa Landraces",
+        "Colombian Sativa Landraces",
+        "Brazil Sativa Landraces",
+        "Hawaiian Sativa Landraces"
+    ];
+    // Assign x-coordinates based on generations
+    nodes.forEach(node => {
+        if (node.special && node.special.toLowerCase() === 'origin') {
+            node.x = columnWidth / 2;
+        } else if (node.special && node.special.toLowerCase() === 'landrace') {
+            node.x = columnWidth * 1.5;
+            node.orderIndex = landraceOrder.indexOf(node.name);
+        } else {
+            node.x = (node.generation + 0) * columnWidth + columnWidth / 2;
+        }
     });
-  }
-}
-
-document.getElementById('filter-input').addEventListener('input', filterStrains);
-
-document.getElementById('font-size-slider').addEventListener('input', function(e) {
-  document.getElementById('filter-list').style.fontSize = e.target.value + 'px';
+    logData("Positioned nodes in columns:", nodes);
+    const variantCounts = {};
+    nodes.forEach(node => {
+        if (node.variant) variantCounts[node.variant] = (variantCounts[node.variant] || 0) + 1;
+    });
+    let maxColumnHeight = 0;
+    // Assign y-coordinates after all generations have been assigned
+    for (let gen = 0; gen <= maxGeneration + 1; gen++) {
+        let genNodes = nodes.filter(n => 
+            (n.generation === gen) || 
+            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
+        );
+        if (gen === 1) {
+            genNodes.sort((a, b) => a.orderIndex - b.orderIndex);
+        } else if (gen >= 2) {
+            genNodes.sort((a, b) => {
+                const dominanceOrder = {
+                    'indica dominant': 0,
+                    'balanced hybrid': 1,
+                    'sativa dominant': 2
+                };
+                return dominanceOrder[a.dominance.toLowerCase()] - dominanceOrder[b.dominance.toLowerCase()];
+            });
+        }
+        const variantGroups = {};
+        genNodes.forEach(node => {
+            if (node.variant) {
+                if (!variantGroups[node.variant]) variantGroups[node.variant] = [];
+                variantGroups[node.variant].push(node);
+            }
+        });
+        Object.values(variantGroups).forEach(group => {
+            group.sort((a, b) => a.name.localeCompare(b.name));
+        });
+        let yOffset = 0;
+        genNodes.forEach((node, index) => {
+            if (index > 0) yOffset += minNodeSpacing;
+            if (node.variant) {
+                const parentNode = nodes.find(n => n.name === node.variant);
+                if (parentNode) {
+                    const variantGroup = variantGroups[node.variant];
+                    const groupIndex = variantGroup.indexOf(node);
+                    node.y = parentNode.y + (groupIndex + 1) * (pillHeight + variantSpacing);
+                } else {
+                    node.y = yOffset;
+                    yOffset += pillHeight + variantSpacing;
+                }
+            } else {
+                node.y = yOffset;
+                yOffset += pillHeight;
+                if (variantGroups[node.name]) {
+                    yOffset += variantGroups[node.name].length * (pillHeight + variantSpacing);
+                }
+            }
+        });
+        if (genNodes.length > 0) {
+            const lastNode = genNodes[genNodes.length - 1];
+            maxColumnHeight = Math.max(maxColumnHeight, lastNode.y + pillHeight);
+        }
+    }
+    // Position origin nodes after all other nodes have been positioned
+    nodes.filter(n => n.special && n.special.toLowerCase() === 'origin').forEach(originNode => {
+        const children = nodes.filter(n => n.parents.includes(originNode.id));
+        if (children.length > 0) {
+            const avgChildY = d3.mean(children, d => d.y);
+            originNode.y = avgChildY;
+        } else {
+            originNode.y = (originOrder.indexOf(originNode.name) + 1) * height / (originOrder.length + 1);
+        }
+    });
+    // Final pass to adjust variant positions
+    nodes.forEach(node => {
+        if (node.variant) {
+            const parentNode = nodes.find(n => n.name === node.variant);
+            if (parentNode) {
+                node.x = parentNode.x;
+                const variantGroup = nodes.filter(n => n.variant === parentNode.name);
+                const variantIndex = variantGroup.indexOf(node);
+                node.y = parentNode.y + (variantIndex + 1) * (pillHeight + variantSpacing);
+            }
+        }
+    });
+    logData("Positioned nodes vertically, including variants:", nodes);
+    const paddingSpace = lineWidth * 4;
+    const initialScale = Math.min(1, (height - paddingSpace) / maxColumnHeight);
+    const link = g.append("g")
+        .selectAll("line")
+        .data(links)
+        .join("line")
+        .attr("class", "link")
+        .attr("stroke", d => darkenColor(getColorByDominance(nodes.find(n => n.id === d.source).dominance), 0))
+        .attr("stroke-opacity", 1)
+        .attr("stroke-width", lineWidth)
+        .attr("x1", d => {
+            const sourceNode = nodes.find(n => n.id === d.source);
+            const pillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            return sourceNode.x + pillWidth / 2;
+        })
+        .attr("y1", d => nodes.find(n => n.id === d.source).y)
+        .attr("x2", d => {
+            const targetNode = nodes.find(n => n.id === d.target);
+            const pillWidth = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            return targetNode.x - pillWidth / 2;
+        })
+        .attr("y2", d => nodes.find(n => n.id === d.target).y);
+    const node = g.append("g")
+        .selectAll("g")
+        .data(nodes)
+        .join("g")
+        .attr("class", "node")
+        .attr("transform", d => `translate(${d.x},${d.y})`)
+        .on("click", highlightLineage)
+        .on("mouseover", highlightHoverLineage)
+        .on("mouseout", removeHighlightHoverLineage);
+    node.append("rect")
+        .attr("rx", pillHeight / 2)
+        .attr("ry", pillHeight / 2)
+        .attr("width", d => d.variant ? standardPillWidth * 0.85 : standardPillWidth)
+        .attr("height", pillHeight)
+        .attr("fill", d => {
+            if (d.variant) {
+                switch(d.dominance.toLowerCase()) {
+                    case 'indica dominant': return '#eff5f5';
+                    case 'sativa dominant': return '#faf8e1';
+                    case 'balanced hybrid': return '#f3f6e8';
+                    case 'unknown': return '#f3f6e8';
+                    default: return 'gray';
+                }
+            } else {
+                return getColorByDominance(d.dominance);
+            }
+        })
+        .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 : -standardPillWidth / 2)
+        .attr("y", -pillHeight / 2)
+        .attr("stroke", d => d.product ? "black" : getColorByDominance(d.dominance))
+        .attr("stroke-width", 2);
+    node.append("text")
+        .attr("class", "strain-name")
+        .text(d => d.displayName)
+        .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 + 10 : -standardPillWidth / 2 + 10)
+        .attr("y", 0)
+        .attr("dominant-baseline", "middle")
+        .attr("fill", "black")
+        .style("font-size", "12px")
+        .style("font-family", "'Poppins', Arial, sans-serif")
+        .style("font-weight", "bold");
+    node.append("text")
+        .filter(d => d.product)
+        .text(d => d.product)
+        .attr("class", "product")
+        .attr("x", function(d) {
+            const strainNameWidth = this.parentNode.querySelector('.strain-name').getComputedTextLength();
+            return (d.variant ? -(standardPillWidth * 0.85) / 2 : -standardPillWidth / 2) + 3 + strainNameWidth + 10;
+        })
+        .attr("y", 0)
+        .attr("dominant-baseline", "middle")
+        .attr("fill", "black")
+        .style("font-size", "10px")
+        .style("font-family", "'Poppins', Arial, sans-serif")
+        .style("font-weight", "normal");
+    let focusedNode = null;
+    function highlightLineage(event, d) {
+        if (focusedNode === d) {
+            node.classed("dimmed", false);
+            node.classed("clicked", false);
+            link.classed("dimmed", false);
+            focusedNode = null;
+            resetZoom();
+        } else {
+            const lineage = new Set();
+            const getAncestors = (node) => {
+                lineage.add(node.id);
+                if (node.variant) {
+                    const parentNode = nodes.find(n => n.name === node.variant);
+                    if (parentNode) {
+                        lineage.add(parentNode.id);
+                        getAncestors(parentNode);
+                    }
+                } else {
+                    node.parents.forEach(parentId => {
+                        const parent = nodes.find(n => n.id === parentId);
+                        if (parent) {
+                            lineage.add(parentId);
+                            getAncestors(parent);
+                        }
+                    });
+                }
+            };
+            const getDescendants = (nodeId) => {
+                lineage.add(nodeId);
+                const children = nodes.filter(n => n.parents.includes(nodeId) || (n.variant === nodes.find(node => node.id === nodeId).name));
+                children.forEach(child => {
+                    lineage.add(child.id);
+                    getDescendants(child.id);
+                });
+            };
+            getAncestors(d);
+            getDescendants(d.id);
+            node.classed("dimmed", n => !lineage.has(n.id));
+            node.classed("clicked", n => n.id === d.id);
+            link.classed("dimmed", l => !lineage.has(l.source) || !lineage.has(l.target));
+            focusedNode = d;
+            zoomToLineage(lineage);
+        }
+        logData("Highlighted lineage for node:", d);
+    }
+    function highlightHoverLineage(event, d) {
+        const lineage = new Set();
+        const getAncestors = (node) => {
+            lineage.add(node.id);
+            if (node.variant) {
+                const parentNode = nodes.find(n => n.name === node.variant);
+                if (parentNode) {
+                    lineage.add(parentNode.id);
+                    getAncestors(parentNode);
+                }
+            } else {
+                node.parents.forEach(parentId => {
+                    const parent = nodes.find(n => n.id === parentId);
+                    if (parent) {
+                        lineage.add(parentId);
+                        getAncestors(parent);
+                    }
+                });
+            }
+        };
+        const getDescendants = (nodeId) => {
+            lineage.add(nodeId);
+            const children = nodes.filter(n => n.parents.includes(nodeId) || (n.variant === nodes.find(node => node.id === nodeId).name));
+            children.forEach(child => {
+                lineage.add(child.id);
+                getDescendants(child.id);
+            });
+        };
+        getAncestors(d);
+        getDescendants(d.id);
+        node.classed("highlighted", n => lineage.has(n.id));
+        link.classed("highlighted", l => lineage.has(l.source) && lineage.has(l.target));
+        logData("Highlighted hover lineage for node:", d);
+    }
+    function removeHighlightHoverLineage() {
+        node.classed("highlighted", false);
+        link.classed("highlighted", false);
+        logData("Removed hover highlight");
+    }
+    function zoomToLineage(lineage) {
+        const activeNodes = nodes.filter(n => lineage.has(n.id));
+        const minX = d3.min(activeNodes, n => n.x) - standardPillWidth / 2;
+        const maxX = d3.max(activeNodes, n => n.x) + standardPillWidth / 2;
+        const minY = d3.min(activeNodes, n => n.y) - pillHeight / 2;
+        const maxY = d3.max(activeNodes, n => n.y) + pillHeight / 2;
+        const padding = 50;
+        const currentTransform = d3.zoomTransform(svg.node());
+        const currentScale = currentTransform.k;
+        const currentViewport = {
+            minX: -currentTransform.x / currentScale,
+            minY: -currentTransform.y / currentScale,
+            maxX: (-currentTransform.x + width) / currentScale,
+            maxY: (-currentTransform.y + height) / currentScale
+        };
+        const isFullyVisible = minX >= currentViewport.minX &&
+                               maxX <= currentViewport.maxX &&
+                               minY >= currentViewport.minY &&
+                               maxY <= currentViewport.maxY;
+        if (!isFullyVisible) {
+            const scale = Math.min(
+                width / (maxX - minX + 2 * padding),
+                height / (maxY - minY + 2 * padding)
+            );
+            const translate = [
+                (width - scale * (maxX + minX)) / 2,
+                (height - scale * (maxY + minY)) / 2
+            ];
+            svg.transition()
+                .duration(750)
+                .call(zoom.transform, d3.zoomIdentity
+                    .translate(translate[0], translate[1])
+                    .scale(scale));
+            logData("Zoomed to lineage", { scale, translate });
+        }
+    }
+    function resetZoom() {
+        svg.transition()
+            .duration(750)
+            .call(zoom.transform, initialTransform);
+        logData("Reset zoom");
+    }
+    const initialTransform = d3.zoomIdentity
+        .translate(0, (height - maxColumnHeight * initialScale) / 2)
+        .scale(initialScale);
+    svg.call(zoom.transform, initialTransform);
+    logData("Applied initial transform", initialTransform);
+};
+const getColorByDominance = (dominance) => {
+    switch(dominance.toLowerCase()) {
+        case 'sativa dominant': return '#ebdc70ff';
+        case 'indica dominant': return '#adcbc9ff';
+        case 'balanced hybrid': return '#ccd094ff';
+        case 'unknown': return '#f3f6e8';
+        default: return '#EAEAEA';
+    }
+};
+const darkenColor = (color, amount) => d3.color(color).darker(amount / 10).toString();
+const lightenColor = (color, amount) => d3.color(color).brighter(amount / 100).toString();
+window.onload = fetchData;
+window.addEventListener('resize', createLineageChart);
+const togglePopup = (popupId) => {
+    const popup = document.getElementById(popupId);
+    const overlay = document.querySelector('.popup-overlay');
+    const allPopups = document.querySelectorAll('.popup');
+    allPopups.forEach(p => { if (p.id !== popupId) p.style.display = 'none'; });
+    if (popup.style.display === 'block') {
+        popup.style.display = 'none';
+        overlay.style.display = 'none';
+    } else {
+        popup.style.display = 'block';
+        overlay.style.display = 'block';
+    }
+    logData(`Toggled popup: ${popupId}`);
+};
+['btn1', 'btn2', 'btn3', 'btnDataLog'].forEach(id => 
+    document.getElementById(id).addEventListener('click', () => togglePopup(`popup${id.replace('btn', '')}`))
+);
+document.querySelector('.popup-overlay').addEventListener('click', function() {
+    document.querySelectorAll('.popup').forEach(popup => popup.style.display = 'none');
+    this.style.display = 'none';
+    logData("Closed all popups");
 });
-
-fetchData();
+document.querySelectorAll('.popup').forEach(popup => 
+    popup.addEventListener('click', event => event.stopPropagation())
+);
 </script>
 </body>
 </html>
