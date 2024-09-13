@@ -2,9 +2,7 @@
 <title>WeedTree Strain Lineage Chart</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;padding:0;font-size:14px;height:100%;overflow:hidden}.header-ribbon{background-color:#434343;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center}.header-ribbon h1{margin:0;font-size:1.8em;color:#fff;margin-left:6px}.subhead{font-size:.4em;font-weight:400;margin-left:3px}.container{height:calc(100vh - 50px);display:flex;flex-direction:column}.chart-container{flex-grow:1;width:100%;overflow:hidden}#lineageChart{width:100%;height:100%}.header-buttons{display:flex;gap:10px;align-items:center}.btn{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;cursor:pointer;font-size:.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease}.btn:hover{background-color:rgba(255,255,255,.1)}.node text{font-size:10px;fill:#434343;text-anchor:start;dominant-baseline:middle;font-family:'Poppins',Arial,sans-serif;font-weight:700}.node text.product{font-size:12px;font-weight:400}.node.dimmed rect{opacity:.15}.node.dimmed text{opacity:.15}.link.dimmed{opacity:.15}.node.highlighted rect{stroke:#f0f;stroke-width:3px}.link.highlighted{stroke:#f0f!important;stroke-width:3px}.node.clicked rect{stroke:#f0f;stroke-width:3px}.popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:94%;height:90%;background-color:#fff;border:2px solid #434343;border-radius:15px;z-index:1000;display:none;overflow:auto;padding:20px}.popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,.5);z-index:999;display:none}#loading-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background-color:rgba(255,255,255,0.8);padding:20px;border-radius:10px;z-index:1001;display:none}
-#strainSearch{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;font-size:.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;width:180px}#strainSearch::placeholder{color:rgba(255,255,255,0.7)}#strainSearch:focus{outline:none;background-color:rgba(255,255,255,0.1)}#strainDropdown{position:absolute;background-color:#fff;border:1px solid #ccc;max-height:400px;overflow-y:auto;display:none;z-index:1000;width:210px;box-shadow:1 4px 8px rgba(0,0,0,0.1);border-radius:0 0 4px 4px}#strainDropdown div{padding:5px 10px;cursor:pointer;transition:background-color 0.2s;color:#434343;font-size:8pt;line-height:1.2}#strainDropdown div:hover{background-color:#f0f0f0}.search-container{position:relative}.node.highlighted-search .highlight-arrow{fill:red}
-</style>
+body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;padding:0;font-size:14px;height:100%;overflow:hidden}.header-ribbon{background-color:#434343;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center}.header-ribbon h1{margin:0;font-size:1.8em;color:#fff;margin-left:6px}.subhead{font-size:.4em;font-weight:400;margin-left:3px}.container{height:calc(100vh - 50px);display:flex;flex-direction:column}.chart-container{flex-grow:1;width:100%;overflow:hidden}#lineageChart{width:100%;height:100%}.header-buttons{display:flex;gap:10px;align-items:center}.btn{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;cursor:pointer;font-size:.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease}.btn:hover{background-color:rgba(255,255,255,.1)}.node text{font-size:10px;fill:#434343;text-anchor:start;dominant-baseline:middle;font-family:'Poppins',Arial,sans-serif;font-weight:700}.node text.product{font-size:12px;font-weight:400}.node.dimmed rect{opacity:.15}.node.dimmed text{opacity:.15}.link.dimmed{opacity:.15}.node.highlighted rect{stroke:#f0f;stroke-width:3px}.link.highlighted{stroke:#f0f!important;stroke-width:3px}.node.clicked rect{stroke:#f0f;stroke-width:8px}.popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:94%;height:90%;background-color:#fff;border:2px solid #434343;border-radius:15px;z-index:1000;display:none;overflow:auto;padding:20px}.popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,.5);z-index:999;display:none}#loading-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background-color:rgba(255,255,255,0.8);padding:20px;border-radius:10px;z-index:1001;display:none}#strainSearch{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;font-size:.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;width:180px}#strainSearch::placeholder{color:rgba(255,255,255,0.7)}#strainSearch:focus{outline:none;background-color:rgba(255,255,255,0.1)}#strainDropdown{position:absolute;background-color:#fff;border:1px solid #ccc;max-height:400px;overflow-y:auto;display:none;z-index:1000;width:210px;box-shadow:1 4px 8px rgba(0,0,0,0.1);border-radius:0 0 4px 4px}#strainDropdown div{padding:5px 10px;cursor:pointer;transition:background-color 0.2s;color:#434343;font-size:8pt;line-height:1.2}#strainDropdown div:hover{background-color:#f0f0f0}.search-container{position:relative}.node.highlighted-search .highlight-arrow{fill:red}#centerLine {position: fixed;top: 0;left: 0;width: 100%;height: 100%;pointer-events: none;}</style>
 <script src="https://d3js.org/d3.v6.min.js"></script>
 </head>
 <body>
@@ -26,10 +24,11 @@ body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;
     </div>
 </div>
 <div class="popup-overlay"></div>
-<div id="popup1" class="popup"><h2>Filter the chart - coming soon</h3></div>
-<div id="popup2" class="popup"><h2>Record and rate your strains - coming soon</h3></div>
-<div id="popup3" class="popup"><h2>coming soon</h3></div>
+<div id="popup1" class="popup"><h5>Filter the chart - coming soon</h5></div>
+<div id="popup2" class="popup"><h5>Record and rate your strains - coming soon</h5></div>
+<div id="popup3" class="popup"><h5>coming soon</h5></div>
 <div id="loading-message">Loading data, please wait...</div>
+<div id="centerLine"></div>
 <script>
 let strainData = [], attributes = [], nodes = [], svg, g;
 const showError = (message) => {
@@ -274,7 +273,7 @@ const createLineageChart = () => {
     const standardPillWidth = Math.max(maxWidth, 150);
     const pillHeight = 30, lineWidth = 2;
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
-    const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.8);
+    const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
     column2Nodes.sort(customSortColumn2);
@@ -368,12 +367,14 @@ const createLineageChart = () => {
         .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 : -standardPillWidth / 2)
         .attr("y", -pillHeight / 2)
         .attr("stroke", d => d.product ? "black" : getColorByDominance(d.dominance))
-        .attr("stroke-width", 3);
+        .attr("stroke-width", d => d.product ? 5 : 2);
+
+    node.sort((a, b) => (a.product ? 1 : 0) - (b.product ? 1 : 0));
 
     node.append("text")
         .attr("class", "strain-name")
         .text(d => d.displayName)
-        .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 + 10 : -standardPillWidth / 2 + 10)
+        .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 + 12 : -standardPillWidth / 2 + 12) 
         .attr("y", 0)
         .attr("dominant-baseline", "middle")
         .attr("fill", "black")
@@ -387,7 +388,7 @@ const createLineageChart = () => {
         .attr("class", "product")
         .attr("x", function(d) {
             const strainNameWidth = this.parentNode.querySelector('.strain-name').getComputedTextLength();
-            return (d.variant ? -(standardPillWidth * 0.85) / 2 : -standardPillWidth / 2) + 3 + strainNameWidth + 10;
+            return (d.variant ? -(standardPillWidth * 0.85) / 2 : -standardPillWidth / 2) + 5 + strainNameWidth + 10;  
         })
         .attr("y", 0)
         .attr("dominant-baseline", "middle")
@@ -507,9 +508,11 @@ const createLineageChart = () => {
                 width / (maxX - minX + 2 * padding),
                 height / (maxY - minY + 2 * padding)
             );
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
             const translate = [
-                (width - scale * (maxX + minX)) / 2,
-                (height - scale * (maxY + minY)) / 2
+                width / 2 - scale * centerX,
+                height / 2 - scale * centerY
             ];
             svg.transition()
                 .duration(750)
@@ -526,21 +529,22 @@ const createLineageChart = () => {
     }
 
     function calculateInitialTransform() {
-        const columnHeights = {};
-        nodes.forEach(node => {
-            const column = node.generation;
-            if (!columnHeights[column]) columnHeights[column] = 0;
-            columnHeights[column] = Math.max(columnHeights[column], node.y + pillHeight);
-        });
+        const padding = 50;
+        const minX = d3.min(nodes, n => n.x) - standardPillWidth / 2;
+        const maxX = d3.max(nodes, n => n.x) + standardPillWidth / 2;
+        const minY = d3.min(nodes, n => n.y) - pillHeight / 2;
+        const maxY = d3.max(nodes, n => n.y) + pillHeight / 2;
 
-        const fullestColumnHeight = Math.max(...Object.values(columnHeights));
-        const padding = 20;
-        const scale = Math.min((height - 2 * padding) / fullestColumnHeight, 1);
+        const scale = Math.min(
+            width / (maxX - minX + 2 * padding),
+            height / (maxY - minY + 2 * padding)
+        );
 
-        const leftMostNode = nodes.reduce((min, node) => node.x < min.x ? node : min);
-        const leftEdgeSpace = lineWidth * 2;
-        const translateX = leftEdgeSpace - leftMostNode.x * scale + standardPillWidth / 2 * scale;
-        const translateY = height/5;
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+
+        const translateX = width / 2 - scale * centerX;
+        const translateY = height / 2 - scale * centerY;
 
         return d3.zoomIdentity
             .translate(translateX, translateY)
@@ -645,9 +649,12 @@ function setupStrainSearch() {
             .call(d3.zoom().transform, d3.zoomIdentity.translate(x, y).scale(scale));
     }
 }
-
-window.onload = fetchData;
-window.addEventListener('resize', createLineageChart);
+window.onload = function() {
+    fetchData();
+};
+window.addEventListener('resize', function() {
+    createLineageChart();
+    });
 
 const togglePopup = (popupId) => {
     const popup = document.getElementById(popupId);
