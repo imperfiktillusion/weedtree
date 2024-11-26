@@ -846,7 +846,7 @@ document.querySelectorAll('.close-button').forEach(button => {
 document.getElementById('fullscreenToggle').addEventListener('click', toggleFullScreen);
 document.getElementById('zoomInButton').addEventListener('click', () => {
     const currentTransform = d3.zoomTransform(svg.node());
-    const newScale = currentTransform.k * 1.2; // Increase zoom by 20%
+    const newScale = currentTransform.k * 1.05; // Increase zoom by 20%
     
     if (newScale <= zoom.scaleExtent()[1]) { // Check if within max zoom limit
         svg.transition()
@@ -861,7 +861,7 @@ document.getElementById('zoomInButton').addEventListener('click', () => {
 
 document.getElementById('zoomOutButton').addEventListener('click', () => {
     const currentTransform = d3.zoomTransform(svg.node());
-    const newScale = currentTransform.k / 1.2; // Decrease zoom by 20%
+    const newScale = currentTransform.k / 1.05; // Decrease zoom by 20%
     
     if (newScale >= zoom.scaleExtent()[0]) { // Check if within min zoom limit
         svg.transition()
