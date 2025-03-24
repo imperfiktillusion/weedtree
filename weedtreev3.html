@@ -133,18 +133,18 @@ function populateStrainList() {
 
 function customSortColumn2(a, b) {
     const dominanceOrder = {
+        'indica dominant': 0,
         'ruderalis dominant': 1,
-        'indica dominant': 2,
-        'balanced hybrid': 3,
-        'unknown': 4,
-        'sativa dominant': 5
+        'balanced hybrid': 2,
+        'unknown': 3,
+        'sativa dominant': 4
     };
 
     const indicaOrder = [
-        'Ruderalis Landraces',
         'Afghan/Pakistan Indica Landraces',
         'Purple Afghan Indica Landraces',
         'Hindu Kush Landraces',
+        'Ruderalis Landraces',
         'Nepalese Indica Landraces',
         'North American Indica Landraces'
     ];
