@@ -558,9 +558,9 @@ const createLineageChart = () => {
         });
 
     // Finally append the product icon on top
-    //node.filter(d => d.product)
+    node.filter(d => d.product)
         .append("use")
-        .attr("href", "#nzIcon")
+        .attr("href", "#nzIconx")
         .attr("width", 30)
         .attr("height", 30)
         .attr("x", function(d) {
