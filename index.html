@@ -77,7 +77,7 @@ const showError = (message) => {
 };
 function fetchData() {
     document.getElementById('loading-message').style.display = 'block';
-    fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pubhtml?gid=1070299978&single=true')
+    fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pubhtml?gid=1070299978')
         .then(response => response.text())
         .then(html => {
             const parser = new DOMParser();
