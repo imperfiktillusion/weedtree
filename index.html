@@ -85,7 +85,7 @@ function fetchData() {
             const doc = parser.parseFromString(html, 'text/html');
             const table = doc.querySelector('table');
             if (!table) {
-                showError("No table found in the spreadsheet.");
+                showError("No table found in the spreadsheet. We are working to get the data back soon.");
                 return;
             }
             const rows = Array.from(table.querySelectorAll('tr')).filter(row => row.textContent.trim() !== '');
