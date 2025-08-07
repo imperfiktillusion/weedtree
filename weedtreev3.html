@@ -371,7 +371,7 @@ const createLineageChart = () => {
   if (gen === 1) {
     genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
   } else if (gen >= 3) {
-    // Use average Y of parents as target
+    // Step 1: Compute targetY from parent Y-positions
     genNodes.forEach(n => {
       const parentYs = n.parents.map(pid => {
         const p = nodes.find(x => x.id === pid);
@@ -381,16 +381,30 @@ const createLineageChart = () => {
       n.targetY = parentYs.length ? d3.mean(parentYs) : 0;
     });
 
-    genNodes.sort((a, b) => a.targetY - b.targetY);
+    // Step 2: Normalize targetY values
+    const targetYs = genNodes.map(n => n.targetY);
+    const minY = d3.min(targetYs);
+    const maxY = d3.max(targetYs);
+    const spread = maxY - minY || 1;
+
+    genNodes.forEach(n => {
+      n.normalizedY = (n.targetY - minY) / spread;
+    });
+
+    // Step 3: Sort nodes by normalizedY to maintain order
+    genNodes.sort((a, b) => a.normalizedY - b.normalizedY);
   } else if (gen >= 2) {
     genNodes.sort(customSortColumn3Plus);
   }
 
+  // Spacing config
   const minSpacing = pillHeight + 16;
+  const variantsHeight = pillHeight + 2;
   let yCursor = 0;
 
-  const totalHeight = genNodes.filter(n => !n.variant).length * minSpacing +
-                      genNodes.filter(n => n.variant).length * (pillHeight + 2);
+  const mainStrainCount = genNodes.filter(n => !n.variant).length;
+  const variantCount = genNodes.filter(n => n.variant).length;
+  const totalHeight = mainStrainCount * minSpacing + variantCount * variantsHeight;
   const startY = (height - totalHeight) / 2;
 
   genNodes.forEach((node, index) => {
@@ -398,25 +412,27 @@ const createLineageChart = () => {
 
     if (!node.variant) {
       if (gen >= 3) {
-        node.y = Math.max(startY + node.targetY, yCursor);
+        // Use normalizedY to place within the available height
+        node.y = startY + node.normalizedY * (height - 100); // leaving some top/bottom margin
       } else {
         if (gen !== 0 || node.y === undefined) {
           node.y = startY + yCursor;
         }
+        yCursor += minSpacing;
       }
 
-      yCursor = node.y + minSpacing;
-
+      // Place variants directly under the main strain
       const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
       variants.forEach((variant, vIndex) => {
-        variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+        variant.y = node.y + (vIndex + 1) * variantsHeight;
         variant.x = node.x;
       });
 
-      yCursor += variants.length * (pillHeight + 2);
+      yCursor += variants.length * variantsHeight;
     }
   });
 }
+
 
 
 
