@@ -76,44 +76,36 @@ const showError = (message) => {
     alert(message);
 };
     
-function fetchData() {
-    document.getElementById('loading-message').style.display = 'block';
-    fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pubhtml?gid=1070299978')
-        .then(response => response.text())
-        .then(html => {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const table = doc.querySelector('table');
-            if (!table) {
-                showError("No table found in the spreadsheet. We are working to get the data back soon.");
-                return;
-            }
-            const rows = Array.from(table.querySelectorAll('tr')).filter(row => row.textContent.trim() !== '');
-            if (rows.length < 2) {
-                showError("Not enough data in the spreadsheet.");
-                return;
-            }
-            const headerRowIndex = rows.findIndex(row => row.querySelector('td').textContent.trim() === 'Strain');
-            if (headerRowIndex === -1) {
-                showError("Could not find a row starting with 'Strain'.");
-                return;
-            }
-            attributes = Array.from(rows[headerRowIndex].querySelectorAll('td')).map(td => td.textContent.trim());
-            strainData = rows.slice(headerRowIndex + 1).map(row => {
-                let obj = {};
-                Array.from(row.querySelectorAll('td')).forEach((td, index) => {
-                    obj[attributes[index]] = td.textContent.trim();
-                });
-                return obj;
-            }).filter(obj => Object.values(obj).some(value => value !== ''));
-            document.getElementById('loading-message').style.display = 'none';
-            createLineageChart();
-            setupStrainSearch();
-        })
-        .catch(error => {
-            showError("Error fetching data: " + error.message);
-        });
-}
+fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978')
+    .then(response => {
+        if (!response.ok) throw new Error("Network response was not ok");
+        return response.text();
+    })
+    .then(csvText => {
+        const rows = csvText.trim().split('\n').map(row => row.split(',').map(cell => cell.trim()));
+        if (rows.length < 2) {
+            showError("Not enough data in the spreadsheet.");
+            return;
+        }
+
+        attributes = rows[0];
+        strainData = rows.slice(1).map(row => {
+            let obj = {};
+            attributes.forEach((attr, index) => {
+                obj[attr] = row[index] || '';
+            });
+            return obj;
+        }).filter(obj => Object.values(obj).some(value => value !== ''));
+
+        document.getElementById('loading-message').style.display = 'none';
+        createLineageChart();
+        setupStrainSearch();
+    })
+    .catch(error => {
+        showError("Error fetching data: " + error.message);
+        console.error("Fetch error:", error);
+    });
+
 
 
 
