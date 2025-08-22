@@ -1,12 +1,27 @@
-<html><head><base href="https://imperfiktillusion.github.io/weedtree/">
-<title>WeedTree.fyi  Strain Lineage Chart</title>
+<!DOCTYPE html>
+<html>
+<head>
+<base href="https://www.weedtree.fyi">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-8527SLLPYV');
+</script>
+
+<title>WeedTree Strain Lineage Chart</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 850"><path fill="%2391C83E" d="M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/><path fill="%236FAC43" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7z"/><path fill="none" stroke="%23444" stroke-width="79.2" stroke-linejoin="round" stroke-miterlimit="8" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7zm-44.8 237.5c137.8 80.2 275.3 80.2 412.7 0M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/></svg>' />
 <style>
-body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;padding:0;font-size:14px;height:100%;overflow:hidden}.header-ribbon{background-color:#434343;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center}.header-ribbon h1{margin:0;font-size:1.8em;color:#fff;margin-left:6px}.subhead{font-size:.4em;font-weight:400;margin-left:3px}.container{height:calc(100vh - 50px);display:flex;flex-direction:column}.chart-container{flex-grow:1;width:100%;overflow:hidden}#lineageChart{width:100%;height:100%}.header-buttons{display:flex;gap:10px;align-items:center}.btn{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;cursor:pointer;font-size:0.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.btn:hover{background-color:rgba(255,255,255,.1)}.node text{font-size:16px;fill:black;text-anchor:start;dominant-baseline:middle;font-family:'Roboto',Arial,sans-serif;font-weight:700}.node text.product{font-size:10px;font-weight:normal;}.node.dimmed rect{opacity:.0}.node.dimmed text{opacity:.0}.node.dimmed use{opacity:.0}.link.dimmed{opacity:.1}.node.highlighted rect{stroke:#f0f;stroke-width:3px}.link.highlighted{stroke:#f0f!important;stroke-width:3px}.node.clicked rect{stroke:#f0f;stroke-width:8px}.popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:10px;max-width:80%;max-height:80%;overflow-y:auto;z-index:1000;display:none;}.popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,.5);z-index:999;display:none}#loading-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background-color:rgba(255,255,255,0.8);padding:20px;border-radius:10px;z-index:1001;display:none}#strainSearch{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;font-size:.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;width:180px}#strainSearch::placeholder{color:rgba(255,255,255,0.7)}#strainSearch:focus{outline:none;background-color:rgba(255,255,255,0.1)}#strainDropdown{position:absolute;background-color:#fff;border:1px solid #ccc;max-height:400px;overflow-y:auto;display:none;z-index:1000;width:210px;box-shadow:1 4px 8px rgba(0,0,0,0.1);border-radius:0 0 4px 4px}#strainDropdown div{padding:5px 10px;cursor:pointer;transition:background-color 0.2s;color:#434343;font-size:8pt;line-height:1.2}#strainDropdown div:hover{background-color:#f0f0f0}.search-container{position:relative}.node.highlighted-search .highlight-arrow{fill:red}#centerLine {position: fixed;top: 0;left: 0;width: 100%;height: 100%;pointer-events: none;}.fullscreen-button-container {display: flex;flex-direction: column;gap: 5px;position: absolute;top: 70px;right: 10px;z-index: 997;}.zoom-button-container {display: flex;width: 100%;gap: 5px;}.fullscreen-button-container button {width: 100%;padding: 3px 5px;border: 2px solid #cccccc;border-radius: 0;cursor: pointer;font-size: 0.3em;font-family: 'Poppins', Arial, sans-serif;transition: all 0.3s ease;color: #cccccc;background-color: white;}.node{transition: transform 0.0s ease;}.strain-list {column-width: 228px;column-gap: 5px;padding: 10px;max-height: 96%;overflow-x: auto;white-space: nowrap;}.strain-item {display: flex;align-items: center;margin-bottom: 0px;break-inside: avoid-column;}.strain-checkbox {appearance: none;-webkit-appearance: none;width: 16px;height: 16px;border: 2px solid #434343;border-radius: 50%;margin-right: 5px;cursor: pointer;position: relative;}.strain-checkbox:checked::after {content: '';position: absolute;top: 50%;left: 50%;transform: translate(-50%, -50%);width: 10px;height: 10px;background-color:#434343;border-radius:50%;}.strain-checkbox:hover {background-color: #f0f0f0;}.strain-label {font-size: 8pt;cursor: pointer;}#popup1 {padding: 0;}#popup2, #popup3 {padding: 20px;}.node use {z-index: 1000; pointer-events: none;} .node text {z-index: 999;}#zoomInButton, #zoomOutButton {flex: 1;padding: 0px 5px;font-size: 16px;font-weight: bold;}#zoomInButton {border-right: 2px solid #cccccc; border-top-right-radius: 0;border-bottom-right-radius: 0;}#zoomOutButton {border-left: 2px solid #cccccc; border-top-left-radius: 0;border-bottom-left-radius: 0;}.close-button {position: absolute;top: 10px;right: 10px;width: 30px;height: 30px;border:none;background:#434343;color:white;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color 0.3s;}.close-button:hover {background-color:#666;}
+body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;padding:0;font-size:14px;height:100%;overflow:hidden}.header-ribbon{background-color:#434343;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center}.header-ribbon h1{margin:0;font-size:1.8em;color:#fff;margin-left:6px}.subhead{font-size:.4em;font-weight:400;margin-left:3px}.container{height:calc(100vh - 50px);display:flex;flex-direction:column}.chart-container{flex-grow:1;width:100%;overflow:hidden}#lineageChart{width:100%;height:100%}.header-buttons{display:flex;gap:10px;align-items:center}.btn{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;cursor:pointer;font-size:0.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.btn:hover{background-color:rgba(255,255,255,.1)}.node text{font-size:16px;fill:black;text-anchor:start;dominant-baseline:middle;font-family:'Roboto',Arial,sans-serif;font-weight:700}.node text.product{font-size:10px;font-weight:normal;}.node.dimmed rect{opacity:.15}.node.dimmed text{opacity:.15}.node.dimmed use{opacity:.15}.link.dimmed{opacity:.15}.node.highlighted rect{stroke:#f0f;stroke-width:3px}.link.highlighted{stroke:#f0f!important;stroke-width:3px}.node.clicked rect{stroke:#f0f;stroke-width:8px}.popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:10px;max-width:80%;max-height:80%;overflow-y:auto;z-index:1000;display:none;}.popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,.5);z-index:999;display:none}#loading-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background-color:rgba(255,255,255,0.8);padding:20px;border-radius:10px;z-index:1001;display:none}#strainSearch{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;font-size:.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;width:180px}#strainSearch::placeholder{color:rgba(255,255,255,0.7)}#strainSearch:focus{outline:none;background-color:rgba(255,255,255,0.1)}#strainDropdown{position:absolute;background-color:#fff;border:1px solid #ccc;max-height:400px;overflow-y:auto;display:none;z-index:1000;width:210px;box-shadow:1 4px 8px rgba(0,0,0,0.1);border-radius:0 0 4px 4px}#strainDropdown div{padding:5px 10px;cursor:pointer;transition:background-color 0.2s;color:#434343;font-size:8pt;line-height:1.2}#strainDropdown div:hover{background-color:#f0f0f0}.search-container{position:relative}.node.highlighted-search .highlight-arrow{fill:red}#centerLine {position: fixed;top: 0;left: 0;width: 100%;height: 100%;pointer-events: none;}.fullscreen-button-container {display: flex;flex-direction: column;gap: 5px;position: absolute;top: 70px;right: 10px;z-index: 997;}.zoom-button-container {display: flex;width: 100%;gap: 5px;}.fullscreen-button-container button {width: 100%;padding: 3px 5px;border: 2px solid #cccccc;border-radius: 0;cursor: pointer;font-size: 0.3em;font-family: 'Poppins', Arial, sans-serif;transition: all 0.3s ease;color: #cccccc;background-color: white;}.node{transition: transform 0.0s ease;}.strain-list {column-width: 228px;column-gap: 5px;padding: 10px;max-height: 96%;overflow-x: auto;white-space: nowrap;}.strain-item {display: flex;align-items: center;margin-bottom: 0px;break-inside: avoid-column;}.strain-checkbox {appearance: none;-webkit-appearance: none;width: 16px;height: 16px;border: 2px solid #434343;border-radius: 50%;margin-right: 5px;cursor: pointer;position: relative;}.strain-checkbox:checked::after {content: '';position: absolute;top: 50%;left: 50%;transform: translate(-50%, -50%);width: 10px;height: 10px;background-color:#434343;border-radius:50%;}.strain-checkbox:hover {background-color: #f0f0f0;}.strain-label {font-size: 8pt;cursor: pointer;}#popup1 {padding: 0;}#popup2, #popup3 {padding: 20px;}.node use {z-index: 1000; pointer-events: none;} .node text {z-index: 999;}#zoomInButton, #zoomOutButton {flex: 1;padding: 0px 5px;font-size: 16px;font-weight: bold;}#zoomInButton {border-right: 2px solid #cccccc; border-top-right-radius: 0;border-bottom-right-radius: 0;}#zoomOutButton {border-left: 2px solid #cccccc; border-top-left-radius: 0;border-bottom-left-radius: 0;}.close-button {position: absolute;top: 10px;right: 10px;width: 30px;height: 30px;border:none;background:#434343;color:white;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color 0.3s;}.close-button:hover {background-color:#666;}
 </style>
 <script src="https://d3js.org/d3.v6.min.js"></script>
+</head>
 <body>
 <div class="header-ribbon">
     <h1>WeedTree.fyi Strain Lineage Chart <span class="subhead">Work in progress, errors probable</span></h1>
@@ -39,10 +54,10 @@ body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;
 <div id="popup2" class="popup"><h5>Record and rate your strains - coming soon</h5></div>
 <div id="popup3" class="popup">
     <button class="close-button">×</button>
-    <h2>Welcome to Weedtree, the family tree of cannabis</h2>
-    <p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself. I don't claim that the chart is completely accurate, it is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree.</p>
-    <p>Let me know your favourite strains you'd like added! Join me on Discord or Reddit <a href="https://www.reddit.com/user/imperfikt_illusion/"><b>u/imperfikt_illusion</b></a> to share knowledge or help grow the project</p>
-    <p>Push F11 to toggle full screen.</br> Click on a strain to isolate its lineage.</br>A filter to show only the lineage of strains you're interested in is coming as soon as I can get it working.</br></p>
+    <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
+    <p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself. </p>
+    <p>I don't claim that the chart is completely accurate, it is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously it is far from complete.</p>
+    <p></br>Push F11 to toggle full screen.</br>Use the mouse or controls to zoom in and out.</br> Click on a strain to isolate its lineage.</p>
 </div>
 <div id="loading-message">Loading strain data, please wait...</div>
 <div id="centerLine"></div>
@@ -95,6 +110,10 @@ fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_
         console.error("Fetch error:", error);
     });
 
+
+
+
+
 function populateStrainList() {
     const strainList = document.getElementById('strainList');
     strainList.innerHTML = '';
@@ -137,8 +156,7 @@ function customSortColumn2(a, b) {
         'Purple Afghan Indica Landraces',
         'Hindu Kush Landraces',
         'Nepalese Indica Landraces',
-        'North American Indica Landraces',
-        'Ruderalis Landraces'
+        'North American Indica Landraces'
     ];
 
     const sativaOrder = [
@@ -363,78 +381,40 @@ const createLineageChart = () => {
     column2Nodes.sort(customSortColumn2);
 
     for (let gen = 0; gen <= maxGeneration + 1; gen++) {
-  let genNodes = nodes.filter(n =>
-    (n.generation === gen) ||
-    (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
-  );
+        let genNodes = nodes.filter(n => 
+            (n.generation === gen) || 
+            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
+        );
 
-  if (gen === 1) {
-    genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-  } else if (gen >= 3) {
-    // Step 1: Compute targetY from parent Y-positions
-    genNodes.forEach(n => {
-      const parentYs = n.parents.map(pid => {
-        const p = nodes.find(x => x.id === pid);
-        return p ? p.y : null;
-      }).filter(y => y !== null);
-
-      n.targetY = parentYs.length ? d3.mean(parentYs) : 0;
-    });
-
-    // Step 2: Normalize targetY values
-    const targetYs = genNodes.map(n => n.targetY);
-    const minY = d3.min(targetYs);
-    const maxY = d3.max(targetYs);
-    const spread = maxY - minY || 1;
-
-    genNodes.forEach(n => {
-      n.normalizedY = (n.targetY - minY) / spread;
-    });
-
-    // Step 3: Sort nodes by normalizedY to maintain order
-    genNodes.sort((a, b) => a.normalizedY - b.normalizedY);
-  } else if (gen >= 2) {
-    genNodes.sort(customSortColumn3Plus);
-  }
-
-  // Spacing config
-  const minSpacing = pillHeight + 16;
-  const variantsHeight = pillHeight + 2;
-  let yCursor = 0;
-
-  const mainStrainCount = genNodes.filter(n => !n.variant).length;
-  const variantCount = genNodes.filter(n => n.variant).length;
-  const totalHeight = mainStrainCount * minSpacing + variantCount * variantsHeight;
-  const startY = (height - totalHeight) / 2;
-
-  genNodes.forEach((node, index) => {
-    node.x = gen * columnWidth;
-
-    if (!node.variant) {
-      if (gen >= 3) {
-        // Use normalizedY to place within the available height
-        node.y = startY + node.normalizedY * (height - 100); // leaving some top/bottom margin
-      } else {
-        if (gen !== 0 || node.y === undefined) {
-          node.y = startY + yCursor;
+        if (gen === 1) {
+            genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
+        } else if (gen >= 2) {
+            genNodes.sort(customSortColumn3Plus);
         }
-        yCursor += minSpacing;
-      }
 
-      // Place variants directly under the main strain
-      const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
-      variants.forEach((variant, vIndex) => {
-        variant.y = node.y + (vIndex + 1) * variantsHeight;
-        variant.x = node.x;
-      });
+        let yOffset = 0;
+        const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
+                            genNodes.filter(n => n.variant).length * (pillHeight + 2);
+        const startY = (height - totalHeight) / 2;
 
-      yCursor += variants.length * variantsHeight;
+        genNodes.forEach((node, index) => {
+            node.x = gen * columnWidth; // Set x position based on generation
+            if (!node.variant) {
+                if (gen !== 0 || node.y === undefined) {
+                    node.y = startY + yOffset;
+                }
+                yOffset += pillHeight + 16; // min gap between standard nodes
+
+                const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
+                variants.forEach((variant, vIndex) => {
+                    variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                    variant.x = node.x;
+                });
+
+                yOffset += variants.length * (pillHeight + 2);
+            }
+        });
     }
-  });
-}
-
-
-
 
     calculateColumn1Positions();
 
@@ -843,19 +823,22 @@ function setupStrainSearch() {
             .call(d3.zoom().transform, d3.zoomIdentity.translate(x, y).scale(scale));
     }
 }
-window.onload = function() {
-    fetchData();
-
-    // Add event listeners for popups
-    document.getElementById('btn3').addEventListener('click', () => {
-        document.getElementById('popup3').style.display = 'block';
-        document.querySelector('.popup-overlay').style.display = 'block';
-    });
-
-    // Show About popup on initial load
-    document.getElementById('popup3').style.display = 'block';
-    document.querySelector('.popup-overlay').style.display = 'block';
-};
+// --- FIX: remove undefined fetchData() call and ensure About popup opens ---
+window.addEventListener('load', function() {
+    // Add event listeners for About popup
+    const aboutBtn = document.getElementById('btn3');
+    const popup3 = document.getElementById('popup3');
+    const overlay = document.querySelector('.popup-overlay');
+    if (aboutBtn && popup3 && overlay) {
+        aboutBtn.addEventListener('click', () => {
+            popup3.style.display = 'block';
+            overlay.style.display = 'block';
+        });
+        // Show About popup on initial load
+        popup3.style.display = 'block';
+        overlay.style.display = 'block';
+    }
+});
 
 document.querySelectorAll('.close-button').forEach(button => {
     button.addEventListener('click', function() {
