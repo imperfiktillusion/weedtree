@@ -13,7 +13,7 @@
   gtag('config', 'G-8527SLLPYV');
 </script>
 
-<title>***WeedTree Strain Lineage Chart</title>
+<title>WeedTree Strain Lineage Chart</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 850"><path fill="%2391C83E" d="M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/><path fill="%236FAC43" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7z"/><path fill="none" stroke="%23444" stroke-width="79.2" stroke-linejoin="round" stroke-miterlimit="8" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7zm-44.8 237.5c137.8 80.2 275.3 80.2 412.7 0M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/></svg>' />
@@ -380,6 +380,10 @@ const createLineageChart = () => {
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
     column2Nodes.sort(customSortColumn2);
 
+// Deep ancestry ordering support
+const nodeById = new Map(nodes.map(n => [n.id, n]));
+const orderMap = new Map(); // vertical order index per generation for base nodes
+
     for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         let genNodes = nodes.filter(n => 
             (n.generation === gen) || 
@@ -388,9 +392,78 @@ const createLineageChart = () => {
 
         if (gen === 1) {
             genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-        } else if (gen >= 2) {
-            genNodes.sort(customSortColumn3Plus);
+} else if (gen >= 2) {
+    // Sort by dominance group, then by the earliest same-dominance ancestor's order (possibly multiple columns back)
+    const dominanceOrder = {
+        'indica dominant': 0,
+        'balanced hybrid': 1,
+        'unknown': 2,
+        'sativa dominant': 3
+    };
+    const getDominanceIndex = d => dominanceOrder[(d.dominance||'').toLowerCase()] ?? 99;
+
+    const findBestAnchor = (node) => {
+        const targetDom = (node.dominance||'').toLowerCase();
+        const visited = new Set();
+        // Start with direct parents plus variant parent
+        const stack = [];
+        if (node.variant) {
+            const vp = nodes.find(n => n.name === node.variant);
+            if (vp) stack.push(vp.id);
         }
+        (node.parents||[]).forEach(p => stack.push(p));
+
+        let best = null; // {id, gen, order, domMatch}
+        while (stack.length) {
+            const pid = stack.pop();
+            if (!pid || visited.has(pid)) continue;
+            visited.add(pid);
+            const p = nodeById.get(pid);
+            if (!p) continue;
+
+            if (orderMap.has(pid)) {
+                const cand = {
+                    id: pid,
+                    gen: p.generation ?? Infinity,
+                    order: orderMap.get(pid),
+                    domMatch: ((p.dominance||'').toLowerCase() === targetDom)
+                };
+                const isBetter = (a, b) => {
+                    if (a.domMatch !== b.domMatch) return a.domMatch && !b.domMatch;
+                    if (a.gen !== b.gen) return a.gen < b.gen;
+                    return a.order < b.order;
+                };
+                if (!best || isBetter(cand, best)) best = cand;
+            }
+            // Traverse further up
+            if (p.variant) {
+                const pp = nodes.find(n => n.name === p.variant);
+                if (pp) stack.push(pp.id);
+            }
+            (p.parents||[]).forEach(gp => stack.push(gp));
+        }
+        return best;
+    };
+
+    genNodes.sort((a, b) => {
+        const da = getDominanceIndex(a);
+        const db = getDominanceIndex(b);
+        if (da !== db) return da - db;
+        const aa = findBestAnchor(a);
+        const ab = findBestAnchor(b);
+        // Anchor-aware ordering
+        if (aa && ab) {
+            if (aa.gen !== ab.gen) return aa.gen - ab.gen;
+            if (aa.order !== ab.order) return aa.order - ab.order;
+        } else if (aa && !ab) {
+            return -1;
+        } else if (!aa && ab) {
+            return 1;
+        }
+        // Fallback to name for stability
+        return a.name.localeCompare(b.name);
+    });
+}
 
         let yOffset = 0;
         const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
@@ -414,6 +487,10 @@ const createLineageChart = () => {
                 yOffset += variants.length * (pillHeight + 2);
             }
         });
+// Update order map for this generation (base nodes only)
+const baseNodesThisGen = genNodes.filter(n => !n.variant);
+baseNodesThisGen.forEach((n, i) => { orderMap.set(n.id, i); });
+    }
     }
 
     calculateColumn1Positions();
