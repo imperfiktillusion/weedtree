@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base href="https://www.weedtree.fyi">
+    <title>WeedTree Strain Lineage Chart</title>
+
+    <!-- External libraries -->
+    <script src="https://cdn.counter.dev/script.js" data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" data-utcoffset="13"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-8527SLLPYV');
+    </script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+    <!-- D3 Library -->
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+</head>
+<body>
+    <!-- Header Ribbon -->
+    <div class="header-ribbon">
+        <h1>WeedTree.fyi Strain Lineage Chart <span class="subhead">Work in progress, errors probable</span></h1>
+        <div class="header-buttons">
+            <div class="search-container">
+                <input type="text" id="strainSearch" placeholder="Locate strain">
+                <div id="strainDropdown"></div>
+            </div>
+            <button id="btn3" class="btn">About</button>
+        </div>
+    </div>
+
+    <!-- Fullscreen and zoom buttons -->
+    <div class="fullscreen-button-container">
+        <button id="fullscreenToggle" class="btn">Toggle Full Screen</button>
+        <div class="zoom-button-container">
+            <button id="zoomInButton" class="btn">+</button>
+            <button id="zoomOutButton" class="btn">-</button>
+        </div>
+        <button id="deselectButton" class="btn">De-select</button>
+    </div>
+
+    <!-- Chart Container -->
+    <div class="container">
+        <div class="chart-container">
+            <div id="lineageChart"></div>
+        </div>
+    </div>
+
+    <!-- Popups -->
+    <div class="popup-overlay"></div>
+    <div id="popup1" class="popup"><div id="strainList" class="strain-list"></div></div>
+    <div id="popup2" class="popup"><h5>Record and rate your strains - coming soon</h5></div>
+    <div id="popup3" class="popup">
+        <button class="close-button">×</button>
+        <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
+        <p>I've always wondered how strain lineage correlated with the strains I personally prefer...</p>
+        <p>Push F11 to toggle full screen. Use mouse or controls to zoom in/out. Click on a strain to isolate its lineage.</p>
+    </div>
+
+    <div id="loading-message">Loading strain data, please wait...</div>
+    <div id="centerLine"></div>
+
+    <!-- NZ Icon Template -->
+    <svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
+        <symbol id="nzIcon">
+            <circle cx="14" cy="14" r="12.5" fill="white" stroke="black" stroke-width="3"/>
+            <line x1="7" y1="9" x2="7" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
+            <line x1="7" y1="9" x2="13" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
+            <line x1="13" y1="9" x2="13" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
+            <line x1="16" y1="9" x2="20.5" y2="9" stroke="black" stroke-width="3" stroke-linecap="round"/>
+            <line x1="16" y1="19" x2="21.5" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
+            <line x1="21.5" y1="9" x2="16" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
+        </symbol>
+    </svg>
+
+    <!-- Scripts -->
+    <script src="script.js"></script>
+</body>
+</html>
