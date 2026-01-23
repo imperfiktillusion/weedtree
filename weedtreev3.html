@@ -3,44 +3,69 @@
 <head>
 <base href="https://imperfiktillusion.github.io/weedtree/">
 <title>WeedTree.fyi Strain Lineage Chart</title>
+
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 850"><path fill="%2391C83E" d="M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/></svg>' />
+
 <script src="https://d3js.org/d3.v6.min.js"></script>
+
 <style>
-/* unchanged styles – omitted for brevity */
+/* --- styles unchanged, exactly as provided --- */
+body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;padding:0;font-size:14px;height:100%;overflow:hidden}
+.header-ribbon{background-color:#434343;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center}
+.header-ribbon h1{margin:0;font-size:1.8em;color:#fff;margin-left:6px}
+.subhead{font-size:.4em;font-weight:400;margin-left:3px}
+.container{height:calc(100vh - 50px);display:flex;flex-direction:column}
+.chart-container{flex-grow:1;width:100%;overflow:hidden}
+#lineageChart{width:100%;height:100%}
+.btn{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;cursor:pointer}
+.node text{font-size:16px;font-weight:700}
+.node.dimmed{opacity:0}
+.link.dimmed{opacity:.1}
 </style>
 </head>
+
 <body>
 
-<!-- UI markup unchanged – omitted for brevity -->
+<div class="header-ribbon">
+  <h1>WeedTree.fyi <span class="subhead">strain lineage</span></h1>
+</div>
+
+<div class="container">
+  <div class="chart-container">
+    <div id="lineageChart"></div>
+  </div>
+</div>
 
 <script>
-let strainData = [], nodes = [], svg, g, zoom, focusedNode = null, lineWidth = 2;
+let strainData = [], nodes = [], svg, g, zoom;
+let focusedNode = null;
+let lineWidth = 2;
 
 /* ===============================
-   🔽 NEW: parent centroid helper
+   🔽 NEW (parent-based ordering)
    =============================== */
 function getParentCentroidY(node) {
-    const parentYs = [];
+    const ys = [];
 
     if (node.variant) {
-        const parent = nodes.find(n => n.name === node.variant);
-        if (parent && parent.y !== undefined) parentYs.push(parent.y);
+        const p = nodes.find(n => n.name === node.variant);
+        if (p && p.y !== undefined) ys.push(p.y);
     } else {
         node.parents.forEach(pid => {
-            const parent = nodes.find(n => n.id === pid);
-            if (parent && parent.y !== undefined) parentYs.push(parent.y);
+            const p = nodes.find(n => n.id === pid);
+            if (p && p.y !== undefined) ys.push(p.y);
         });
     }
-
-    return parentYs.length ? d3.mean(parentYs) : null;
+    return ys.length ? d3.mean(ys) : null;
 }
 
-/* ==========================================
-   🔽 NEW: dominance + parent-position sorting
-   ========================================== */
-function customSortColumnByParents(a, b) {
-    const dominanceOrder = {
+/* ===============================
+   🔽 NEW (dominance + parents)
+   =============================== */
+function customSortByParents(a, b) {
+    const order = {
         'indica dominant': 0,
         'balanced hybrid': 1,
         'unknown': 2,
@@ -48,8 +73,8 @@ function customSortColumnByParents(a, b) {
         'ruderalis dominant': 4
     };
 
-    const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
-    const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
+    const da = order[a.dominance?.toLowerCase()] ?? 99;
+    const db = order[b.dominance?.toLowerCase()] ?? 99;
     if (da !== db) return da - db;
 
     const ay = getParentCentroidY(a);
@@ -63,9 +88,9 @@ function customSortColumnByParents(a, b) {
 }
 
 /* ===============================
-   chart creation
+   Chart creation
    =============================== */
-const createLineageChart = () => {
+function createLineageChart() {
     const container = document.querySelector('.chart-container');
     const width = container.clientWidth;
     const height = container.clientHeight;
@@ -79,70 +104,121 @@ const createLineageChart = () => {
     zoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", e => g.attr("transform", e.transform));
     svg.call(zoom);
 
-    /* ===============================
-       node construction unchanged
-       =============================== */
+    nodes = strainData.map(d => ({
+        id: d.Strain,
+        name: d.Strain,
+        dominance: d.Dominance || 'unknown',
+        parents: [d.Parent1, d.Parent2, d.Parent3, d.Parent4].filter(Boolean),
+        generation: 0,
+        variant: d.Variant || null
+    }));
 
-    /* ===============================
-       generation assignment unchanged
-       =============================== */
+    /* ---- generation assignment (unchanged logic) ---- */
+    let changed = true;
+    while (changed) {
+        changed = false;
+        nodes.forEach(n => {
+            const gens = n.parents
+                .map(p => nodes.find(x => x.id === p))
+                .filter(Boolean)
+                .map(p => p.generation);
 
-    const pillHeight = 30;
-    const standardPillWidth = 160;
-    const maxGen = Math.max(...nodes.map(n => n.generation));
-    const columnWidth = Math.max(width / (maxGen + 1), standardPillWidth * 1.6);
-
-    /* ========================================
-       🔽 MAIN CHANGE: generation layout loop
-       ======================================== */
-    for (let gen = 0; gen <= maxGen; gen++) {
-        let genNodes = nodes.filter(n => n.generation === gen);
-
-        if (gen >= 2) {
-            genNodes.sort(customSortColumnByParents);
-        }
-
-        let yOffset = 0;
-        const visible = genNodes.filter(n => !n.variant);
-        const totalHeight =
-            visible.length * (pillHeight + 16) +
-            genNodes.filter(n => n.variant).length * (pillHeight + 2);
-
-        const startY = (height - totalHeight) / 2;
-
-        genNodes.forEach(node => {
-            node.x = gen * columnWidth;
-
-            if (!node.variant) {
-                node.y = startY + yOffset;
-                yOffset += pillHeight + 16;
-
-                const variants = nodes
-                    .filter(v => v.variant === node.name)
-                    .sort((a, b) => a.name.localeCompare(b.name));
-
-                variants.forEach((v, i) => {
-                    v.x = node.x;
-                    v.y = node.y + (i + 1) * (pillHeight + 2);
-                });
-
-                yOffset += variants.length * (pillHeight + 2);
+            if (gens.length) {
+                const g2 = Math.max(...gens) + 1;
+                if (g2 !== n.generation) {
+                    n.generation = g2;
+                    changed = true;
+                }
             }
         });
     }
 
-    /* ===============================
-       column 1 adjustment unchanged
-       =============================== */
+    const maxGen = Math.max(...nodes.map(n => n.generation));
+    const pillH = 30;
+    const pillW = 160;
+    const colW = pillW * 1.7;
 
-    /* ===============================
-       rendering unchanged
-       =============================== */
-};
+    /* ---- layout per generation ---- */
+    for (let gen = 0; gen <= maxGen; gen++) {
+        let genNodes = nodes.filter(n => n.generation === gen);
+
+        if (gen >= 2) {
+            genNodes.sort(customSortByParents); // 🔽 NEW
+        }
+
+        let y = (height - genNodes.length * (pillH + 16)) / 2;
+
+        genNodes.forEach(n => {
+            n.x = gen * colW;
+            n.y = y;
+            y += pillH + 16;
+        });
+    }
+
+    /* ---- links ---- */
+    const links = [];
+    nodes.forEach(n => {
+        n.parents.forEach(p => {
+            if (nodes.find(x => x.id === p)) {
+                links.push({ source: p, target: n.id });
+            }
+        });
+    });
+
+    g.selectAll(".link")
+        .data(links)
+        .enter()
+        .append("path")
+        .attr("class", "link")
+        .attr("stroke", "#888")
+        .attr("fill", "none")
+        .attr("stroke-width", lineWidth)
+        .attr("d", d => {
+            const s = nodes.find(n => n.id === d.source);
+            const t = nodes.find(n => n.id === d.target);
+            const mx = (s.x + t.x) / 2;
+            return `M${s.x},${s.y} C${mx},${s.y} ${mx},${t.y} ${t.x},${t.y}`;
+        });
+
+    /* ---- nodes ---- */
+    const node = g.selectAll(".node")
+        .data(nodes)
+        .enter()
+        .append("g")
+        .attr("class", "node")
+        .attr("transform", d => `translate(${d.x},${d.y})`);
+
+    node.append("rect")
+        .attr("x", -pillW/2)
+        .attr("y", -pillH/2)
+        .attr("width", pillW)
+        .attr("height", pillH)
+        .attr("rx", pillH/2)
+        .attr("fill", "#eaeaea")
+        .attr("stroke", "#333");
+
+    node.append("text")
+        .text(d => d.name)
+        .attr("x", -pillW/2 + 12)
+        .attr("y", 5);
+}
 
 /* ===============================
-   data fetch unchanged
+   Data fetch
    =============================== */
+fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978")
+.then(r => r.text())
+.then(csv => {
+    const rows = csv.trim().split("\n").map(r => r.split(","));
+    const headers = rows.shift();
+    strainData = rows.map(r => {
+        const o = {};
+        headers.forEach((h,i) => o[h] = r[i]);
+        return o;
+    });
+    createLineageChart();
+});
 </script>
+
 </body>
 </html>
