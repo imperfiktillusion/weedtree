@@ -1,15 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<base href="https://imperfiktillusion.github.io/weedtree/">
-<title>WeedTree.fyi Strain Lineage Chart</title>
+<base href="https://www.weedtree.fyi">
+
+<script src="https://cdn.counter.dev/script.js" data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" data-utcoffset="13"></script>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-8527SLLPYV');
+</script>
+
+<title>WeedTree Strain Lineage Chart</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 850"><path fill="%2391C83E" d="M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/></svg>' />
+<link rel="icon" type="image/svg+xml" xhref='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 850"><path fill="%2391C83E" d="M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/><path fill="%236FAC43" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7z"/><path fill="none" stroke="%23444" stroke-width="79.2" stroke-linejoin="round" stroke-miterlimit="8" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7zm-44.8 237.5c137.8 80.2 275.3 80.2 412.7 0M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/></svg>' />
 <style>
-/* --- keep all your original CSS here --- */
+body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;padding:0;font-size:14px;height:100%;overflow:hidden}.header-ribbon{background-color:#434343;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center}.header-ribbon h1{margin:0;font-size:1.8em;color:#fff;margin-left:6px}.subhead{font-size:.4em;font-weight:400;margin-left:3px}.container{height:calc(100vh - 50px);display:flex;flex-direction:column}.chart-container{flex-grow:1;width:100%;overflow:hidden}#lineageChart{width:100%;height:100%}.header-buttons{display:flex;gap:10px;align-items:center}.btn{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;cursor:pointer;font-size:0.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.btn:hover{background-color:rgba(255,255,255,.1)}.node text{font-size:16px;fill:black;text-anchor:start;dominant-baseline:middle;font-family:'Roboto',Arial,sans-serif;font-weight:700}.node text.product{font-size:10px;font-weight:normal;}.node.dimmed rect{opacity:.15}.node.dimmed text{opacity:.15}.node.dimmed use{opacity:.15}.link.dimmed{opacity:.15}.node.highlighted rect{stroke:#f0f;stroke-width:3px}.link.highlighted{stroke:#f0f!important;stroke-width:3px}.node.clicked rect{stroke:#f0f;stroke-width:8px}.popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:10px;max-width:80%;max-height:80%;overflow-y:auto;z-index:1000;display:none;}.popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,.5);z-index:999;display:none}#loading-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background-color:rgba(255,255,255,0.8);padding:20px;border-radius:10px;z-index:1001;display:none}#strainSearch{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;font-size:.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;width:180px}#strainSearch::placeholder{color:rgba(255,255,255,0.7)}#strainSearch:focus{outline:none;background-color:rgba(255,255,255,0.1)}#strainDropdown{position:absolute;background-color:#fff;border:1px solid #ccc;max-height:400px;overflow-y:auto;display:none;z-index:1000;width:210px;box-shadow:1 4px 8px rgba(0,0,0,0.1);border-radius:0 0 4px 4px}#strainDropdown div{padding:5px 10px;cursor:pointer;transition:background-color 0.2s;color:#434343;font-size:8pt;line-height:1.2}#strainDropdown div:hover{background-color:#f0f0f0}.search-container{position:relative}.node.highlighted-search .highlight-arrow{fill:red}#centerLine {position: fixed;top: 0;left: 0;width: 100%;height: 100%;pointer-events: none;}.fullscreen-button-container {display: flex;flex-direction: column;gap: 5px;position: absolute;top: 70px;right: 10px;z-index: 997;}.zoom-button-container {display: flex;width: 100%;gap: 5px;}.fullscreen-button-container button {width: 100%;padding: 3px 5px;border: 2px solid #cccccc;border-radius: 0;cursor: pointer;font-size: 0.3em;font-family: 'Poppins', Arial, sans-serif;transition: all 0.3s ease;color: #cccccc;background-color: white;}.node{transition: transform 0.0s ease;}.strain-list {column-width: 228px;column-gap: 5px;padding: 10px;max-height: 96%;overflow-x: auto;white-space: nowrap;}.strain-item {display: flex;align-items: center;margin-bottom: 0px;break-inside: avoid-column;}.strain-checkbox {appearance: none;-webkit-appearance: none;width: 16px;height: 16px;border: 2px solid #434343;border-radius: 50%;margin-right: 5px;cursor: pointer;position: relative;}.strain-checkbox:checked::after {content: '';position: absolute;top: 50%;left: 50%;transform: translate(-50%, -50%);width: 10px;height: 10px;background-color:#434343;border-radius:50%;}.strain-checkbox:hover {background-color: #f0f0f0;}.strain-label {font-size: 8pt;cursor: pointer;}#popup1 {padding: 0;}#popup2, #popup3 {padding: 20px;}.node use {z-index: 1000; pointer-events: none;} .node text {z-index: 999;}#zoomInButton, #zoomOutButton {flex: 1;padding: 0px 5px;font-size: 16px;font-weight: bold;}#zoomInButton {border-right: 2px solid #cccccc; border-top-right-radius: 0;border-bottom-right-radius: 0;}#zoomOutButton {border-left: 2px solid #cccccc; border-top-left-radius: 0;border-bottom-left-radius: 0;}.close-button {position: absolute;top: 10px;right: 10px;width: 30px;height: 30px;border:none;background:#434343;color:white;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color 0.3s;}.close-button:hover {background-color:#666;}
 </style>
 <script src="https://d3js.org/d3.v6.min.js"></script>
 </head>
@@ -21,10 +31,10 @@
             <input type="text" id="strainSearch" placeholder="Locate strain">
             <div id="strainDropdown"></div>
         </div>
+        
         <button id="btn3" class="btn">About</button>
     </div>
 </div>
-
 <div class="fullscreen-button-container">
     <button id="fullscreenToggle" class="btn">Toggle Full Screen</button>
     <div class="zoom-button-container">
@@ -33,13 +43,11 @@
     </div>
     <button id="deselectButton" class="btn">De-select</button>
 </div>
-
 <div class="container">
     <div class="chart-container">
         <div id="lineageChart"></div>
     </div>
 </div>
-
 <div class="popup-overlay"></div>
 <div id="popup1" class="popup">
     <div id="strainList" class="strain-list"></div>
@@ -47,51 +55,285 @@
 <div id="popup2" class="popup"><h5>Record and rate your strains - coming soon</h5></div>
 <div id="popup3" class="popup">
     <button class="close-button">×</button>
-    <h2>Welcome to Weedtree, the family tree of cannabis</h2>
-    <p>I've always wondered how strain lineage correlated with the strains I personally prefer...</p>
+    <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
+    <p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself. </p>
+    <p>I don't claim that the chart is completely accurate, it is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously it is far from complete.</p>
+    <p></br>Push F11 to toggle full screen.</br>Use the mouse or controls to zoom in and out.</br> Click on a strain to isolate its lineage.</p>
 </div>
 <div id="loading-message">Loading strain data, please wait...</div>
 <div id="centerLine"></div>
-
+<svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
+  <symbol id="nzIcon">
+    <circle cx="14" cy="14" r="12.5" fill="white" stroke="black" stroke-width="3"/>
+    <line x1="7" y1="9" x2="7" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
+    <line x1="7" y1="9" x2="13" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
+    <line x1="13" y1="9" x2="13" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
+    <line x1="16" y1="9" x2="20.5" y2="9" stroke="black" stroke-width="3" stroke-linecap="round"/>
+    <line x1="16" y1="19" x2="21.5" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
+    <line x1="21.5" y1="9" x2="16" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+</svg>
 <script>
-// --- Keep your original CSV fetch and chart creation code exactly as it was ---
-// Only modify the strain search for mobile support
+let strainData = [], attributes = [], nodes = [], svg, g, zoom, focusedNode = null, lineWidth = 2, showingAncestorTree = false;
 
-function setupStrainSearch(nodes) {
-    const searchInput = document.getElementById('strainSearch');
-    const dropdown = document.getElementById('strainDropdown');
-    let highlightedNode = null;
+const showError = (message) => {
+    document.getElementById('loading-message').style.display = 'none';
+    alert(message);
+};
+    
+fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978')
+    .then(response => {
+        if (!response.ok) throw new Error("Network response was not ok");
+        return response.text();
+    })
+    .then(csvText => {
+        const rows = csvText.trim().split('\n').map(row => row.split(',').map(cell => cell.trim()));
+        if (rows.length < 2) {
+            showError("Not enough data in the spreadsheet.");
+            return;
+        }
 
-    const showResults = (text) => {
-        dropdown.innerHTML = '';
-        const results = nodes.filter(n => n.name.toLowerCase().includes(text.toLowerCase()));
-        results.forEach(node => {
-            const div = document.createElement('div');
-            div.innerHTML = node.name;
-            div.addEventListener('click', () => { highlightNode(node); dropdown.style.display='none'; searchInput.value=''; });
-            div.addEventListener('touchstart', () => { highlightNode(node); dropdown.style.display='none'; searchInput.value=''; });
-            dropdown.appendChild(div);
+        attributes = rows[0];
+        strainData = rows.slice(1).map(row => {
+            let obj = {};
+            attributes.forEach((attr, index) => {
+                obj[attr] = row[index] || '';
+            });
+            return obj;
+        }).filter(obj => Object.values(obj).some(value => value !== ''));
+
+        document.getElementById('loading-message').style.display = 'none';
+        createLineageChart();
+        setupStrainSearch();
+    })
+    .catch(error => {
+        showError("Error fetching data: " + error.message);
+        console.error("Fetch error:", error);
+    });
+
+// -------------------------
+// Functions to render charts
+// -------------------------
+function createLineageChart() {
+    showingAncestorTree = false;
+    const chartContainer = document.querySelector('.chart-container');
+    const width = chartContainer.clientWidth, height = chartContainer.clientHeight;
+    d3.select("#lineageChart").selectAll("*").remove();
+    svg = d3.select("#lineageChart").append("svg").attr("width", width).attr("height", height);
+    g = svg.append("g");
+    zoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", (event) => g.attr("transform", event.transform));
+    svg.call(zoom);
+    
+    nodes = strainData.map(strain => ({
+        id: strain.Strain,
+        name: strain.Strain,
+        displayName: strain.Strain,
+        dominance: strain.Dominance,
+        parents: [strain.Parent1, strain.Parent2, strain.Parent3, strain.Parent4].filter(p => p),
+        generation: 0,
+        special: strain.Special,
+        product: strain.Product,
+        variant: strain.Variant,
+        alsoKnownAs: strain['Also Known As']
+    }));
+
+    const hasChildren = new Set(nodes.flatMap(node => node.parents));
+    nodes = nodes.filter(node => 
+        hasChildren.has(node.name) || node.parents.length > 0 || node.special || node.variant
+    );
+
+    nodes.forEach(node => {
+        if (node.name.toLowerCase().includes('unknown')) {
+            node.displayName = node.name.replace(/\d+/g, '');
+        }
+    });
+
+    // Sort the nodes array to prioritize products in the initial rendering
+    nodes.sort((a, b) => {
+        if (a.product && !b.product) return 1;
+        if (!a.product && b.product) return -1;
+        return 0;
+    });
+
+    const links = [];
+    nodes.forEach(node => {
+        if (node.variant) {
+            const parentNode = nodes.find(n => n.name === node.variant);
+            if (parentNode
+            if (parentNode) {
+                links.push({ source: parentNode.id, target: node.id });
+            }
+        }
+        node.parents.forEach(parentName => {
+            const parentNode = nodes.find(n => n.name === parentName);
+            if (parentNode) {
+                links.push({ source: parentNode.id, target: node.id });
+            }
         });
-        dropdown.style.display = results.length ? 'block' : 'none';
-    };
+    });
 
-    searchInput.addEventListener('input', e => showResults(e.target.value));
-    document.addEventListener('click', e => { if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) dropdown.style.display='none'; });
-    document.addEventListener('touchstart', e => { if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) dropdown.style.display='none'; });
+    const nodeById = Object.fromEntries(nodes.map(d => [d.id, d]));
 
-    function highlightNode(node) {
-        if(highlightedNode) { d3.select(highlightedNode).select('.highlight-arrow').remove(); highlightedNode=null; }
-        const sel = d3.selectAll('.node').filter(d => d.id === node.id);
-        sel.append('path').attr('d','M-70,-6 L-39,0 L-70,6 Z').attr('class','highlight-arrow').attr('fill','red');
-        highlightedNode = sel.node();
-        // zoom function if you already have one
-        if(typeof zoomToNode === 'function') zoomToNode(node);
-    }
+    const simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).id(d => d.id).distance(80))
+        .force("charge", d3.forceManyBody().strength(-300))
+        .force("center", d3.forceCenter(width / 2, height / 2));
+
+    const link = g.append("g")
+        .attr("stroke", "#999")
+        .attr("stroke-opacity", 0.6)
+        .selectAll("line")
+        .data(links)
+        .join("line")
+        .attr("stroke-width", lineWidth);
+
+    const node = g.append("g")
+        .selectAll("g")
+        .data(nodes)
+        .join("g")
+        .attr("class", "node")
+        .on("click", (event, d) => showAncestorTree(d));
+
+    node.append("rect")
+        .attr("width", 100)
+        .attr("height", 30)
+        .attr("fill", d => d.dominance === 'Indica' ? '#91C83E' : '#6FAC43')
+        .attr("rx", 15)
+        .attr("ry", 15);
+
+    node.append("text")
+        .attr("x", 10)
+        .attr("y", 15)
+        .attr("dy", ".35em")
+        .text(d => d.displayName);
+
+    simulation.on("tick", () => {
+        link
+            .attr("x1", d => d.source.x + 50)
+            .attr("y1", d => d.source.y + 15)
+            .attr("x2", d => d.target.x + 50)
+            .attr("y2", d => d.target.y + 15);
+
+        node.attr("transform", d => `translate(${d.x},${d.y})`);
+    });
 }
 
-// --- Call this inside your CSV fetch success callback ---
-// setupStrainSearch(nodes);
+// -------------------------
+// Ancestor Tree View
+// -------------------------
+function showAncestorTree(node) {
+    showingAncestorTree = true;
 
+    // Gather ancestors recursively
+    function getAncestors(n, ancestors = []) {
+        n.parents.forEach(parentName => {
+            const parentNode = nodes.find(nd => nd.name === parentName);
+            if (parentNode) {
+                ancestors.push(parentNode);
+                getAncestors(parentNode, ancestors);
+            }
+        });
+        return ancestors;
+    }
+
+    const ancestors = getAncestors(node);
+    ancestors.unshift(node); // Top node first
+
+    // Sort ancestors alphabetically by row (children first, then parents)
+    const rows = [];
+    let currentRow = [node];
+    while (currentRow.length) {
+        rows.push(currentRow);
+        currentRow = rows.flatMap(n => n.parents.map(p => nodes.find(nd => nd.name === p)).filter(Boolean));
+    }
+
+    d3.select("#lineageChart").selectAll("*").remove();
+    const chartContainer = document.querySelector('.chart-container');
+    const width = chartContainer.clientWidth;
+    const rowHeight = 60;
+    const colSpacing = 120;
+
+    const svg = d3.select("#lineageChart").append("svg")
+        .attr("width", width)
+        .attr("height", rows.length * rowHeight);
+
+    rows.forEach((row, rowIndex) => {
+        row.sort((a, b) => a.name.localeCompare(b.name));
+        const rowWidth = row.length * colSpacing;
+        const startX = (width - rowWidth) / 2;
+
+        row.forEach((node, i) => {
+            const x = startX + i * colSpacing;
+            const y = rowIndex * rowHeight;
+
+            const gNode = svg.append("g")
+                .attr("transform", `translate(${x},${y})`);
+
+            gNode.append("rect")
+                .attr("width", 100)
+                .attr("height", 30)
+                .attr("fill", node.dominance === 'Indica' ? '#91C83E' : '#6FAC43')
+                .attr("rx", 15)
+                .attr("ry", 15);
+
+            gNode.append("text")
+                .attr("x", 10)
+                .attr("y", 15)
+                .attr("dy", ".35em")
+                .text(node.displayName);
+        });
+    });
+
+    // Add "Show as Lineage Chart" button
+    d3.select("#lineageChart")
+        .append("foreignObject")
+        .attr("x", 10)
+        .attr("y", 10)
+        .attr("width", 180)
+        .attr("height", 40)
+        .append("xhtml:button")
+        .text("Show as Lineage Chart")
+        .attr("class", "btn")
+        .on("click", () => {
+            createLineageChart();
+        });
+}
+
+// -------------------------
+// Strain Search
+// -------------------------
+function setupStrainSearch() {
+    const searchInput = document.getElementById('strainSearch');
+    const dropdown = document.getElementById('strainDropdown');
+
+    searchInput.addEventListener('input', () => {
+        const value = searchInput.value.toLowerCase();
+        dropdown.innerHTML = '';
+        if (!value) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        const matches = strainData.filter(s => s.Strain.toLowerCase().includes(value)).slice(0, 20);
+        matches.forEach(s => {
+            const div = document.createElement('div');
+            div.textContent = s.Strain;
+            div.addEventListener('click', () => {
+                searchInput.value = s.Strain;
+                dropdown.style.display = 'none';
+                const node = nodes.find(n => n.id === s.Strain);
+                if (node) showAncestorTree(node);
+            });
+            dropdown.appendChild(div);
+        });
+        dropdown.style.display = matches.length ? 'block' : 'none';
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
 </script>
 </body>
 </html>
