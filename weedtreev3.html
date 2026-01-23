@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <base href="https://www.weedtree.fyi">
 
@@ -14,159 +14,209 @@ gtag('config', 'G-8527SLLPYV');
 </script>
 
 <title>WeedTree Strain Lineage Chart</title>
+
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://d3js.org/d3.v6.min.js"></script>
 
 <style>
-/* UNCHANGED STYLES */
-body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;padding:0;font-size:14px;height:100%;overflow:hidden}
-.header-ribbon{background-color:#434343;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center}
-.container{height:calc(100vh - 50px);display:flex;flex-direction:column}
-.chart-container{flex-grow:1;width:100%;overflow:hidden}
-#returnLineageBtn{display:none}
+html,body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  font-family:'Poppins',sans-serif;
+  overflow:hidden;
+}
+.header{
+  height:48px;
+  background:#3f3f3f;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 12px;
+}
+#chart{
+  width:100%;
+  height:calc(100% - 48px);
+}
+button{
+  padding:6px 10px;
+  border-radius:6px;
+  border:none;
+  cursor:pointer;
+}
+.node rect{
+  rx:16;
+  ry:16;
+  stroke:#222;
+  stroke-width:1;
+}
+.node text{
+  font-size:12px;
+  pointer-events:none;
+  fill:#000;
+}
+.link{
+  fill:none;
+  stroke:#999;
+  stroke-width:1.2;
+}
 </style>
 </head>
 
 <body>
-<div class="header-ribbon">
-  <h1>WeedTree.fyi Strain Lineage Chart</h1>
-  <div>
-    <button id="returnLineageBtn">Return to Lineage</button>
-  </div>
+<div class="header">
+  <div>WeedTree.fyi</div>
+  <button id="returnBtn" style="display:none">Return to Lineage</button>
 </div>
-
-<div class="container">
-  <div class="chart-container">
-    <div id="lineageChart"></div>
-  </div>
-</div>
+<div id="chart"></div>
 
 <script>
-let strainData=[],nodes=[],svg,g,zoom;
-let focusedNode=null;
-let lastLineageNode=null;
-let viewMode="lineage";
+let rawData=[];
+let allNodes=[];
+let svg,g,zoom;
+let currentMode="lineage";
+let lastLineageFocus=null;
 
-fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978')
+fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978")
 .then(r=>r.text())
-.then(csv=>{
-  const rows=csv.trim().split('\n').map(r=>r.split(','));
+.then(t=>{
+  const rows=t.trim().split("\n").map(r=>r.split(","));
   const headers=rows.shift();
-  strainData=rows.map(r=>{
-    const o={};headers.forEach((h,i)=>o[h]=r[i]||'');return o;
+  rawData=rows.map(r=>{
+    const o={};
+    headers.forEach((h,i)=>o[h]=r[i]||"");
+    return o;
   });
-  createLineageChart();
+  init();
 });
 
-function baseNodes(){
-  return strainData.map(s=>({
-    id:s.Strain,
-    name:s.Strain,
-    parents:[s.Parent1,s.Parent2,s.Parent3,s.Parent4].filter(Boolean),
-    dominance:s.Dominance
+function init(){
+  allNodes=rawData.map(d=>({
+    id:d.Strain,
+    name:d.Strain,
+    parents:[d.Parent1,d.Parent2,d.Parent3,d.Parent4].filter(Boolean)
   }));
+  renderLineage();
 }
 
-function createLineageChart(){
-  viewMode="lineage";
-  document.getElementById('returnLineageBtn').style.display='none';
-  nodes=baseNodes();
+function renderLineage(){
+  currentMode="lineage";
+  document.getElementById("returnBtn").style.display="none";
+  const nodes=allNodes.map(n=>({...n}));
+  computeGenerations(nodes);
   draw(nodes,true);
 }
 
-function createFamilyTree(root){
-  viewMode="family";
-  document.getElementById('returnLineageBtn').style.display='inline';
-  const map=new Map(nodes.map(n=>[n.id,n]));
-  const collected=new Map();
+function renderFamily(root){
+  currentMode="family";
+  document.getElementById("returnBtn").style.display="inline";
 
-  function walk(n,depth){
-    if(!n)return;
-    if(!collected.has(n.id) || collected.get(n.id).gen>depth){
-      collected.set(n.id,{...n,gen:depth});
+  const map=new Map(allNodes.map(n=>[n.id,n]));
+  const out=new Map();
+
+  function walk(node,gen){
+    if(!node) return;
+    if(!out.has(node.id) || out.get(node.id).gen>gen){
+      out.set(node.id,{...node,gen});
     }
-    n.parents.forEach(p=>walk(map.get(p),depth+1));
+    node.parents.forEach(p=>walk(map.get(p),gen+1));
   }
+
   walk(root,0);
 
-  const fam=[...collected.values()];
-  fam.forEach(n=>{
-    n.parents=n.parents.filter(p=>collected.has(p))
+  const nodes=[...out.values()];
+  nodes.forEach(n=>{
+    n.parents=n.parents.filter(p=>out.has(p));
   });
 
-  draw(fam,false);
+  draw(nodes,false);
 }
 
-function draw(data,enableClick){
-  d3.select("#lineageChart").selectAll("*").remove();
-  const w=document.querySelector('.chart-container').clientWidth;
-  const h=document.querySelector('.chart-container').clientHeight;
-  svg=d3.select("#lineageChart").append("svg").attr("width",w).attr("height",h);
+function computeGenerations(nodes){
+  const map=new Map(nodes.map(n=>[n.id,n]));
+  function gen(n){
+    if(n._g!==undefined) return n._g;
+    if(!n.parents.length) return n._g=0;
+    return n._g=1+Math.max(...n.parents.map(p=>map.get(p)?gen(map.get(p)):0));
+  }
+  nodes.forEach(n=>n.gen=gen(n));
+}
+
+function draw(nodes,allowClick){
+  d3.select("#chart").selectAll("*").remove();
+  const w=document.getElementById("chart").clientWidth;
+  const h=document.getElementById("chart").clientHeight;
+
+  svg=d3.select("#chart").append("svg").attr("width",w).attr("height",h);
   g=svg.append("g");
-  zoom=d3.zoom().scaleExtent([0.2,4]).on("zoom",e=>g.attr("transform",e.transform));
+
+  zoom=d3.zoom().scaleExtent([0.25,4]).on("zoom",e=>g.attr("transform",e.transform));
   svg.call(zoom);
 
-  const levels=d3.group(data,d=>d.gen||0);
-  const cols=[...levels.keys()].sort((a,b)=>a-b);
-  const colW=w/(cols.length+1);
-  const pillW=180,pillH=30;
+  const levels=d3.group(nodes,d=>d.gen);
+  const gens=[...levels.keys()].sort((a,b)=>a-b);
 
-  cols.forEach((c,i)=>{
-    const col=levels.get(c).sort((a,b)=>a.name.localeCompare(b.name));
+  const colW=w/(gens.length+1);
+  const nodeW=170,nodeH=28;
+
+  gens.forEach((gIdx,i)=>{
+    const col=levels.get(gIdx).sort((a,b)=>a.name.localeCompare(b.name));
     col.forEach((n,j)=>{
-      n.x=i*colW+colW/2;
-      n.y=j*(pillH+10)+h/4;
+      n.x=(i+1)*colW;
+      n.y=60+j*(nodeH+10);
     });
   });
 
   const links=[];
-  data.forEach(n=>{
-    n.parents.forEach(p=>links.push({s:p,t:n.id}));
+  nodes.forEach(n=>{
+    n.parents.forEach(p=>{
+      const s=nodes.find(x=>x.id===p);
+      if(s) links.push({s,t:n});
+    });
   });
 
-  g.selectAll("path")
-   .data(links).enter()
+  g.selectAll(".link")
+   .data(links)
+   .enter()
    .append("path")
-   .attr("fill","none")
-   .attr("stroke","#999")
-   .attr("d",l=>{
-     const s=data.find(n=>n.id===l.s);
-     const t=data.find(n=>n.id===l.t);
-     return `M${s.x},${s.y}C${(s.x+t.x)/2},${s.y} ${(s.x+t.x)/2},${t.y} ${t.x},${t.y}`;
+   .attr("class","link")
+   .attr("d",d=>{
+     const mx=(d.s.x+d.t.x)/2;
+     return `M${d.s.x},${d.s.y} C${mx},${d.s.y} ${mx},${d.t.y} ${d.t.x},${d.t.y}`;
    });
 
   const node=g.selectAll(".node")
-   .data(data).enter()
+   .data(nodes)
+   .enter()
    .append("g")
    .attr("class","node")
    .attr("transform",d=>`translate(${d.x},${d.y})`)
    .on("click",(e,d)=>{
-     if(viewMode==="lineage" && e.shiftKey){
-       lastLineageNode=d;
-       createFamilyTree(d);
+     if(currentMode==="lineage" && e.shiftKey){
+       lastLineageFocus=d;
+       renderFamily(d);
        e.stopPropagation();
-     }else if(viewMode==="lineage"){
-       focusedNode=d;
      }
    });
 
   node.append("rect")
-   .attr("x",-pillW/2).attr("y",-pillH/2)
-   .attr("rx",pillH/2).attr("ry",pillH/2)
-   .attr("width",pillW).attr("height",pillH)
-   .attr("fill","#bee8a6").attr("stroke","#000");
+   .attr("x",-nodeW/2)
+   .attr("y",-nodeH/2)
+   .attr("width",nodeW)
+   .attr("height",nodeH)
+   .attr("fill","#c6efb5");
 
   node.append("text")
-   .attr("x",-pillW/2+10).attr("y",5)
-   .text(d=>d.name)
-   .style("font-weight","bold");
+   .attr("text-anchor","middle")
+   .attr("dy","0.35em")
+   .text(d=>d.name);
 }
 
-document.getElementById('returnLineageBtn').onclick=()=>{
-  if(lastLineageNode){
-    createLineageChart();
-    setTimeout(()=>{focusedNode=lastLineageNode;},0);
+document.getElementById("returnBtn").onclick=()=>{
+  if(lastLineageFocus){
+    renderLineage();
   }
 };
 </script>
