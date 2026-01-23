@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base href="https://www.weedtree.fyi">
+
+<script src="https://cdn.counter.dev/script.js"
+        data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993"
+        data-utcoffset="13"></script>
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-8527SLLPYV');
+</script>
+
+<title>WeedTree Strain Lineage Chart</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+<script src="https://d3js.org/d3.v6.min.js"></script>
+<script defer src="script.js"></script>
+</head>
+
+<body>
+<div class="header-ribbon">
+    <h1>WeedTree.fyi Strain Lineage Chart <span class="subhead">Work in progress, errors probable</span></h1>
+    <div class="header-buttons">
+        <div class="search-container">
+            <input type="text" id="strainSearch" placeholder="Locate strain">
+            <div id="strainDropdown"></div>
+        </div>
+        <button id="btn3" class="btn">About</button>
+    </div>
+</div>
+
+<div class="fullscreen-button-container">
+    <button id="fullscreenToggle" class="btn">Toggle Full Screen</button>
+    <div class="zoom-button-container">
+        <button id="zoomInButton" class="btn">+</button>
+        <button id="zoomOutButton" class="btn">-</button>
+    </div>
+    <button id="deselectButton" class="btn">De-select</button>
+</div>
+
+<div class="container">
+    <div class="chart-container">
+        <div id="lineageChart"></div>
+    </div>
+</div>
+
+<div class="popup-overlay"></div>
+<div id="popup1" class="popup"><div id="strainList" class="strain-list"></div></div>
+<div id="popup2" class="popup"><h5>Record and rate your strains - coming soon</h5></div>
+<div id="popup3" class="popup">
+    <button class="close-button">×</button>
+    <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
+</div>
+
+<div id="loading-message">Loading strain data, please wait...</div>
+<div id="centerLine"></div>
+</body>
+</html>
