@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html>
 <head>
 <base href="https://www.weedtree.fyi">
@@ -610,29 +610,47 @@ const createLineageChart = () => {
     g.selectAll('.pct-pill').remove();
     g.selectAll('.pct-pill-text').remove();
 
-    if (focusedNode === d) {
-        node.classed("dimmed", false);
-        node.classed("clicked", false);
-        link.classed("dimmed", false)
-            .attr("stroke-width", lineWidth + 1);
-        focusedNode = null;
-        resetZoom();
-        return;
-    }
+   if (focusedNode === d) {
+
+    g.selectAll('.pct-pill').remove();
+    g.selectAll('.pct-pill-text').remove();
+
+    node.classed("dimmed", false);
+    node.classed("clicked", false);
+    link.classed("dimmed", false)
+        .attr("stroke-width", lineWidth + 1);
+
+    focusedNode = null;
+    resetZoom();
+    return;
+}
+
 
     // ---- lineage isolation (UNCHANGED variant logic) ----
     const lineage = new Set();
 
     const getAncestors = (node) => {
-        lineage.add(node.id);
-        node.parents.forEach(parentId => {
-            const parent = nodes.find(n => n.id === parentId);
-            if (parent) {
-                lineage.add(parent.id);
-                getAncestors(parent);
-            }
-        });
-    };
+    lineage.add(node.id);
+
+    // If variant, climb through base strain
+    if (node.variant && node.baseId) {
+        const base = nodes.find(n => n.id === node.baseId);
+        if (base) {
+            lineage.add(base.id);
+            getAncestors(base);
+        }
+        return;
+    }
+
+    node.parents.forEach(parentId => {
+        const parent = nodes.find(n => n.id === parentId);
+        if (parent) {
+            lineage.add(parent.id);
+            getAncestors(parent);
+        }
+    });
+};
+
 
     const getDescendants = (nodeId) => {
         lineage.add(nodeId);
@@ -669,29 +687,37 @@ const createLineageChart = () => {
             const label = formatPercentage(pct);
 
             const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const pillPaddingX = 6;
-            const pillHeight = 14;
-            const textWidth = label.length * 6.5;
+            const pillHeight = nodePillHeight;              // SAME height as node
+            const pillPaddingX = 10;
+            const textWidth = label.length * 7;
             const pillWidth = textWidth + pillPaddingX * 2;
-            const pillX = nodeWidth / 2 + 10;
+
+            // FLUSH against node pill (no gap)
+            const pillX = nodeWidth / 2;
+
 
             const group = d3.select(this);
 
             group.append('rect')
-                .attr('class', 'pct-pill')
-                .attr('x', pillX)
-                .attr('y', -pillHeight / 2)
-                .attr('rx', pillHeight / 2)
-                .attr('ry', pillHeight / 2)
-                .attr('width', pillWidth)
-                .attr('height', pillHeight);
+    .attr('class', 'pct-pill')
+    .attr('x', pillX)
+    .attr('y', -pillHeight / 2)
+    .attr('rx', pillHeight / 2)
+    .attr('ry', pillHeight / 2)
+    .attr('width', pillWidth)
+    .attr('height', pillHeight)
+    .attr('fill', 'white')
+    .attr('stroke', nodeStrokeColor)
+    .attr('stroke-width', nodeStrokeWidth);
 
-            group.append('text')
-                .attr('class', 'pct-pill-text')
-                .attr('x', pillX + pillWidth / 2)
-                .attr('y', 4)
-                .attr('text-anchor', 'middle')
-                .text(label);
+group.append('text')
+    .attr('class', 'pct-pill-text')
+    .attr('x', pillX + pillWidth / 2)
+    .attr('y', nodeTextYOffset)   // SAME vertical text alignment
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'middle')
+    .text(label);
+
         });
 }
 
