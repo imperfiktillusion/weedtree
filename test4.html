@@ -1047,25 +1047,29 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
     }
 
     function addContribution(gen, node, amount) {
-        ensureGen(gen);
+    ensureGen(gen);
 
-        const key = node.name;
+    const key = node.name;
 
-        // Update global cumulative total
-        const prevTotal = cumulativeTotals.get(key) || 0;
-        const newTotal = prevTotal + amount;
-        cumulativeTotals.set(key, newTotal);
+    // Update global cumulative total
+    const prevTotal = cumulativeTotals.get(key) || 0;
+    const newTotal = prevTotal + amount;
+    cumulativeTotals.set(key, newTotal);
 
-        // Store / update generation entry with CUMULATIVE value
-        if (!generations[gen].has(key)) {
-            generations[gen].set(key, {
-                node,
-                percentage: newTotal
-            });
-        } else {
-            generations[gen].get(key).percentage = newTotal;
-        }
+    // IMPORTANT CHANGE:
+    // Only ever SET the generation value to the GLOBAL cumulative
+    // Never recompute or overwrite with smaller numbers
+    if (!generations[gen].has(key)) {
+        generations[gen].set(key, {
+            node,
+            percentage: newTotal
+        });
+    } else {
+        // Do NOTHING here — let the cumulative total stand
+        generations[gen].get(key).percentage = newTotal;
     }
+}
+
 
     // Root
     addContribution(0, focusNode, 100);
