@@ -78,6 +78,12 @@ body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;
 </svg>
 <script>
 let strainData = [], attributes = [], nodes = [], svg, g, zoom, focusedNode = null, lineWidth = 2;
+    // --- Shared node layout constants ---
+const nodePillHeight = 30;
+const nodeStrokeWidth = 3;
+const nodeStrokeColor = '#000';
+const nodeTextYOffset = 1;
+
 
 const showError = (message) => {
     document.getElementById('loading-message').style.display = 'none';
@@ -263,7 +269,8 @@ function calculateContributions(startNode, nodes) {
 
         if (parents.length === 0) return;
 
-        const split = amount / parents.length;
+        const split = parents.length ? amount / parents.length : 0;
+
 
         parents.forEach(parent => {
             const prev = contributions.get(parent.id) || 0;
@@ -633,14 +640,15 @@ const createLineageChart = () => {
     lineage.add(node.id);
 
     // If variant, climb through base strain
-    if (node.variant && node.baseId) {
-        const base = nodes.find(n => n.id === node.baseId);
-        if (base) {
-            lineage.add(base.id);
-            getAncestors(base);
-        }
-        return;
+if (node.variant) {
+    const base = nodes.find(n => n.name === node.variant);
+    if (base) {
+        lineage.add(base.id);
+        getAncestors(base);
     }
+    return;
+}
+
 
     node.parents.forEach(parentId => {
         const parent = nodes.find(n => n.id === parentId);
@@ -985,16 +993,23 @@ document.getElementById('zoomOutButton').addEventListener('click', () => {
 
 document.getElementById('deselectButton').addEventListener('click', () => {
     if (focusedNode) {
-        // Reset node styling
-        g.selectAll(".node").classed("dimmed", false);
-        g.selectAll(".node").classed("clicked", false);
-        g.selectAll("path.link").classed("dimmed", false)
+
+        g.selectAll('.pct-pill').remove();
+        g.selectAll('.pct-pill-text').remove();
+
+        g.selectAll(".node")
+            .classed("dimmed", false)
+            .classed("clicked", false);
+
+        g.selectAll("path.link")
+            .classed("dimmed", false)
             .attr("stroke-width", lineWidth + 1);
-        
-        // Clear focused node
+
         focusedNode = null;
+        resetZoom();
     }
 });
+
 
 function toggleFullScreen() {
     if (!document.fullscreenElement) {
