@@ -1032,13 +1032,13 @@ document.querySelectorAll('.popup').forEach(popup =>
 );
 
 function buildFamilyTreeData(focusNode, direction = 'ancestors') {
-    if (!focusNode) {
-        console.warn('Family tree build aborted: no focused node');
-        return [];
-    }
+    if (!focusNode) return [];
 
-    // generations[gen] = Map(nodeName -> { node, percentage })
+    // generations[gen] = Map(name -> { node, percentage })
     const generations = [];
+
+    // GLOBAL cumulative totals
+    const cumulativeTotals = new Map();
 
     function ensureGen(gen) {
         if (!generations[gen]) {
@@ -1046,48 +1046,54 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
         }
     }
 
-    function addOrAccumulate(gen, node, percentage) {
+    function addContribution(gen, node, amount) {
         ensureGen(gen);
 
         const key = node.name;
 
+        // Update global cumulative total
+        const prevTotal = cumulativeTotals.get(key) || 0;
+        const newTotal = prevTotal + amount;
+        cumulativeTotals.set(key, newTotal);
+
+        // Store / update generation entry with CUMULATIVE value
         if (!generations[gen].has(key)) {
             generations[gen].set(key, {
                 node,
-                percentage
+                percentage: newTotal
             });
         } else {
-            generations[gen].get(key).percentage += percentage;
+            generations[gen].get(key).percentage = newTotal;
         }
     }
 
     // Root
-    addOrAccumulate(0, focusNode, 100);
+    addContribution(0, focusNode, 100);
 
-    /* ============================
+    /* =========================
        ANCESTORS
-       ============================ */
+       ========================= */
     if (direction === 'ancestors') {
-        function walkUp(currentNode, gen, percentage) {
-            let parentNames = [];
+        function walkUp(currentNode, gen, amount) {
+            let parents = [];
 
             if (currentNode.parents && currentNode.parents.length) {
-                parentNames = parentNames.concat(currentNode.parents);
+                parents = parents.concat(currentNode.parents);
             }
 
             if (currentNode.variant) {
-                parentNames.push(currentNode.variant);
+                parents.push(currentNode.variant);
             }
 
-            if (!parentNames.length) return;
+            if (!parents.length) return;
 
-            const share = percentage / parentNames.length;
+            const share = amount / parents.length;
 
-            parentNames.forEach(parentName => {
+            parents.forEach(parentName => {
                 const parent = nodes.find(n => n.name === parentName);
                 if (!parent) return;
 
-                addOrAccumulate(gen + 1, parent, share);
+                addContribution(gen + 1, parent, share);
                 walkUp(parent, gen + 1, share);
             });
         }
@@ -1095,11 +1101,11 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
         walkUp(focusNode, 0, 100);
     }
 
-    /* ============================
-       DESCENDANTS
-       ============================ */
+    /* =========================
+       DESCENDANTS (unchanged)
+       ========================= */
     if (direction === 'descendants') {
-        function walkDown(currentNode, gen, percentage) {
+        function walkDown(currentNode, gen, amount) {
             const children = nodes.filter(n =>
                 (n.parents && n.parents.includes(currentNode.name)) ||
                 n.variant === currentNode.name
@@ -1107,10 +1113,10 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
 
             if (!children.length) return;
 
-            const share = percentage / children.length;
+            const share = amount / children.length;
 
             children.forEach(child => {
-                addOrAccumulate(gen + 1, child, share);
+                addContribution(gen + 1, child, share);
                 walkDown(child, gen + 1, share);
             });
         }
@@ -1118,11 +1124,12 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
         walkDown(focusNode, 0, 100);
     }
 
-    // Convert Maps → Arrays for rendering
+    // Convert Maps → Arrays
     return generations.map(genMap =>
         Array.from(genMap.values())
     );
 }
+
 
     
 function renderFamilyTreeView(familyTreeData) {
