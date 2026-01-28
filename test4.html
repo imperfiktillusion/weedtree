@@ -989,6 +989,15 @@ document.getElementById('familyTreeButton').addEventListener('click', () => {
 
     if (familyTreeMode) {
         familyTreeData = buildFamilyTreeData(focusedNode, familyTreeDirection);
+console.table(
+    familyTreeData.flatMap((generation, genIndex) =>
+        generation.map(d => ({
+            generation: genIndex,
+            strain: d.node.displayName,
+            rawPercentage: Number(d.percentage.toFixed(6))
+        }))
+    )
+);
 
         renderFamilyTreeView(familyTreeData);
 
