@@ -987,7 +987,14 @@ document.getElementById('familyTreeButton').addEventListener('click', () => {
     if (familyTreeMode) {
         // Enter family tree view
         familyTreeData = buildFamilyTreeData(focusedNode, familyTreeDirection);
-        console.log('Family Tree Data:', familyTreeData);
+        console.table(
+    familyTreeData.flat().map(d => ({
+        generation: familyTreeData.findIndex(g => g.includes(d)),
+        strain: d.node.name,
+        percentage: d.percentage
+    }))
+);
+
 
         g.selectAll('.node')
             .classed('dimmed', d => !familyTreeLineage.has(d.id));
