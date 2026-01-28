@@ -605,9 +605,10 @@ const createLineageChart = () => {
         .attr("y", -14);
 
     function highlightLineage(event, d) {
-    // Remove old percentage badges
-    g.selectAll('.pct-badge').remove();
-    g.selectAll('.pct-text').remove();
+
+    // Remove old percentage pills
+    g.selectAll('.pct-pill').remove();
+    g.selectAll('.pct-pill-text').remove();
 
     if (focusedNode === d) {
         node.classed("dimmed", false);
@@ -619,7 +620,7 @@ const createLineageChart = () => {
         return;
     }
 
-    // ---- lineage isolation (unchanged logic) ----
+    // ---- lineage isolation (UNCHANGED variant logic) ----
     const lineage = new Set();
 
     const getAncestors = (node) => {
@@ -657,44 +658,43 @@ const createLineageChart = () => {
     focusedNode = d;
     zoomToLineage(lineage);
 
-    // ---- NEW: cumulative contribution badges ----
+    // ---- cumulative contribution pills ----
     const contributions = calculateContributions(d, nodes);
 
     g.selectAll('.node')
         .filter(n => contributions.has(n.id))
         .each(function(n) {
+
             const pct = contributions.get(n.id);
             const label = formatPercentage(pct);
+
             const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const x = nodeWidth / 2 + 12;
+            const pillPaddingX = 6;
+            const pillHeight = 14;
+            const textWidth = label.length * 6.5;
+            const pillWidth = textWidth + pillPaddingX * 2;
+            const pillX = nodeWidth / 2 + 10;
 
             const group = d3.select(this);
 
-            const pillPaddingX = 6;
-const pillHeight = 14;
-const textWidth = label.length * 6.5;
-const pillWidth = textWidth + pillPaddingX * 2;
+            group.append('rect')
+                .attr('class', 'pct-pill')
+                .attr('x', pillX)
+                .attr('y', -pillHeight / 2)
+                .attr('rx', pillHeight / 2)
+                .attr('ry', pillHeight / 2)
+                .attr('width', pillWidth)
+                .attr('height', pillHeight);
 
-const x = nodeWidth / 2 + 10;
-
-group.append('rect')
-    .attr('class', 'pct-pill')
-    .attr('x', x)
-    .attr('y', -pillHeight / 2)
-    .attr('rx', pillHeight / 2)
-    .attr('ry', pillHeight / 2)
-    .attr('width', pillWidth)
-    .attr('height', pillHeight);
-
-group.append('text')
-    .attr('class', 'pct-pill-text')
-    .attr('x', x + pillWidth / 2)
-    .attr('y', 4)
-    .attr('text-anchor', 'middle')
-    .text(label);
-
+            group.append('text')
+                .attr('class', 'pct-pill-text')
+                .attr('x', pillX + pillWidth / 2)
+                .attr('y', 4)
+                .attr('text-anchor', 'middle')
+                .text(label);
         });
 }
+
 
 
     function highlightHoverLineage(event, d) {
