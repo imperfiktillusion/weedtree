@@ -1021,8 +1021,14 @@ document.querySelectorAll('.popup').forEach(popup =>
 );
 
 function buildFamilyTreeData(focusNode, direction = 'ancestors') {
+    // Safety guard
+    if (!focusNode) {
+        console.warn('Family tree build aborted: no focused node');
+        return [];
+    }
+
     const generations = [];
-    const visitedByGeneration = new Map(); // gen -> Set(ids)
+    const visitedByGeneration = new Map(); // gen -> Set(node.name)
 
     function addNode(gen, node, percentage) {
         if (!visitedByGeneration.has(gen)) {
@@ -1030,8 +1036,8 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
             generations[gen] = [];
         }
 
-        if (!visitedByGeneration.get(gen).has(node.id)) {
-            visitedByGeneration.get(gen).add(node.id);
+        if (!visitedByGeneration.get(gen).has(node.name)) {
+            visitedByGeneration.get(gen).add(node.name);
             generations[gen].push({
                 node,
                 percentage
@@ -1039,16 +1045,32 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
         }
     }
 
+    // Always start with focused strain
+    addNode(0, focusNode, 100);
+
+    /* ============================
+       ANCESTORS
+       ============================ */
     if (direction === 'ancestors') {
-        addNode(0, focusNode, 100);
-
         function walkUp(currentNode, gen, percentage) {
-            if (!currentNode.parents.length) return;
+            let parentNames = [];
 
-            const share = percentage / currentNode.parents.length;
+            // Normal parents
+            if (currentNode.parents && currentNode.parents.length) {
+                parentNames = parentNames.concat(currentNode.parents);
+            }
 
-            currentNode.parents.forEach(parentId => {
-                const parent = nodes.find(n => n.id === parentId);
+            // Variant treated as parent
+            if (currentNode.variant) {
+                parentNames.push(currentNode.variant);
+            }
+
+            if (!parentNames.length) return;
+
+            const share = percentage / parentNames.length;
+
+            parentNames.forEach(parentName => {
+                const parent = nodes.find(n => n.name === parentName);
                 if (!parent) return;
 
                 addNode(gen + 1, parent, share);
@@ -1059,12 +1081,13 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
         walkUp(focusNode, 0, 100);
     }
 
+    /* ============================
+       DESCENDANTS
+       ============================ */
     if (direction === 'descendants') {
-        addNode(0, focusNode, 100);
-
         function walkDown(currentNode, gen, percentage) {
             const children = nodes.filter(n =>
-                n.parents.includes(currentNode.id) ||
+                (n.parents && n.parents.includes(currentNode.name)) ||
                 n.variant === currentNode.name
             );
 
@@ -1083,6 +1106,7 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
 
     return generations;
 }
+
 
 </script>
 </body>
