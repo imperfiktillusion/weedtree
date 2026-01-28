@@ -982,38 +982,27 @@ function adjustButtonFontSize() {
 }
 
 document.getElementById('familyTreeButton').addEventListener('click', () => {
+    if (!focusedNode) return;
+
     familyTreeMode = !familyTreeMode;
 
     if (familyTreeMode) {
-        // Enter family tree view
         familyTreeData = buildFamilyTreeData(focusedNode, familyTreeDirection);
-        console.table(
-    familyTreeData.flat().map(d => ({
-        generation: familyTreeData.findIndex(g => g.includes(d)),
-        strain: d.node.name,
-        percentage: d.percentage
-    }))
-);
 
+        renderFamilyTreeView(familyTreeData);
 
-        g.selectAll('.node')
-            .classed('dimmed', d => !familyTreeLineage.has(d.id));
-
-        g.selectAll('.link')
-            .classed('dimmed', l =>
-                !familyTreeLineage.has(l.source) ||
-                !familyTreeLineage.has(l.target)
-            );
-
-        document.getElementById('familyTreeButton').innerText = 'Back to full chart';
+        document.getElementById('familyTreeButton').innerText = 'Back to lineage view';
     } else {
-        // Exit family tree view
-        g.selectAll('.node').classed('dimmed', false);
-        g.selectAll('.link').classed('dimmed', false);
+        // Rebuild original isolated lineage view
+        createLineageChart();
 
-        document.getElementById('familyTreeButton').innerText = 'View family tree view';
+        // Re-apply lineage isolation
+        highlightLineage(null, focusedNode);
+
+        document.getElementById('familyTreeButton').innerText = 'Family tree view';
     }
 });
+
 
         
 window.addEventListener('load', adjustButtonFontSize);
@@ -1113,7 +1102,78 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
 
     return generations;
 }
+function renderFamilyTreeView(familyTreeData) {
+    const container = document.getElementById('lineageChart');
 
+    // Clear existing SVG
+    container.innerHTML = '';
+
+    // Scroll-only container
+    container.style.overflowY = 'auto';
+    container.style.overflowX = 'hidden';
+
+    const rowHeight = 70;
+    const pillHeight = 30;
+    const pillWidth = 220;
+    const paddingX = 20;
+    const paddingY = 30;
+
+    const totalHeight = familyTreeData.length * rowHeight + paddingY * 2;
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('width', '100%')
+        .attr('height', totalHeight);
+
+    const g = svg.append('g')
+        .attr('transform', `translate(${paddingX}, ${paddingY})`);
+
+    // One row per generation
+    familyTreeData.forEach((generation, genIndex) => {
+        const y = genIndex * rowHeight;
+
+        // Sort by: child above → alphabetical
+        generation.sort((a, b) =>
+            a.node.name.localeCompare(b.node.name)
+        );
+
+        let xOffset = 0;
+
+        generation.forEach(entry => {
+            const node = entry.node;
+            const percentage = Math.round(entry.percentage);
+
+            const nodeGroup = g.append('g')
+                .attr('class', 'node')
+                .attr('transform', `translate(${xOffset}, ${y})`);
+
+            // Pill background (same style rules)
+            nodeGroup.append('rect')
+                .attr('rx', pillHeight / 2)
+                .attr('ry', pillHeight / 2)
+                .attr('width', pillWidth)
+                .attr('height', pillHeight)
+                .attr('x', 0)
+                .attr('y', -pillHeight / 2)
+                .attr('fill', getColorByDominance(node.dominance))
+                .attr('stroke', node.product ? 'black' : getColorByDominance(node.dominance))
+                .attr('stroke-width', node.product ? 3 : 2);
+
+            // Strain name + percentage (inline)
+            nodeGroup.append('text')
+                .text(`${node.displayName} ${percentage}%`)
+                .attr('x', 14)
+                .attr('y', 1)
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', 'black')
+                .style('font-size', '14px')
+                .style('font-family', "'Roboto', Arial, sans-serif")
+                .style('font-weight', 'bold');
+
+            xOffset += pillWidth + 12;
+        });
+    });
+}
 
 </script>
 </body>
