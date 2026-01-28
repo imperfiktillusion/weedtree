@@ -1017,32 +1017,37 @@ document.querySelectorAll('.popup').forEach(popup =>
 );
 
 function buildFamilyTreeData(focusNode, direction = 'ancestors') {
-    // Safety guard
     if (!focusNode) {
         console.warn('Family tree build aborted: no focused node');
         return [];
     }
 
+    // generations[gen] = Map(nodeName -> { node, percentage })
     const generations = [];
-    const visitedByGeneration = new Map(); // gen -> Set(node.name)
 
-    function addNode(gen, node, percentage) {
-        if (!visitedByGeneration.has(gen)) {
-            visitedByGeneration.set(gen, new Set());
-            generations[gen] = [];
-        }
-
-        if (!visitedByGeneration.get(gen).has(node.name)) {
-            visitedByGeneration.get(gen).add(node.name);
-            generations[gen].push({
-                node,
-                percentage
-            });
+    function ensureGen(gen) {
+        if (!generations[gen]) {
+            generations[gen] = new Map();
         }
     }
 
-    // Always start with focused strain
-    addNode(0, focusNode, 100);
+    function addOrAccumulate(gen, node, percentage) {
+        ensureGen(gen);
+
+        const key = node.name;
+
+        if (!generations[gen].has(key)) {
+            generations[gen].set(key, {
+                node,
+                percentage
+            });
+        } else {
+            generations[gen].get(key).percentage += percentage;
+        }
+    }
+
+    // Root
+    addOrAccumulate(0, focusNode, 100);
 
     /* ============================
        ANCESTORS
@@ -1051,12 +1056,10 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
         function walkUp(currentNode, gen, percentage) {
             let parentNames = [];
 
-            // Normal parents
             if (currentNode.parents && currentNode.parents.length) {
                 parentNames = parentNames.concat(currentNode.parents);
             }
 
-            // Variant treated as parent
             if (currentNode.variant) {
                 parentNames.push(currentNode.variant);
             }
@@ -1069,7 +1072,7 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
                 const parent = nodes.find(n => n.name === parentName);
                 if (!parent) return;
 
-                addNode(gen + 1, parent, share);
+                addOrAccumulate(gen + 1, parent, share);
                 walkUp(parent, gen + 1, share);
             });
         }
@@ -1092,7 +1095,7 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
             const share = percentage / children.length;
 
             children.forEach(child => {
-                addNode(gen + 1, child, share);
+                addOrAccumulate(gen + 1, child, share);
                 walkDown(child, gen + 1, share);
             });
         }
@@ -1100,8 +1103,13 @@ function buildFamilyTreeData(focusNode, direction = 'ancestors') {
         walkDown(focusNode, 0, 100);
     }
 
-    return generations;
+    // Convert Maps → Arrays for rendering
+    return generations.map(genMap =>
+        Array.from(genMap.values())
+    );
 }
+
+    
 function renderFamilyTreeView(familyTreeData) {
     const container = document.getElementById('lineageChart');
 
