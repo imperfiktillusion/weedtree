@@ -80,6 +80,9 @@ body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;
 let strainData = [], attributes = [], nodes = [], svg, g, zoom, focusedNode = null, lineWidth = 2;
 let familyTreeMode = false;
 let familyTreeLineage = new Set();
+let familyTreeDirection = 'ancestors'; // 'ancestors' or 'descendants'
+let familyTreeData = [];
+
 
 const showError = (message) => {
     document.getElementById('loading-message').style.display = 'none';
@@ -983,6 +986,9 @@ document.getElementById('familyTreeButton').addEventListener('click', () => {
 
     if (familyTreeMode) {
         // Enter family tree view
+        familyTreeData = buildFamilyTreeData(focusedNode, familyTreeDirection);
+        console.log('Family Tree Data:', familyTreeData);
+
         g.selectAll('.node')
             .classed('dimmed', d => !familyTreeLineage.has(d.id));
 
@@ -1013,6 +1019,71 @@ document.querySelector('.popup-overlay').addEventListener('click', function() {
 document.querySelectorAll('.popup').forEach(popup => 
     popup.addEventListener('click', event => event.stopPropagation())
 );
+
+function buildFamilyTreeData(focusNode, direction = 'ancestors') {
+    const generations = [];
+    const visitedByGeneration = new Map(); // gen -> Set(ids)
+
+    function addNode(gen, node, percentage) {
+        if (!visitedByGeneration.has(gen)) {
+            visitedByGeneration.set(gen, new Set());
+            generations[gen] = [];
+        }
+
+        if (!visitedByGeneration.get(gen).has(node.id)) {
+            visitedByGeneration.get(gen).add(node.id);
+            generations[gen].push({
+                node,
+                percentage
+            });
+        }
+    }
+
+    if (direction === 'ancestors') {
+        addNode(0, focusNode, 100);
+
+        function walkUp(currentNode, gen, percentage) {
+            if (!currentNode.parents.length) return;
+
+            const share = percentage / currentNode.parents.length;
+
+            currentNode.parents.forEach(parentId => {
+                const parent = nodes.find(n => n.id === parentId);
+                if (!parent) return;
+
+                addNode(gen + 1, parent, share);
+                walkUp(parent, gen + 1, share);
+            });
+        }
+
+        walkUp(focusNode, 0, 100);
+    }
+
+    if (direction === 'descendants') {
+        addNode(0, focusNode, 100);
+
+        function walkDown(currentNode, gen, percentage) {
+            const children = nodes.filter(n =>
+                n.parents.includes(currentNode.id) ||
+                n.variant === currentNode.name
+            );
+
+            if (!children.length) return;
+
+            const share = percentage / children.length;
+
+            children.forEach(child => {
+                addNode(gen + 1, child, share);
+                walkDown(child, gen + 1, share);
+            });
+        }
+
+        walkDown(focusNode, 0, 100);
+    }
+
+    return generations;
+}
+
 </script>
 </body>
 </html>
