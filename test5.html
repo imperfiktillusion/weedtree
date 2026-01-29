@@ -301,6 +301,30 @@ function calculateContributions(startNode, nodes) {
 }
 
 
+// Build cumulative descendant contribution map
+function calculateDescendantContributions(startNode, nodes) {
+    const contributions = new Map();
+
+    function walk(node, amount) {
+        const children = nodes.filter(n =>
+            n.parents.includes(node.id) ||
+            n.variant === node.name
+        );
+
+        if (children.length === 0) return;
+
+        const split = amount / children.length;
+
+        children.forEach(child => {
+            const prev = contributions.get(child.id) || 0;
+            contributions.set(child.id, prev + split);
+            walk(child, split);
+        });
+    }
+
+    walk(startNode, 100);
+    return contributions;
+}
 
 
 
@@ -710,10 +734,25 @@ const contributionStartNode = d.variant
     ? nodes.find(n => n.name === d.variant)
     : d;
 
-    // ---- cumulative contribution pills ----
-const contributions = contributionStartNode
+const ancestorContrib = contributionStartNode
     ? calculateContributions(contributionStartNode, nodes)
     : new Map();
+
+const descendantContrib = focusedNode
+    ? calculateDescendantContributions(focusedNode, nodes)
+    : new Map();
+
+// Merge maps
+const contributions = new Map();
+
+ancestorContrib.forEach((v, k) => {
+    contributions.set(k, v);
+});
+
+descendantContrib.forEach((v, k) => {
+    contributions.set(k, (contributions.get(k) || 0) + v);
+});
+
 if (contributionStartNode) {
     contributions.set(contributionStartNode.id, 100);
 }
