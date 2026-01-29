@@ -555,39 +555,12 @@ const node = g.append("g")
         g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
     });
 
-// --- DRAGGING ---
-node.call(d3.drag()
-    .filter(function(event) {
-        // Desktop: allow left-click drag immediately
-        if (event.type === "mousedown" && event.button === 0) return true;
-
-        // Touch: require long press
-        if (event.type === "touchstart") {
-            const nodeElement = this;
-            let longPressTimer = setTimeout(() => {
-                nodeElement.__allowDrag = true;
-            }, 300); // 300ms long press
-
-            const clearTimer = () => {
-                clearTimeout(longPressTimer);
-                nodeElement.__allowDrag = false;
-                nodeElement.removeEventListener('touchend', clearTimer);
-                nodeElement.removeEventListener('touchmove', clearTimer);
-                nodeElement.removeEventListener('touchcancel', clearTimer);
-            };
-
-            nodeElement.addEventListener('touchend', clearTimer);
-            nodeElement.addEventListener('touchmove', clearTimer);
-            nodeElement.addEventListener('touchcancel', clearTimer);
-        }
-
-        return this.__allowDrag === true;
-    })
+// --- DRAG BEHAVIOR ---
+const drag = d3.drag()
     .on("start", function(event, d) {
         dragging = true;
         d3.select(this).raise();
 
-        // store offsets for variants
         d.variantOffsets = nodes.filter(n => n.variant === d.name)
             .map(v => ({ id: v.id, offsetY: v.y - d.y }));
     })
@@ -595,7 +568,6 @@ node.call(d3.drag()
         d.y = event.y;
         d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
 
-        // move variants with stored offsets
         if (d.variantOffsets) {
             d.variantOffsets.forEach(vo => {
                 const variantNode = nodes.find(n => n.id === vo.id);
@@ -606,7 +578,6 @@ node.call(d3.drag()
             });
         }
 
-        // update links
         g.selectAll(".link")
             .attr("d", l => {
                 const sourceNode = nodes.find(n => n.id === l.source);
@@ -619,11 +590,37 @@ node.call(d3.drag()
                 return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
             });
     })
-    .on("end", function(event, d) {
+    .on("end", function() {
         dragging = false;
-        this.__allowDrag = false; // reset long-press flag
-    })
-);
+    });
+
+// Attach drag for desktop immediately
+node.call(drag);
+
+// --- MOBILE LONG-PRESS ---
+node.each(function(d) {
+    const nodeEl = this;
+    let longPressTimer;
+
+    nodeEl.addEventListener("touchstart", function(event) {
+        event.preventDefault();
+        longPressTimer = setTimeout(() => {
+            // Temporarily allow drag for this node
+            nodeEl.__allowDrag = true;
+            d3.select(nodeEl).call(drag); // programmatically attach drag
+        }, 300); // 300ms long press
+    });
+
+    const cancel = () => {
+        clearTimeout(longPressTimer);
+        nodeEl.__allowDrag = false;
+    };
+
+    nodeEl.addEventListener("touchend", cancel);
+    nodeEl.addEventListener("touchmove", cancel);
+    nodeEl.addEventListener("touchcancel", cancel);
+});
+
 
 
         // move pct pills along with nodes
