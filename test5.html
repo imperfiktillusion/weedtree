@@ -713,25 +713,28 @@ const contributions = contributionStartNode
 
             const group = d3.select(this);
 
- group.insert('rect', ':first-child')
-            .attr('class', 'pct-pill')
-            .attr('x', pillX)
-            .attr('y', -pillHeight / 2)
-            .attr('rx', pillHeight / 2)
-            .attr('ry', pillHeight / 2)
-            .attr('width', pillWidth)
-            .attr('height', pillHeight)
-            .attr('fill', 'white')
-            .attr('stroke', nodeStrokeColor)
-            .attr('stroke-width', nodeStrokeWidth);
+ group.append('rect')
+    .attr('class', 'pct-pill')
+    .attr('x', pillX)
+    .attr('y', -pillHeight / 2)
+    .attr('rx', pillHeight / 2)
+    .attr('ry', pillHeight / 2)
+    .attr('width', pillWidth)
+    .attr('height', pillHeight)
+    .attr('fill', 'white')
+    .attr('stroke', nodeStrokeColor)
+    .attr('stroke-width', nodeStrokeWidth)
+    .lower();   // <- move behind
 
-        group.append('text')
-            .attr('class', 'pct-pill-text')
-            .attr('x',  0)
-            .attr('y', 1)
-            .attr('text-anchor', 'right')
-            .attr('dominant-baseline', 'middle')
-            .text(label);
+group.append('text')
+    .attr('class', 'pct-pill-text')
+    .attr('x', -9)
+    .attr('y', 1)
+    .attr('text-anchor', 'right')
+    .attr('dominant-baseline', 'middle')
+    .text(label)
+    .lower();   // <- move behind
+
     });
 ;
 
