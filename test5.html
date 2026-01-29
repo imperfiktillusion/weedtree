@@ -726,12 +726,12 @@ pillGroup.append('rect')
     .attr('stroke-width', nodeStrokeWidth)
     .lower(); // behind everything
 
-group.append('text')
+pillGroup.append('text')
     .attr('class', 'pct-pill-text')
-    .attr('x', pillX + pillWidth - pillPadding) // x = left of pill + width - padding
-    .attr('y', 0)                               // vertically centered
-    .attr('text-anchor', 'end')                 // anchor at the end of the text
-    .attr('dominant-baseline', 'middle')        // vertical centering
+    .attr('x', pillWidth/2 - pillPadding) // relative to pillGroup
+    .attr('y', 1)
+    .attr('text-anchor', 'end')
+    .attr('dominant-baseline', 'middle')
     .text(label)
     .style('fill', 'white')
     .style('pointer-events', 'none');
