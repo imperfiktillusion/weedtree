@@ -301,7 +301,6 @@ function calculateContributions(startNode, nodes) {
 }
 
 
-// Build cumulative descendant contribution map
 function calculateDescendantContributions(startNode, nodes) {
     const contributions = new Map();
 
@@ -311,18 +310,24 @@ function calculateDescendantContributions(startNode, nodes) {
             n.variant === node.name
         );
 
-        if (children.length === 0) return;
-
-        const split = amount / children.length;
-
         children.forEach(child => {
+            // Determine how many parents this child has
+            const parentCount = child.variant
+                ? 1
+                : child.parents.length || 1;
+
+            const share = amount / parentCount;
+
             const prev = contributions.get(child.id) || 0;
-            contributions.set(child.id, prev + split);
-            walk(child, split);
+            contributions.set(child.id, prev + share);
+
+            walk(child, share);
         });
     }
 
+    // Start with 100% *at the focused strain itself*
     walk(startNode, 100);
+
     return contributions;
 }
 
