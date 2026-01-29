@@ -556,59 +556,88 @@ const node = g.append("g")
     });
 
 // --- DRAGGING ---
+// --- DRAGGING with long press on mobile ---
 node.call(d3.drag()
     .on("start", function(event, d) {
-        dragging = true;
-        d3.select(this).raise();
-
-        // store offsets for variants
-        d.variantOffsets = nodes.filter(n => n.variant === d.name)
-            .map(v => ({ id: v.id, offsetY: v.y - d.y }));
+        // Skip immediate drag on touch devices
+        if (event.sourceEvent.type.startsWith("touch")) {
+            d.longPressTimer = setTimeout(() => {
+                startDrag(event, d, this);
+            }, 400); // 400ms long press
+        } else {
+            // Mouse devices start immediately
+            startDrag(event, d, this);
+        }
     })
     .on("drag", function(event, d) {
-        d.y = event.y;
-        d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
-
-        // move variants with stored offsets
-        if (d.variantOffsets) {
-            d.variantOffsets.forEach(vo => {
-                const variantNode = nodes.find(n => n.id === vo.id);
-                variantNode.y = d.y + vo.offsetY;
-                g.selectAll(".node")
-                    .filter(n => n.id === variantNode.id)
-                    .attr("transform", `translate(${variantNode.x},${variantNode.y})`);
-            });
-        }
-
-        // move pct pills along with nodes
-        g.selectAll('.pct-pill')
-            .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
-            .attr("transform", p => {
-                const nodeRef = nodes.find(n => n.id === p.nodeId);
-                return `translate(${nodeRef.x},${nodeRef.y})`;
-            });
-
-        g.selectAll('.pct-pill-text')
-            .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
-            .attr("transform", p => {
-                const nodeRef = nodes.find(n => n.id === p.nodeId);
-                return `translate(${nodeRef.x},${nodeRef.y})`;
-            });
-
-        // update links
-        g.selectAll(".link").attr("d", l => {
-            const sourceNode = nodes.find(n => n.id === l.source);
-            const targetNode = nodes.find(n => n.id === l.target);
-            const sourcePillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const targetPillWidth = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const sourceX = sourceNode.x + sourcePillWidth / 2;
-            const targetX = targetNode.x - targetPillWidth / 2;
-            const midX = (sourceX + targetX) / 2;
-            return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
-        });
+        if (!d.dragging) return; // Only drag if long press activated
+        dragNode(event, d, this);
     })
-    .on("end", function() { dragging = false; })
+    .on("end", function(event, d) {
+        if (d.longPressTimer) {
+            clearTimeout(d.longPressTimer);
+            d.longPressTimer = null;
+        }
+        if (!d.dragging) return;
+        d.dragging = false;
+        dragging = false;
+    })
 );
+
+// --- Helper functions ---
+function startDrag(event, d, nodeElement) {
+    dragging = true;
+    d.dragging = true;
+    d3.select(nodeElement).raise();
+
+    // store offsets for variants
+    d.variantOffsets = nodes.filter(n => n.variant === d.name)
+        .map(v => ({ id: v.id, offsetY: v.y - d.y }));
+}
+
+function dragNode(event, d, nodeElement) {
+    d.y = event.y;
+    d3.select(nodeElement).attr("transform", `translate(${d.x},${d.y})`);
+
+    // move variants with stored offsets
+    if (d.variantOffsets) {
+        d.variantOffsets.forEach(vo => {
+            const variantNode = nodes.find(n => n.id === vo.id);
+            variantNode.y = d.y + vo.offsetY;
+            g.selectAll(".node")
+                .filter(n => n.id === variantNode.id)
+                .attr("transform", `translate(${variantNode.x},${variantNode.y})`);
+        });
+    }
+
+    // move pct pills along with nodes
+    g.selectAll('.pct-pill')
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+        .attr("transform", p => {
+            const nodeRef = nodes.find(n => n.id === p.nodeId);
+            return `translate(${nodeRef.x},${nodeRef.y})`;
+        });
+
+    g.selectAll('.pct-pill-text')
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+        .attr("transform", p => {
+            const nodeRef = nodes.find(n => n.id === p.nodeId);
+            return `translate(${nodeRef.x},${nodeRef.y})`;
+        });
+
+    // update links
+    g.selectAll(".link").attr("d", l => {
+        const sourceNode = nodes.find(n => n.id === l.source);
+        const targetNode = nodes.find(n => n.id === l.target);
+        const sourcePillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const targetPillWidth = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const sourceX = sourceNode.x + sourcePillWidth / 2;
+        const targetX = targetNode.x - targetPillWidth / 2;
+        const midX = (sourceX + targetX) / 2;
+        return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
+    });
+}
+
 
 
     // First append the rect background
