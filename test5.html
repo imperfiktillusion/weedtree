@@ -707,31 +707,33 @@ const contributions = contributionStartNode
             const pillHeight = nodePillHeight;              // SAME height as node - nodePillHeight;  
             const pillPaddingX = 10;
             const textWidth = label.length * 7;
-            const pillWidth =  90; //textWidth + pillPaddingX * 2;
-            const pillX = nodeWidth / 4;         //FLUSH against node pill (no gap) - nodeWidth / 2;
+            const pillWidth =  90; 
+            const pillX = nodeWidth / 4;        
 
 
             const group = d3.select(this);
 
  group.insert('rect', ':first-child')
-    .attr('class', 'pct-pill')
-    .attr('x', pillX)
-    .attr('y', pillHeight / 2 )
-    .attr('rx', pillHeight / 2)
-    .attr('ry', pillHeight / 2)
-    .attr('width', pillWidth)
-    .attr('height', pillHeight)
-    .attr('fill', 'white')
-    .attr('stroke', nodeStrokeColor)
-    .attr('stroke-width', nodeStrokeWidth);
+            .attr('class', 'pct-pill')
+            .attr('x', pillX)
+            .attr('y', -pillHeight / 2)
+            .attr('rx', pillHeight / 2)
+            .attr('ry', pillHeight / 2)
+            .attr('width', pillWidth)
+            .attr('height', pillHeight)
+            .attr('fill', 'white')
+            .attr('stroke', nodeStrokeColor)
+            .attr('stroke-width', nodeStrokeWidth);
 
-group.insert('text', ':first-child')
-    .attr('class', 'pct-pill-text')
-    .attr('x', pillX + pillWidth / 2)
-    .attr('y', pillHeight + pillHeight / 2) 
-    .attr('text-anchor', 'middle')
-    .attr('dominant-baseline', 'middle')
-    .text(label);
+        group.append('text')
+            .attr('class', 'pct-pill-text')
+            .attr('x',  0)
+            .attr('y', 1)
+            .attr('text-anchor', 'right')
+            .attr('dominant-baseline', 'middle')
+            .text(label);
+    });
+;
 
 
 
