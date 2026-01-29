@@ -726,9 +726,9 @@ g.selectAll('.node')
     // **Append text on top of everything**
     group.append('text')
       .attr('class', 'pct-pill-text')
-      .attr('x', pillX/2 + pillWidth - pillPaddingX) 
+      .attr('x', nodeWidth / 2 + 40) //pillX/2 + pillWidth - pillPaddingX
       .attr('y', 1)
-      .attr('text-anchor', 'end')
+      .attr('text-anchor', 'centre')
       .attr('dominant-baseline', 'middle')
       .text(label)
       .style('fill', 'white')
