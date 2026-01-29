@@ -724,14 +724,15 @@ const contributions = contributionStartNode
             .attr('stroke-width', nodeStrokeWidth);
 
         // Append the percentage text **on top of everything**
-        group.append('text')
-            .attr('class', 'pct-pill-text')
-            .attr('x', pillX + pillWidth / 2 + 2) // center inside pill
-            .attr('y', 1)
-            .attr('text-anchor', 'middle')
-            .attr('dominant-baseline', 'middle')
-            .text(label)
-            .style('fill', 'white';'pointer-events', 'none'); // ensures text doesn’t block node interactions
+       group.append('text')
+    .attr('class', 'pct-pill-text')
+    .attr('x', pillX + pillWidth / 2)
+    .attr('y', 1)
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'middle')
+    .text(label)
+    .style('fill', 'white')          // text color
+    .style('pointer-events', 'none'); // make it ignore mouse events
 
         });
 }
