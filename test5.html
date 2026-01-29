@@ -707,9 +707,7 @@ const contributions = contributionStartNode
             const pillHeight = nodePillHeight;              // SAME height as node - nodePillHeight;  
             const pillPaddingX = 10;
             const textWidth = label.length * 7;
-            const pillWidth = textWidth + pillPaddingX * 2;
-
-            
+            const pillWidth =  80; //textWidth + pillPaddingX * 2;
             const pillX = nodeWidth / 4;         //FLUSH against node pill (no gap) - nodeWidth / 2;
 
 
@@ -729,7 +727,7 @@ const contributions = contributionStartNode
 
 group.append('text')
     .attr('class', 'pct-pill-text')
-    .attr('x', pillX + pillWidth / 2 - 9)
+    .attr('x',  - 9)   //pillX + pillWidth / 2
     .attr('y', 1) // same baseline as strain text
     .attr('text-anchor', 'right')
     .attr('dominant-baseline', 'middle')
