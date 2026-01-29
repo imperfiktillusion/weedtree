@@ -973,22 +973,52 @@ function setupStrainSearch() {
             .call(d3.zoom().transform, d3.zoomIdentity.translate(x, y).scale(scale));
     }
 }
-// --- FIX: remove undefined fetchData() call and ensure About popup opens ---
+
 window.addEventListener('load', function() {
-    // Add event listeners for About popup
     const aboutBtn = document.getElementById('btn3');
     const popup3 = document.getElementById('popup3');
     const overlay = document.querySelector('.popup-overlay');
+
+    // Always show the About popup on load
+    if (popup3 && overlay) {
+        popup3.style.display = 'block';
+        overlay.style.display = 'block';
+    }
+
+    // Check URL for a strain parameter
+    const params = new URLSearchParams(window.location.search);
+    const strainParam = params.get('strain');
+    let pendingStrainNode = null;
+
+    if (strainParam) {
+        // Find the strain node but don't highlight yet
+        pendingStrainNode = nodes.find(n => n.name.toLowerCase() === strainParam.toLowerCase());
+    }
+
+    // Close button for About popup
+    document.querySelectorAll('.close-button').forEach(button => {
+        button.addEventListener('click', function() {
+            const popup = this.closest('.popup');
+            popup.style.display = 'none';
+            overlay.style.display = 'none';
+
+            // After closing, highlight the strain if one was pending
+            if (pendingStrainNode) {
+                highlightLineage(null, pendingStrainNode);
+                pendingStrainNode = null;
+            }
+        });
+    });
+
+    // About button manually opens popup
     if (aboutBtn && popup3 && overlay) {
         aboutBtn.addEventListener('click', () => {
             popup3.style.display = 'block';
             overlay.style.display = 'block';
         });
-        // Show About popup on initial load
-        popup3.style.display = 'block';
-        overlay.style.display = 'block';
     }
 });
+
 
 document.querySelectorAll('.close-button').forEach(button => {
     button.addEventListener('click', function() {
