@@ -254,7 +254,7 @@ function calculateColumn1Positions() {
 }
 
   function formatPercentage(p) {
-    return p < 1 ? '<1%' : `${p.toFixed(1)}%`;
+    return p < 1 ? '<1%' : `${p.toFixed(0)}%`;
 }
 
 // Build cumulative contribution map for a focused strain
@@ -704,13 +704,13 @@ const contributions = contributionStartNode
             const label = formatPercentage(pct);
 
             const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const pillHeight = nodePillHeight;              // SAME height as node
+            const pillHeight = nodePillHeight;              // SAME height as node - nodePillHeight;  
             const pillPaddingX = 10;
             const textWidth = label.length * 7;
             const pillWidth = textWidth + pillPaddingX * 2;
 
-            // FLUSH against node pill (no gap)
-           // const pillX = nodeWidth / 2;
+            
+            const pillX = nodeWidth / 4;         //FLUSH against node pill (no gap) - nodeWidth / 2;
 
 
             const group = d3.select(this);
