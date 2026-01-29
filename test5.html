@@ -260,44 +260,35 @@ function calculateColumn1Positions() {
 
 function calculateContributions(startNode, nodes) {
     const contributions = new Map();
-    const visited = new Set();
-
-    function resolveNode(node) {
-        if (node.variant) {
-            const base = nodes.find(n => n.name === node.variant);
-            return base || node;
-        }
-        return node;
-    }
 
     function walk(node, amount) {
-        const resolved = resolveNode(node);
+        if (!node.parents || node.parents.length === 0) return;
 
-        // Prevent infinite loops
-        const visitKey = resolved.id + ':' + amount;
-        if (visited.has(visitKey)) return;
-        visited.add(visitKey);
-
-        if (!resolved.parents || resolved.parents.length === 0) return;
-
-        const parents = resolved.parents
+        const parents = node.parents
             .map(pid => nodes.find(n => n.id === pid))
             .filter(Boolean);
 
-        if (parents.length === 0) return;
+        if (!parents.length) return;
 
         const split = amount / parents.length;
 
         parents.forEach(parent => {
             const prev = contributions.get(parent.id) || 0;
             contributions.set(parent.id, prev + split);
+
+            // keep walking upward
             walk(parent, split);
         });
     }
 
+    // 🔑 IMPORTANT:
+    // start walking FROM the start node's parents,
+    // but do NOT assign % to the start node itself
     walk(startNode, 100);
+
     return contributions;
 }
+
 
 
 
