@@ -61,8 +61,8 @@ body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;
     <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
     <p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself. </p>
     <p>I don't claim that the chart is completely accurate, it is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously it is far from complete.</p>
-    <p></br>Push F11 to toggle full screen.</br>Use the mouse or controls to zoom in and out.</br> Click on a strain to isolate its lineage.</p>
-    <p>Isolation mode shows rough percentage of contribution based on parents, but does not account for the realities and nuances of selective breeding.</p>
+    <p></br>Push F11 to toggle full screen.</br>Use the mouse or controls to zoom in and out.</br> Nodes are draggable within their column.</br> Click on a strain to isolate its lineage.</p>
+    <p>Isolation mode shows rough percentage of contribution based on lineage, but will be inaccurate as it does not account for the realities and nuances of selective breeding.</p>
 </div>
 <div id="loading-message">Loading strain data, please wait...</div>
 <div id="centerLine"></div>
@@ -557,6 +557,32 @@ const node = g.append("g")
 
 // --- DRAGGING ---
 node.call(d3.drag()
+    .filter(function(event) {
+        // Desktop: allow left-click drag immediately
+        if (event.type === "mousedown" && event.button === 0) return true;
+
+        // Touch: require long press
+        if (event.type === "touchstart") {
+            const nodeElement = this;
+            let longPressTimer = setTimeout(() => {
+                nodeElement.__allowDrag = true;
+            }, 300); // 300ms long press
+
+            const clearTimer = () => {
+                clearTimeout(longPressTimer);
+                nodeElement.__allowDrag = false;
+                nodeElement.removeEventListener('touchend', clearTimer);
+                nodeElement.removeEventListener('touchmove', clearTimer);
+                nodeElement.removeEventListener('touchcancel', clearTimer);
+            };
+
+            nodeElement.addEventListener('touchend', clearTimer);
+            nodeElement.addEventListener('touchmove', clearTimer);
+            nodeElement.addEventListener('touchcancel', clearTimer);
+        }
+
+        return this.__allowDrag === true;
+    })
     .on("start", function(event, d) {
         dragging = true;
         d3.select(this).raise();
@@ -579,6 +605,26 @@ node.call(d3.drag()
                     .attr("transform", `translate(${variantNode.x},${variantNode.y})`);
             });
         }
+
+        // update links
+        g.selectAll(".link")
+            .attr("d", l => {
+                const sourceNode = nodes.find(n => n.id === l.source);
+                const targetNode = nodes.find(n => n.id === l.target);
+                const sourcePillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+                const targetPillWidth = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+                const sourceX = sourceNode.x + sourcePillWidth / 2;
+                const targetX = targetNode.x - targetPillWidth / 2;
+                const midX = (sourceX + targetX) / 2;
+                return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
+            });
+    })
+    .on("end", function(event, d) {
+        dragging = false;
+        this.__allowDrag = false; // reset long-press flag
+    })
+);
+
 
         // move pct pills along with nodes
         g.selectAll('.pct-pill')
