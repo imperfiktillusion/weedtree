@@ -561,21 +561,29 @@ const createLineageChart = () => {
   
 node.call(d3.drag()
     .on("start", function(event, d) {
-        d3.select(this).raise(); // bring the node to front
+        d3.select(this).raise();
+
+        // Store variant offsets relative to parent
+        d.variantOffsets = nodes
+            .filter(n => n.variant === d.name)
+            .map(v => ({ id: v.id, offsetY: v.y - d.y }));
     })
     .on("drag", function(event, d) {
-        d.y = event.y; // update the parent node's y position
+        d.y = event.y;
         d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
 
-        // Move variants along with the parent
-        nodes.filter(n => n.variant === d.name).forEach(variant => {
-            variant.y = d.y + (nodes.indexOf(variant)+1) * (nodePillHeight + 2); 
-            g.selectAll(".node")
-                .filter(n => n.id === variant.id)
-                .attr("transform", `translate(${variant.x},${variant.y})`);
-        });
+        // Update variants based on stored offset
+        if (d.variantOffsets) {
+            d.variantOffsets.forEach(vo => {
+                const variantNode = nodes.find(n => n.id === vo.id);
+                variantNode.y = d.y + vo.offsetY;
+                g.selectAll(".node")
+                    .filter(n => n.id === variantNode.id)
+                    .attr("transform", `translate(${variantNode.x},${variantNode.y})`);
+            });
+        }
 
-        // Update links dynamically
+        // Update all links AFTER nodes are positioned
         g.selectAll(".link")
             .attr("d", l => {
                 const sourceNode = nodes.find(n => n.id === l.source);
