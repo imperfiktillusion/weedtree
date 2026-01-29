@@ -254,7 +254,7 @@ function calculateColumn1Positions() {
 }
 
   function formatPercentage(p) {
-    return p < 1 ? '<1%' : `${p.toFixed(0)}%`;
+    return p < 10 ? '<10%' : `${p.toFixed(0)}%`;
 }
 
 // Build cumulative contribution map for a focused strain
