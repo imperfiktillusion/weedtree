@@ -697,45 +697,43 @@ const contributions = contributionStartNode
 
 
     g.selectAll('.node')
-        .filter(n => contributions.has(n.id))
-        .each(function(n) {
+    .filter(n => contributions.has(n.id))
+    .each(function(n) {
+        const pct = contributions.get(n.id);
+        const label = formatPercentage(pct);
 
-            const pct = contributions.get(n.id);
-            const label = formatPercentage(pct);
+        const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const pillHeight = nodePillHeight;
+        const pillPaddingX = 10;
+        const pillWidth = 90; 
+        const pillX = nodeWidth / 4;
 
-            const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const pillHeight = nodePillHeight;              // SAME height as node - nodePillHeight;  
-            const pillPaddingX = 10;
-            const textWidth = label.length * 7;
-            const pillWidth =  90; 
-            const pillX = nodeWidth / 4;        
+        const group = d3.select(this);
 
+        // Insert the rect **behind the main node rect**
+        group.insert('rect', ':first-child')
+            .attr('class', 'pct-pill')
+            .attr('x', pillX)
+            .attr('y', -pillHeight / 2)
+            .attr('rx', pillHeight / 2)
+            .attr('ry', pillHeight / 2)
+            .attr('width', pillWidth)
+            .attr('height', pillHeight)
+            .attr('fill', 'white')
+            .attr('stroke', nodeStrokeColor)
+            .attr('stroke-width', nodeStrokeWidth);
 
-            const group = d3.select(this);
-
- group.append('rect')
-    .attr('class', 'pct-pill')
-    .attr('x', pillX)
-    .attr('y', -pillHeight / 2)
-    .attr('rx', pillHeight / 2)
-    .attr('ry', pillHeight / 2)
-    .attr('width', pillWidth)
-    .attr('height', pillHeight)
-    .attr('fill', 'white')
-    .attr('stroke', nodeStrokeColor)
-    .attr('stroke-width', nodeStrokeWidth)
-    .lower();   // <- move behind
-
-group.append('text')
-    .attr('class', 'pct-pill-text')
-    .attr('x', -9)
-    .attr('y', 1)
-    .attr('text-anchor', 'right')
-    .attr('dominant-baseline', 'middle')
-    .text(label)
-    .lower();   // <- move behind
-
+        // Append the percentage text **on top of everything**
+        group.append('text')
+            .attr('class', 'pct-pill-text')
+            .attr('x', pillX + pillWidth / 2) // center inside pill
+            .attr('y', 1)
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .text(label)
+            .style('pointer-events', 'none'); // ensures text doesn’t block node interactions
     });
+
 ;
 
 
