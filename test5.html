@@ -696,49 +696,45 @@ const contributions = contributionStartNode
     : new Map();
 
 
-    g.selectAll('.node')
-    .filter(n => contributions.has(n.id))
-    .each(function(n) {
-        const pct = contributions.get(n.id);
-        const label = formatPercentage(pct);
+g.selectAll('.node')
+  .filter(n => contributions.has(n.id))
+  .each(function(n) {
+    const pct = contributions.get(n.id);
+    const label = formatPercentage(pct);
 
-        const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
-        const pillHeight = nodePillHeight;
-        const pillPaddingX = 10;
-        const pillWidth = 100; 
-        const pillX = nodeWidth / 4;
+    const group = d3.select(this);
 
-        const group = d3.select(this);
+    const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
+    const pillHeight = nodePillHeight;
+    const pillPaddingX = 10;
+    const pillWidth = 100;
+    const pillX = nodeWidth / 4;
 
-        // Insert the rect **behind the main node rect**
-  const pillGroup = group.append('g'); // group for pill + text
+    // **Append rect directly to node group**
+    group.insert('rect', ':first-child') // insert behind everything in this node
+      .attr('class', 'pct-pill')
+      .attr('x', pillX)
+      .attr('y', -pillHeight / 2)
+      .attr('rx', pillHeight / 2)
+      .attr('ry', pillHeight / 2)
+      .attr('width', pillWidth)
+      .attr('height', pillHeight)
+      .attr('fill', 'white')
+      .attr('stroke', nodeStrokeColor)
+      .attr('stroke-width', nodeStrokeWidth);
 
-pillGroup.append('rect')
-    .attr('class', 'pct-pill')
-    .attr('x', pillX)
-    .attr('y', -pillHeight / 2)
-    .attr('rx', pillHeight / 2)
-    .attr('ry', pillHeight / 2)
-    .attr('width', pillWidth)
-    .attr('height', pillHeight)
-    .attr('fill', 'white')
-    .attr('stroke', nodeStrokeColor)
-    .attr('stroke-width', nodeStrokeWidth)
-    .lower(); // behind everything
+    // **Append text on top of everything**
+    group.append('text')
+      .attr('class', 'pct-pill-text')
+      .attr('x', pillX + pillWidth - pillPaddingX) // right-aligned inside pill
+      .attr('y', 1)
+      .attr('text-anchor', 'end')
+      .attr('dominant-baseline', 'middle')
+      .text(label)
+      .style('fill', 'white')
+      .style('pointer-events', 'none');
+  });
 
-pillGroup.append('text')
-    .attr('class', 'pct-pill-text')
-    .attr('x', pillWidth/2 - pillPadding) // relative to pillGroup
-    .attr('y', 1)
-    .attr('text-anchor', 'end')
-    .attr('dominant-baseline', 'middle')
-    .text(label)
-    .style('fill', 'white')
-    .style('pointer-events', 'none');
-
-
-
-        });
 }
 
 
