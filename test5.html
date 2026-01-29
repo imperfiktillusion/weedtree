@@ -723,16 +723,18 @@ const contributions = contributionStartNode
             .attr('stroke', nodeStrokeColor)
             .attr('stroke-width', nodeStrokeWidth);
 
-        // Append the percentage text **on top of everything**
-       group.append('text')
+    const pillPadding = 8; // padding inside pill
+
+group.append('text')
     .attr('class', 'pct-pill-text')
-    .attr('x', pillX + pillWidth / 2)
-    .attr('y', 1)
-    .attr('text-anchor', 'middle')
-    .attr('dominant-baseline', 'middle')
+    .attr('x', pillX + pillWidth - pillPadding)  // right-align inside pill
+    .attr('y', 1)                                
+    .attr('text-anchor', 'end')                  // align text to end (right)
+    .attr('dominant-baseline', 'middle')        // vertical centering
     .text(label)
-    .style('fill', 'white')          // text color
-    .style('pointer-events', 'none'); // make it ignore mouse events
+    .style('fill', 'white')                     // text color
+    .style('pointer-events', 'none');          // ignore mouse
+
 
         });
 }
