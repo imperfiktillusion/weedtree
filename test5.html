@@ -707,7 +707,7 @@ g.selectAll('.node')
     const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
     const pillHeight = nodePillHeight;
     const pillPaddingX = 10;
-    const pillWidth = 100;
+    const pillWidth = 80;
     const pillX = nodeWidth / 2;
 
     // **Append rect directly to node group**
@@ -726,7 +726,7 @@ g.selectAll('.node')
     // **Append text on top of everything**
     group.append('text')
       .attr('class', 'pct-pill-text')
-      .attr('x', nodeWidth / 2) //pillX/2 + pillWidth - pillPaddingX
+      .attr('x', nodeWidth / 2 + pillPaddingX)  
       .attr('y', 1)
       .attr('text-anchor', 'centre')
       .attr('dominant-baseline', 'middle')
