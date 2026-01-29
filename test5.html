@@ -707,16 +707,16 @@ const contributions = contributionStartNode
             const pillHeight = nodePillHeight;              // SAME height as node - nodePillHeight;  
             const pillPaddingX = 10;
             const textWidth = label.length * 7;
-            const pillWidth =  80; //textWidth + pillPaddingX * 2;
+            const pillWidth =  90; //textWidth + pillPaddingX * 2;
             const pillX = nodeWidth / 4;         //FLUSH against node pill (no gap) - nodeWidth / 2;
 
 
             const group = d3.select(this);
 
-            group.append('rect')
+ group.insert('rect', ':first-child')
     .attr('class', 'pct-pill')
     .attr('x', pillX)
-    .attr('y', -pillHeight / 2)
+    .attr('y', pillHeight / 2 )
     .attr('rx', pillHeight / 2)
     .attr('ry', pillHeight / 2)
     .attr('width', pillWidth)
@@ -725,13 +725,14 @@ const contributions = contributionStartNode
     .attr('stroke', nodeStrokeColor)
     .attr('stroke-width', nodeStrokeWidth);
 
-group.append('text')
+group.insert('text', ':first-child')
     .attr('class', 'pct-pill-text')
-    .attr('x',  - 9)   //pillX + pillWidth / 2
-    .attr('y', 1) // same baseline as strain text
-    .attr('text-anchor', 'right')
+    .attr('x', pillX + pillWidth / 2)
+    .attr('y', pillHeight + pillHeight / 2) 
+    .attr('text-anchor', 'middle')
     .attr('dominant-baseline', 'middle')
     .text(label);
+
 
 
         });
