@@ -707,13 +707,13 @@ g.selectAll('.node')
     const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
     const pillHeight = nodePillHeight;
     const pillPaddingX = 10;
-    const pillWidth = 80;
+    const pillWidth = 70;
     const pillX = nodeWidth / 2;
 
     // **Append rect directly to node group**
     group.insert('rect', ':first-child') // insert behind everything in this node
       .attr('class', 'pct-pill')
-      .attr('x', pillX - pillPaddingX *2)
+      .attr('x', pillX - pillPaddingX *2 - 4 )
       .attr('y', -pillHeight / 2)
       .attr('rx', pillHeight / 2)
       .attr('ry', pillHeight / 2)
