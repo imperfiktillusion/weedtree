@@ -711,29 +711,30 @@ const contributions = contributionStartNode
         const group = d3.select(this);
 
         // Insert the rect **behind the main node rect**
-        group.insert('rect', ':first-child')
-            .attr('class', 'pct-pill')
-            .attr('x', pillX)
-            .attr('y', -pillHeight / 2)
-            .attr('rx', pillHeight / 2)
-            .attr('ry', pillHeight / 2)
-            .attr('width', pillWidth)
-            .attr('height', pillHeight-1)
-            .attr('fill', 'white')
-            .attr('stroke', nodeStrokeColor)
-            .attr('stroke-width', nodeStrokeWidth);
+  const pillGroup = group.append('g'); // group for pill + text
 
-    const pillPadding = 8; // padding inside pill
+pillGroup.append('rect')
+    .attr('class', 'pct-pill')
+    .attr('x', pillX)
+    .attr('y', -pillHeight / 2)
+    .attr('rx', pillHeight / 2)
+    .attr('ry', pillHeight / 2)
+    .attr('width', pillWidth)
+    .attr('height', pillHeight)
+    .attr('fill', 'white')
+    .attr('stroke', nodeStrokeColor)
+    .attr('stroke-width', nodeStrokeWidth)
+    .lower(); // behind everything
 
-group.append('text')
+pillGroup.append('text')
     .attr('class', 'pct-pill-text')
-    .attr('x', pillX + pillWidth - pillPadding)  // right-align inside pill
-    .attr('y', 1)                                
-    .attr('text-anchor', 'end')                  // align text to end (right)
-    .attr('dominant-baseline', 'middle')        // vertical centering
+    .attr('x', pillWidth - pillPadding) // relative to pillGroup
+    .attr('y', 0)
+    .attr('text-anchor', 'end')
+    .attr('dominant-baseline', 'middle')
     .text(label)
-    .style('fill', 'white')                     // text color
-    .style('pointer-events', 'none');          // ignore mouse
+    .style('fill', 'white')
+    .style('pointer-events', 'none');
 
 
         });
