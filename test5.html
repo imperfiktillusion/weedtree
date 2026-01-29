@@ -710,6 +710,9 @@ const contributionStartNode = d.variant
 const contributions = contributionStartNode
     ? calculateContributions(contributionStartNode, nodes)
     : new Map();
+if (contributionStartNode) {
+    contributions.set(contributionStartNode.id, 100);
+}
 
 
 g.selectAll('.node')
