@@ -720,8 +720,9 @@ if (contributionStartNode) {
 
 
 g.selectAll('.node')
-  .filter(n => contributions.has(n.id))
+  .filter(n => contributions.has(n.id) && n.id !== contributionStartNode.id)
   .each(function(n) {
+
     const pct = contributions.get(n.id);
     const label = formatPercentage(pct);
 
