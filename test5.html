@@ -718,7 +718,7 @@ const contributions = contributionStartNode
             .attr('rx', pillHeight / 2)
             .attr('ry', pillHeight / 2)
             .attr('width', pillWidth)
-            .attr('height', pillHeight)
+            .attr('height', pillHeight-1)
             .attr('fill', 'white')
             .attr('stroke', nodeStrokeColor)
             .attr('stroke-width', nodeStrokeWidth);
@@ -731,7 +731,7 @@ const contributions = contributionStartNode
             .attr('text-anchor', 'middle')
             .attr('dominant-baseline', 'middle')
             .text(label)
-            .style('pointer-events', 'none'); // ensures text doesn’t block node interactions
+            .style('fill', 'white';'pointer-events', 'none'); // ensures text doesn’t block node interactions
 
         });
 }
