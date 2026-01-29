@@ -257,21 +257,36 @@ function calculateColumn1Positions() {
     return p < 5 ? '<5%' : `${p.toFixed(0)}%`;
 }
 
-// Build cumulative contribution map for a focused strain
+
 function calculateContributions(startNode, nodes) {
     const contributions = new Map();
+    const visited = new Set();
+
+    function resolveNode(node) {
+        if (node.variant) {
+            const base = nodes.find(n => n.name === node.variant);
+            return base || node;
+        }
+        return node;
+    }
 
     function walk(node, amount) {
-        if (!node.parents || node.parents.length === 0) return;
+        const resolved = resolveNode(node);
 
-        const parents = node.parents
+        // Prevent infinite loops
+        const visitKey = resolved.id + ':' + amount;
+        if (visited.has(visitKey)) return;
+        visited.add(visitKey);
+
+        if (!resolved.parents || resolved.parents.length === 0) return;
+
+        const parents = resolved.parents
             .map(pid => nodes.find(n => n.id === pid))
             .filter(Boolean);
 
         if (parents.length === 0) return;
 
-        const split = parents.length ? amount / parents.length : 0;
-
+        const split = amount / parents.length;
 
         parents.forEach(parent => {
             const prev = contributions.get(parent.id) || 0;
@@ -283,6 +298,7 @@ function calculateContributions(startNode, nodes) {
     walk(startNode, 100);
     return contributions;
 }
+
 
 
 const createLineageChart = () => {
