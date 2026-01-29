@@ -530,49 +530,46 @@ const createLineageChart = () => {
             return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
         });
 
-    const node = g.append("g")
-        .selectAll("g")
-        .data(nodes)
-        .join("g")
-        .attr("class", "node")
-        .attr("transform", d => `translate(${d.x},${d.y})`)
-        .each(function(d) {
-            if (d.product) {
-                d3.select(this).raise();
-            }
-        })
-        .on("click", highlightLineage)
-        .on("mouseover", function(event, d) {
-            highlightHoverLineage(event, d);
-            d3.select(this).raise().transition()
-                .attr("transform", d => `translate(${d.x},${d.y}) scale(1.7, 1.7)`);
-        })
-        .on("mouseout", function(event, d) {
-            removeHighlightHoverLineage();
-            d3.select(this).transition()
-                .attr("transform", d => `translate(${d.x},${d.y}) scale(1)`);
-            // Re-raise product nodes after mouseout
-            g.selectAll(".node").each(function(d) {
-                if (d.product) {
-                    d3.select(this).raise();
-                }
-            });
-        });
-  
+let dragging = false; // global flag to prevent hover while dragging
+
+const node = g.append("g")
+    .selectAll("g")
+    .data(nodes)
+    .join("g")
+    .attr("class", "node")
+    .attr("transform", d => `translate(${d.x},${d.y})`)
+    .each(function(d) { if (d.product) d3.select(this).raise(); })
+    .on("click", highlightLineage)
+    .on("mouseover", function(event, d) {
+        if (dragging) return; // prevent hover expansion while dragging
+        highlightHoverLineage(event, d);
+        d3.select(this).raise()
+            .transition()
+            .attr("transform", `translate(${d.x},${d.y}) scale(1.7, 1.7)`);
+    })
+    .on("mouseout", function(event, d) {
+        if (dragging) return;
+        removeHighlightHoverLineage();
+        d3.select(this).transition()
+            .attr("transform", `translate(${d.x},${d.y}) scale(1)`);
+        g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
+    });
+
+// --- DRAGGING ---
 node.call(d3.drag()
     .on("start", function(event, d) {
+        dragging = true;
         d3.select(this).raise();
 
-        // Store variant offsets relative to parent
-        d.variantOffsets = nodes
-            .filter(n => n.variant === d.name)
+        // store offsets for variants
+        d.variantOffsets = nodes.filter(n => n.variant === d.name)
             .map(v => ({ id: v.id, offsetY: v.y - d.y }));
     })
     .on("drag", function(event, d) {
         d.y = event.y;
         d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
 
-        // Update variants based on stored offset
+        // move variants with stored offsets
         if (d.variantOffsets) {
             d.variantOffsets.forEach(vo => {
                 const variantNode = nodes.find(n => n.id === vo.id);
@@ -583,20 +580,36 @@ node.call(d3.drag()
             });
         }
 
-        // Update all links AFTER nodes are positioned
-        g.selectAll(".link")
-            .attr("d", l => {
-                const sourceNode = nodes.find(n => n.id === l.source);
-                const targetNode = nodes.find(n => n.id === l.target);
-                const sourcePillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
-                const targetPillWidth = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
-                const sourceX = sourceNode.x + sourcePillWidth / 2;
-                const targetX = targetNode.x - targetPillWidth / 2;
-                const midX = (sourceX + targetX) / 2;
-                return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
+        // move pct pills along with nodes
+        g.selectAll('.pct-pill')
+            .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+            .attr("transform", p => {
+                const nodeRef = nodes.find(n => n.id === p.nodeId);
+                return `translate(${nodeRef.x},${nodeRef.y})`;
             });
+
+        g.selectAll('.pct-pill-text')
+            .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+            .attr("transform", p => {
+                const nodeRef = nodes.find(n => n.id === p.nodeId);
+                return `translate(${nodeRef.x},${nodeRef.y})`;
+            });
+
+        // update links
+        g.selectAll(".link").attr("d", l => {
+            const sourceNode = nodes.find(n => n.id === l.source);
+            const targetNode = nodes.find(n => n.id === l.target);
+            const sourcePillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            const targetPillWidth = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            const sourceX = sourceNode.x + sourcePillWidth / 2;
+            const targetX = targetNode.x - targetPillWidth / 2;
+            const midX = (sourceX + targetX) / 2;
+            return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
+        });
     })
+    .on("end", function() { dragging = false; })
 );
+
 
     // First append the rect background
     node.append("rect")
