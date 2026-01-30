@@ -789,17 +789,6 @@ const contributions = calculateUpwardChildTotals(
 contributions.set(contributionStartNode.id, 100);
 
 
-ancestorContrib.forEach((v, k) => {
-    contributions.set(k, v);
-});
-
-descendantContrib.forEach((v, k) => {
-    contributions.set(k, (contributions.get(k) || 0) + v);
-});
-
-if (contributionStartNode) {
-    contributions.set(contributionStartNode.id, 100);
-}
 
 
 g.selectAll('.node')
