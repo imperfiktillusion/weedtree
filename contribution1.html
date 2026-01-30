@@ -264,17 +264,25 @@ function calculateUpwardChildTotals(startNode, nodes) {
     const contributions = new Map();
 
     function walk(node, amount) {
-        // Add this node's accumulated child contribution
         contributions.set(
             node.id,
             (contributions.get(node.id) || 0) + amount
         );
 
-        if (!node.parents || node.parents.length === 0) return;
+        let parents = [];
 
-        const parents = node.parents
-            .map(pid => nodes.find(n => n.id === pid))
-            .filter(Boolean);
+        // NORMAL parents
+        if (node.parents && node.parents.length > 0) {
+            parents = node.parents
+                .map(pid => nodes.find(n => n.id === pid))
+                .filter(Boolean);
+        }
+
+        // VARIANT parent (treated as a normal single parent)
+        if (node.variant) {
+            const base = nodes.find(n => n.name === node.variant);
+            if (base) parents.push(base);
+        }
 
         if (parents.length === 0) return;
 
@@ -285,11 +293,10 @@ function calculateUpwardChildTotals(startNode, nodes) {
         });
     }
 
-    // Clicked strain is 100% of itself
     walk(startNode, 100);
-
     return contributions;
 }
+
 
 
 
