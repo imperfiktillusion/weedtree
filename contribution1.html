@@ -257,75 +257,94 @@ function calculateColumn1Positions() {
     return p < 5 ? '<5%' : `${p.toFixed(0)}%`;
 }
 
-function calculateAncestorContributions(focusedNode, nodes) {
+
+function calculateContributions(nodes) {
     const contributions = new Map();
-    const visited = new Set();
+    const childrenMap = new Map();
 
-    function walk(node, amount) {
-        if (visited.has(node.id + ':' + amount)) return;
-        visited.add(node.id + ':' + amount);
+    // Build children lookup
+    nodes.forEach(node => {
+        if (!node.parents) return;
+        node.parents.forEach(pid => {
+            if (!childrenMap.has(pid)) {
+                childrenMap.set(pid, []);
+            }
+            childrenMap.get(pid).push(node);
+        });
+    });
 
-        // accumulate contribution
-        contributions.set(node.id, (contributions.get(node.id) || 0) + amount);
+    const visiting = new Set();
 
-        // variants are transparent upward — go straight to base
-        if (node.variant) {
-            const base = nodes.find(n => n.name === node.variant);
-            if (base) walk(base, amount);
-            return;
+    function resolve(node) {
+        if (contributions.has(node.id)) {
+            return contributions.get(node.id);
         }
 
-        if (!node.parents || node.parents.length === 0) return;
+        if (visiting.has(node.id)) {
+            // Cycle guard – treat as zero contribution
+            return 0;
+        }
+        visiting.add(node.id);
 
-        const parents = node.parents
-            .map(pid => nodes.find(n => n.id === pid))
-            .filter(Boolean);
+        const children = childrenMap.get(node.id) || [];
 
-        if (!parents.length) return;
+        // Leaf nodes contribute 100
+        if (children.length === 0) {
+            contributions.set(node.id, 100);
+            visiting.delete(node.id);
+            return 100;
+        }
 
-        const share = amount / parents.length;
+        let total = 0;
 
-        parents.forEach(parent => walk(parent, share));
+        children.forEach(child => {
+            const childTotal = resolve(child);
+            const parentCount = child.parents.length;
+            total += childTotal / parentCount;
+        });
+
+        contributions.set(node.id, total);
+        visiting.delete(node.id);
+        return total;
     }
 
-    walk(focusedNode, 100);
+    // Resolve all nodes
+    nodes.forEach(node => resolve(node));
+
     return contributions;
 }
 
 
-function calculateDescendantContributions(focusedNode, nodes) {
+
+function calculateDescendantContributions(startNode, nodes) {
     const contributions = new Map();
-    const visited = new Set();
 
     function walk(node, amount) {
-        const visitKey = node.id + ':' + amount;
-        if (visited.has(visitKey)) return;
-        visited.add(visitKey);
-
         const children = nodes.filter(n =>
-            n.variant === node.name || n.parents.includes(node.id)
+            n.parents.includes(node.id) ||
+            n.variant === node.name
         );
 
         children.forEach(child => {
-            // variants = single-parent child
-            const parentCount = child.variant ? 1 : child.parents.length;
-            if (!parentCount) return;
+            // Determine how many parents this child has
+            const parentCount = child.variant
+                ? 1
+                : child.parents.length || 1;
 
             const share = amount / parentCount;
 
-            contributions.set(
-                child.id,
-                (contributions.get(child.id) || 0) + share
-            );
+            const prev = contributions.get(child.id) || 0;
+            contributions.set(child.id, prev + share);
 
             walk(child, share);
         });
     }
 
-    walk(focusedNode, 100);
+    // Start with 100% *at the focused strain itself*
+    walk(startNode, 100);
+
     return contributions;
 }
-
 
 
 
@@ -738,133 +757,94 @@ function dragNode(event, d, nodeElement) {
         })
         .attr("y", -14);
 
-function highlightLineage(event, d) {
+    function highlightLineage(event, d) {
 
-    // --- TOGGLE OFF ---
-    if (focusedNode === d) {
-        g.selectAll('.pct-pill').remove();
-        g.selectAll('.pct-pill-text').remove();
-
-        node.classed("dimmed", false).classed("clicked", false);
-        link.classed("dimmed", false).attr("stroke-width", lineWidth + 1);
-
-        focusedNode = null;
-        resetZoom();
-        return;
-    }
-
-    // --- CLEAR OLD STATE ---
+    // Remove old percentage pills
     g.selectAll('.pct-pill').remove();
     g.selectAll('.pct-pill-text').remove();
 
-    // --- BASE NODE (variants resolve to parent) ---
-    const baseNode = d.variant
-        ? nodes.find(n => n.name === d.variant)
-        : d;
+   if (focusedNode === d) {
 
-    // --- BUILD LINEAGE SET ---
+    g.selectAll('.pct-pill').remove();
+    g.selectAll('.pct-pill-text').remove();
+
+    node.classed("dimmed", false);
+    node.classed("clicked", false);
+    link.classed("dimmed", false)
+        .attr("stroke-width", lineWidth + 1);
+
+    focusedNode = null;
+    resetZoom();
+    return;
+}
+
+      
+
+    // ---- lineage isolation (UNCHANGED variant logic) ----
     const lineage = new Set();
 
-    function getAncestors(node) {
-        lineage.add(node.id);
+    const getAncestors = (node) => {
+    lineage.add(node.id);
 
-        if (node.variant) {
-            const base = nodes.find(n => n.name === node.variant);
-            if (base) getAncestors(base);
-            return;
+    // If variant, climb through base strain
+if (node.variant) {
+    const base = nodes.find(n => n.name === node.variant);
+    if (base) {
+        lineage.add(base.id);
+        getAncestors(base);
+    }
+    return;
+}
+
+
+    node.parents.forEach(parentId => {
+        const parent = nodes.find(n => n.id === parentId);
+        if (parent) {
+            lineage.add(parent.id);
+            getAncestors(parent);
         }
+    });
+};
 
-        node.parents.forEach(pid => {
-            const parent = nodes.find(n => n.id === pid);
-            if (parent) getAncestors(parent);
-        });
-    }
 
-    function getDescendants(nodeId) {
+    const getDescendants = (nodeId) => {
         lineage.add(nodeId);
-        nodes
-            .filter(n =>
-                n.parents.includes(nodeId) ||
-                n.variant === nodes.find(x => x.id === nodeId)?.name
-            )
-            .forEach(child => getDescendants(child.id));
-    }
+        const children = nodes.filter(n => n.parents.includes(nodeId));
+        children.forEach(child => {
+            lineage.add(child.id);
+            getDescendants(child.id);
+        });
+    };
 
-    getAncestors(baseNode);
-    getDescendants(baseNode.id);
+    getAncestors(d);
+    getDescendants(d.id);
 
-    // --- APPLY DIMMING ---
-    node
-        .classed("dimmed", n => !lineage.has(n.id))
-        .classed("clicked", n => n.id === d.id);
-
-    link
-        .classed("dimmed", l => !lineage.has(l.source) || !lineage.has(l.target))
+    node.classed("dimmed", n => !lineage.has(n.id));
+    node.classed("clicked", n => n.id === d.id);
+    link.classed("dimmed", l => !lineage.has(l.source) || !lineage.has(l.target))
         .attr("stroke-width", l =>
-            lineage.has(l.source) && lineage.has(l.target)
+            (lineage.has(l.source) && lineage.has(l.target))
                 ? lineWidth + 2
                 : lineWidth + 1
         );
 
     focusedNode = d;
-
-    // --- CALCULATE CONTRIBUTIONS ---
-    const ancestorContrib = calculateAncestorContributions(baseNode, nodes);
-    const descendantContrib = calculateDescendantContributions(baseNode, nodes);
-
-    // --- ZOOM ---
     zoomToLineage(lineage);
-
-    // --- RENDER % PILLS ---
-    g.selectAll('.node')
-        .filter(n =>
-            n.id !== baseNode.id &&
-            (ancestorContrib.has(n.id) || descendantContrib.has(n.id))
-        )
-        .each(function(n) {
-
-            const pct = ancestorContrib.has(n.id)
-                ? ancestorContrib.get(n.id)
-                : descendantContrib.get(n.id);
-
-            if (pct <= 0) return;
-
-            const label = formatPercentage(pct);
-            const group = d3.select(this);
-
-            const nodeWidth = n.variant
-                ? standardPillWidth * 0.85
-                : standardPillWidth;
-
-            const pillWidth = 80;
-            const pillHeight = nodePillHeight;
-
-            group.insert('rect', ':first-child')
-                .attr('class', 'pct-pill')
-                .attr('x', nodeWidth / 2 - pillWidth / 2)
-                .attr('y', -pillHeight / 2)
-                .attr('rx', pillHeight / 2)
-                .attr('ry', pillHeight / 2)
-                .attr('width', pillWidth)
-                .attr('height', pillHeight);
-
-            group.append('text')
-                .attr('class', 'pct-pill-text')
-                .attr('x', nodeWidth / 2)
-                .attr('y', 1)
-                .attr('text-anchor', 'middle')
-                .attr('dominant-baseline', 'middle')
-                .text(label);
-        });
-}
-
         
 // If a variant is clicked, calculate contributions from its base strain
 const contributionStartNode = d.variant
     ? nodes.find(n => n.name === d.variant)
     : d;
 
+const ancestorContrib = contributionStartNode
+    ? calculateContributions(contributionStartNode, nodes)
+    : new Map();
 
+const descendantContrib = focusedNode
+    ? calculateDescendantContributions(focusedNode, nodes)
+    : new Map();
+
+// Merge maps
 const contributions = new Map();
 
 ancestorContrib.forEach((v, k) => {
