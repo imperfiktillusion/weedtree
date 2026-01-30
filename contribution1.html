@@ -260,41 +260,37 @@ function calculateColumn1Positions() {
 
 
 
-
-function calculateUpstreamContributions(focusNode, nodes) {
+function calculateUpwardChildTotals(startNode, nodes) {
     const contributions = new Map();
 
-    // Helper: find parents of a node
-    function getParents(node) {
-        return nodes.filter(n => n.id !== node.id && (
-            (node.parents && node.parents.includes(n.id)) ||
-            (node.parents && node.parents.includes(n.name))
-        ));
-    }
-
     function walk(node, amount) {
-        const prev = contributions.get(node.id) || 0;
-        contributions.set(node.id, prev + amount);
+        // Add this node's accumulated child contribution
+        contributions.set(
+            node.id,
+            (contributions.get(node.id) || 0) + amount
+        );
 
-        const parents = getParents(node);
-        if (!parents.length) return;
+        if (!node.parents || node.parents.length === 0) return;
+
+        const parents = node.parents
+            .map(pid => nodes.find(n => n.id === pid))
+            .filter(Boolean);
+
+        if (parents.length === 0) return;
 
         const split = amount / parents.length;
-        parents.forEach(parent => walk(parent, split));
+
+        parents.forEach(parent => {
+            walk(parent, split);
+        });
     }
 
-    // Start: distribute 100% FROM the focus node into its parents
-    const focusParents = getParents(focusNode);
-    if (focusParents.length) {
-        const split = 100 / focusParents.length;
-        focusParents.forEach(parent => walk(parent, split));
-    }
-
-    // Explicitly ensure focus node never appears
-    contributions.delete(focusNode.id);
+    // Clicked strain is 100% of itself
+    walk(startNode, 100);
 
     return contributions;
 }
+
 
 
 
@@ -782,21 +778,16 @@ if (node.variant) {
     focusedNode = d;
     zoomToLineage(lineage);
         
-// If a variant is clicked, calculate contributions from its base strain
-const contributionStartNode = d.variant
-    ? nodes.find(n => n.name === d.variant)
-    : d;
+const contributionStartNode = d;
 
-const ancestorContrib = contributionStartNode
-    ? calculateContributions(contributionStartNode, nodes)
-    : new Map();
+const contributions = calculateUpwardChildTotals(
+    contributionStartNode,
+    nodes
+);
 
-const descendantContrib = focusedNode
-    ? calculateDescendantContributions(focusedNode, nodes)
-    : new Map();
+// Ensure clicked node is always exactly 100
+contributions.set(contributionStartNode.id, 100);
 
-// Merge maps
-const contributions = new Map();
 
 ancestorContrib.forEach((v, k) => {
     contributions.set(k, v);
