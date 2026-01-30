@@ -298,6 +298,45 @@ function calculateUpwardChildTotals(startNode, nodes) {
 }
 
 
+function calculateDownwardDescendantTotals(startNode, nodes) {
+    const contributions = new Map();
+
+    function walk(node, amount) {
+        // Do not store the focused node itself
+        if (node.id !== startNode.id) {
+            contributions.set(
+                node.id,
+                (contributions.get(node.id) || 0) + amount
+            );
+        }
+
+        // Find children (normal + variants)
+        const children = nodes.filter(n =>
+            (n.parents && n.parents.includes(node.id)) ||
+            n.variant === node.name
+        );
+
+        children.forEach(child => {
+            let parentCount = 0;
+
+            if (child.parents && child.parents.length > 0) {
+                parentCount += child.parents.length;
+            }
+
+            if (child.variant) {
+                parentCount += 1;
+            }
+
+            if (parentCount === 0) return;
+
+            const split = amount / parentCount;
+            walk(child, split);
+        });
+    }
+
+    walk(startNode, 100);
+    return contributions;
+}
 
 
 
@@ -524,7 +563,6 @@ const node = g.append("g")
         g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
     });
 
-// --- DRAGGING ---
 // --- DRAGGING with long press on mobile ---
 node.call(d3.drag()
     .on("start", function(event, d) {
@@ -787,13 +825,30 @@ if (node.variant) {
         
 const contributionStartNode = d;
 
-const contributions = calculateUpwardChildTotals(
+const ancestorContrib = calculateUpwardChildTotals(
     contributionStartNode,
     nodes
 );
 
-// Ensure clicked node is always exactly 100
+const descendantContrib = calculateDownwardDescendantTotals(
+    contributionStartNode,
+    nodes
+);
+
+const contributions = new Map();
+
+// merge ancestor + descendant maps
+ancestorContrib.forEach((v, k) => {
+    contributions.set(k, v);
+});
+
+descendantContrib.forEach((v, k) => {
+    contributions.set(k, (contributions.get(k) || 0) + v);
+});
+
+// focused strain is always 100 (but not rendered)
 contributions.set(contributionStartNode.id, 100);
+
 
 
 
