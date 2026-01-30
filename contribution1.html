@@ -258,47 +258,7 @@ function calculateColumn1Positions() {
 }
 
 
-function calculateContributions(startNode, nodes) {
-    const contributions = new Map();
-    const visited = new Set();
 
-    function walk(node, amount) {
-        const visitKey = node.id + ':' + amount;
-        if (visited.has(visitKey)) return;
-        visited.add(visitKey);
-
-        // 1️⃣ Every node keeps its own contribution
-        const prevSelf = contributions.get(node.id) || 0;
-        contributions.set(node.id, prevSelf + amount);
-
-        // 2️⃣ If this is a variant, ALSO pass full amount to base strain
-        if (node.variant) {
-            const base = nodes.find(n => n.name === node.variant);
-            if (base) {
-                walk(base, amount);
-            }
-            return;
-        }
-
-        // 3️⃣ Normal parent propagation
-        if (!node.parents || node.parents.length === 0) return;
-
-        const parents = node.parents
-            .map(pid => nodes.find(n => n.id === pid))
-            .filter(Boolean);
-
-        if (parents.length === 0) return;
-
-        const split = amount / parents.length;
-
-        parents.forEach(parent => {
-            walk(parent, split);
-        });
-    }
-
-    walk(startNode, 100);
-    return contributions;
-}
 
 
 function calculateUpstreamContributions(focusNode, nodes) {
