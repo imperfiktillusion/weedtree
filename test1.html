@@ -1136,9 +1136,10 @@ function setupStrainSearch() {
                             (strain.product ? `<br>(${strain.product})` : '') + 
                             (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
             
-            // Use pointerdown to work on mobile too
-            div.addEventListener('pointerdown', () => {
-                highlightStrain(strain);
+            // Keep click event
+            div.addEventListener('click', () => {
+                // Delay arrow creation slightly to ensure D3 nodes exist
+                setTimeout(() => highlightStrain(strain), 0);
                 dropdown.style.display = 'none';
                 searchInput.value = '';
             });
@@ -1148,6 +1149,44 @@ function setupStrainSearch() {
 
         dropdown.style.display = matchingStrains.length > 0 ? 'block' : 'none';
     });
+
+    document.addEventListener('click', function(event) {
+        if (!searchInput.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    function highlightStrain(strain) {
+        if (highlightedNode) {
+            d3.select(highlightedNode).select('.highlight-arrow').remove();
+            highlightedNode = null;
+        }
+
+        const node = g.selectAll('.node').filter(d => d.id === strain.id);
+
+        if (!node.node()) return; // Node not found yet, skip
+
+        const arrow = node.append('path')
+            .attr('d', 'M-70,-6 L-39,0 L-70,6 Z')
+            .attr('class', 'highlight-arrow')
+            .attr('fill', 'red')
+            .attr('transform', 'translate(0,0) scale(3)');
+
+        arrow.on('mouseover', function() {
+            d3.select(this).remove();
+            highlightedNode = null;
+        });
+
+        arrow.on('click', function(event) {
+            event.stopPropagation();
+        });
+
+        highlightedNode = node.node();
+
+        zoomToNode(strain);
+    }
+}
+
 
     document.addEventListener('click', function(event) {
         if (!searchInput.contains(event.target) && !dropdown.contains(event.target)) {
