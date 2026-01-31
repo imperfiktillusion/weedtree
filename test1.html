@@ -909,6 +909,35 @@ g.selectAll('.node')
       .style('pointer-events', 'none');
   });
 
+// --- Auto-focus URL strain after chart is fully drawn ---
+(function autoFocusFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const focusStrain = urlParams.get('focus');
+    if (!focusStrain) return;
+
+    // Small delay to ensure D3 nodes are appended
+    setTimeout(() => {
+        const targetNode = nodes.find(n => n.name.toLowerCase() === focusStrain.toLowerCase());
+        if (!targetNode) return;
+        console.log("Focusing on strain:", targetNode.name);
+
+        // Call the same highlightLineage function used on clicks
+        highlightLineage(null, targetNode);
+
+        // Optionally, pan/zoom to the node for better visibility
+        if (targetNode.x !== undefined && targetNode.y !== undefined) {
+            svg.transition().duration(600).call(
+                zoom.transform,
+                d3.zoomIdentity.translate(
+                    chartContainer.clientWidth / 2 - targetNode.x,
+                    chartContainer.clientHeight / 2 - targetNode.y
+                ).scale(1.5) // adjust zoom level
+            );
+        }
+    }, 0);
+})();
+
+        
 }
 
 
