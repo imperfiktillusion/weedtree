@@ -1265,6 +1265,46 @@ document.querySelector('.popup-overlay').addEventListener('click', function() {
 document.querySelectorAll('.popup').forEach(popup => 
     popup.addEventListener('click', event => event.stopPropagation())
 );
+
+// --- Function to focus node from URL using underscores as spaces ---
+function focusNodeFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    let strainFocus = params.get('focus'); // expects ?focus=Strain_Name_or_Product
+    if (!strainFocus) return;
+
+    // Replace underscores with spaces
+    strainFocus = strainFocus.replace(/_/g, ' ');
+
+    // Find the node by name OR product (case-insensitive)
+    const targetNode = nodes.find(n =>
+        n.name.toLowerCase() === strainFocus.toLowerCase() ||
+        (n.product && n.product.toLowerCase() === strainFocus.toLowerCase())
+    );
+    if (!targetNode) return;
+
+    // Simulate a click on that node
+    highlightLineage(null, targetNode);
+}
+
+
+// --- Wait until DOM, chart, and popup are fully ready ---
+function initFocusAfterLoad() {
+    // Show popup first if needed
+    const popup = document.getElementById('popup3');
+    popup.style.display = 'block';
+    document.querySelector('.popup-overlay').style.display = 'block';
+
+    // Use requestAnimationFrame to ensure chart has rendered
+    requestAnimationFrame(() => {
+        focusNodeFromURL();
+    });
+}
+
+// Call this after chart creation
+createLineageChart();
+initFocusAfterLoad();
+
+    
 </script>
 </body>
 </html>
