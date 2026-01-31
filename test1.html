@@ -765,6 +765,24 @@ function dragNode(event, d, nodeElement) {
         })
         .attr("y", -14);
 
+const createLineageChart = (onRendered) => {
+    // ... all your current chart creation code ...
+
+    // Call the callback when fully rendered
+    if (typeof onRendered === 'function') {
+        onRendered();
+    }
+};
+
+
+
+
+
+
+
+
+
+    
     function highlightLineage(event, d) {
 
     // Remove old percentage pills
@@ -1328,12 +1346,11 @@ function focusNodeFromURL() {
 }
 
 // --- AFTER chart creation ---
-createLineageChart();      // build nodes & links
-setupStrainSearch();       // search functionality
-populateStrainList();      // strain list
-focusNodeFromURL();        // focus from URL
-
-
+createLineageChart(() => {
+    setupStrainSearch();
+    populateStrainList();
+    focusNodeFromURL();  // will only run after the chart is fully rendered
+});
 
 </script>
 </body>
