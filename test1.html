@@ -1019,17 +1019,20 @@ g.selectAll('.node')
     // Populate the strain list here
     populateStrainList();
 
-// Auto-focus URL strain
+// Auto-focus URL strain (case & spacing insensitive)
 (function autoFocusFromURL() {
     const urlParams = new URLSearchParams(window.location.search);
-    const focusStrain = urlParams.get('focus');
+    let focusStrain = urlParams.get('focus');
     if (!focusStrain) return;
 
-    // Wait until the next animation frame so the chart nodes are fully positioned
+    // Normalize: replace underscores with spaces, collapse multiple spaces, trim
+    focusStrain = focusStrain.replace(/_/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
     requestAnimationFrame(() => {
-        const targetNode = nodes.find(
-            n => n.name.toLowerCase() === focusStrain.toLowerCase()
-        );
+        const targetNode = nodes.find(n => {
+            const nodeName = n.name.replace(/\s+/g, ' ').trim().toLowerCase();
+            return nodeName === focusStrain;
+        });
         if (!targetNode) return;
 
         console.log("Focusing on strain:", targetNode.name);
@@ -1038,7 +1041,7 @@ g.selectAll('.node')
         highlightLineage(null, targetNode);
 
         // Compute bounding box of the lineage
-        const lineageNodes = getLineageNodes(targetNode); // make sure this function returns all highlighted nodes
+        const lineageNodes = getLineageNodes(targetNode); // all highlighted nodes
         const xValues = lineageNodes.map(n => n.x);
         const yValues = lineageNodes.map(n => n.y);
 
@@ -1055,12 +1058,12 @@ g.selectAll('.node')
         const scaleY = (chartHeight - padding) / (maxY - minY || 1);
         let scale = Math.min(scaleX, scaleY);
 
-        // Clamp zoom to prevent excessive zoom-in
+        // Clamp zoom
         const minScale = 0.8;
         const maxScale = 2.5;
         scale = Math.max(minScale, Math.min(maxScale, scale));
 
-        // Center the lineage in the chart
+        // Center the lineage
         const translateX = chartWidth / 2 - ((minX + maxX) / 2) * scale;
         const translateY = chartHeight / 2 - ((minY + maxY) / 2) * scale;
 
@@ -1074,6 +1077,7 @@ g.selectAll('.node')
             );
     });
 })();
+
 
 
 
