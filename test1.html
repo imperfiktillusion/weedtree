@@ -1022,8 +1022,40 @@ g.selectAll('.node')
 
     // Populate the strain list here
     populateStrainList();
+
+// Auto-focus URL strain
+(function autoFocusFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const focusStrain = urlParams.get('focus');
+    if (!focusStrain) return;
+
+    setTimeout(() => {
+        const targetNode = nodes.find(n => n.name.toLowerCase() === focusStrain.toLowerCase());
+        if (!targetNode) return;
+        console.log("Focusing on strain:", targetNode.name);
+        highlightLineage(null, targetNode);
+
+        if (targetNode.x !== undefined && targetNode.y !== undefined) {
+            svg.transition().duration(600).call(
+                zoom.transform,
+                d3.zoomIdentity.translate(
+                    document.querySelector('.chart-container').clientWidth / 2 - targetNode.x,
+                    document.querySelector('.chart-container').clientHeight / 2 - targetNode.y
+                ).scale(1.5)
+            );
+        }
+    }, 0);
+})();
+
+
+    //end of createlineagechart
 };
 
+
+
+
+
+    
 const getColorByDominance = (dominance) => {
     switch(dominance.toLowerCase()) {
         case 'sativa dominant': return '#ffea8a';
@@ -1209,32 +1241,6 @@ function toggleFullScreen() {
             document.exitFullscreen();
         }
     }
-
-    // --- Auto-focus URL strain after chart is fully drawn ---
-(function autoFocusFromURL() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const focusStrain = urlParams.get('focus');
-    if (!focusStrain) return;
-
-    setTimeout(() => {
-        const targetNode = nodes.find(n => n.name.toLowerCase() === focusStrain.toLowerCase());
-        if (!targetNode) return;
-        console.log("Focusing on strain:", targetNode.name);
-        highlightLineage(null, targetNode);
-
-        if (targetNode.x !== undefined && targetNode.y !== undefined) {
-            svg.transition().duration(600).call(
-                zoom.transform,
-                d3.zoomIdentity.translate(
-                    chartContainer.clientWidth / 2 - targetNode.x,
-                    chartContainer.clientHeight / 2 - targetNode.y
-                ).scale(1.5)
-            );
-        }
-    }, 0);
-})();
-
-        
 }
 
 window.addEventListener('resize', function() {
