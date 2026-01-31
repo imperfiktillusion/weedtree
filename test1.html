@@ -1296,52 +1296,26 @@ function focusNodeFromURL() {
 
     if (!bestMatch) return;
 
-    // --- Wait until D3 nodes exist ---
+    // --- Poll until D3 nodes exist ---
     const waitForNode = () => {
         const nodeSelection = d3.selectAll('.node').filter(d => d === bestMatch);
         if (!nodeSelection.empty()) {
-            // Properly pass the element to highlightLineage
             highlightLineage(nodeSelection.node(), bestMatch);
         } else {
-            // Retry until it exists
             setTimeout(waitForNode, 50);
         }
     };
+
     waitForNode();
 }
 
-// --- Call after chart creation ---
+// --- Initialize chart and other elements ---
 createLineageChart();   // your existing chart function
 setupStrainSearch();    // your existing search setup
 populateStrainList();   // your existing strain list
 
-// --- Trigger focus ---
+// --- Start focusing after everything is initialized ---
 focusNodeFromURL();
-
-// --- Poll for chart nodes before focusing ---
-function waitForNodesAndFocus(maxRetries = 60, interval = 50) {
-    let retries = 0;
-
-    const check = () => {
-        const nodeElements = d3.selectAll('.node');
-        if (!nodeElements.empty()) {
-            focusNodeFromURL();
-        } else if (retries < maxRetries) {
-            retries++;
-            setTimeout(check, interval);
-        }
-    };
-
-    check();
-}
-
-// --- Call after chart creation ---
-createLineageChart();   // your existing chart function
-setupStrainSearch();    // your existing search setup
-populateStrainList();   // your existing strain list
-
-// Wait until nodes exist, then focus
-waitForNodesAndFocus();
 
     
 </script>
