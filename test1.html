@@ -1266,12 +1266,13 @@ document.querySelectorAll('.popup').forEach(popup =>
     popup.addEventListener('click', event => event.stopPropagation())
 );
 
-// --- Focus node from URL using underscores and fuzzy matching ---
+// --- Function to focus node from URL using underscores and fuzzy matching ---
 function focusNodeFromURL() {
     const params = new URLSearchParams(window.location.search);
     let strainFocus = params.get('focus'); // expects ?focus=Strain_Name_or_Product
     if (!strainFocus) return;
 
+    // Replace underscores with spaces and normalize case
     strainFocus = strainFocus.replace(/_/g, ' ').toLowerCase();
 
     if (!nodes || nodes.length === 0) return;
@@ -1285,7 +1286,7 @@ function focusNodeFromURL() {
         const product = n.product ? n.product.toLowerCase() : '';
 
         let score = 0;
-        if (name.includes(strainFocus)) score += 2;
+        if (name.includes(strainFocus)) score += 2;  // prioritize name
         if (product.includes(strainFocus)) score += 1;
 
         if (score > bestScore) {
@@ -1296,12 +1297,15 @@ function focusNodeFromURL() {
 
     if (!bestMatch) return;
 
-    // --- Poll until D3 nodes exist ---
+    // --- Poll until D3 nodes exist and then highlight ---
     const waitForNode = () => {
-        const nodeSelection = d3.selectAll('.node').filter(d => d === bestMatch);
+        // Match node by name (avoid object reference issues)
+        const nodeSelection = d3.selectAll('.node').filter(d => d.name === bestMatch.name);
+
         if (!nodeSelection.empty()) {
             highlightLineage(nodeSelection.node(), bestMatch);
         } else {
+            // Retry every 50ms
             setTimeout(waitForNode, 50);
         }
     };
@@ -1309,14 +1313,27 @@ function focusNodeFromURL() {
     waitForNode();
 }
 
+// --- Wait until chart nodes exist before focusing ---
+function waitForNodesAndFocus(maxRetries = 100, interval = 100) {
+    let retries = 0;
+    const check = () => {
+        if (nodes && nodes.length > 0) {
+            focusNodeFromURL();
+        } else if (retries < maxRetries) {
+            retries++;
+            setTimeout(check, interval);
+        }
+    };
+    check();
+}
+
 // --- Initialize chart and other elements ---
 createLineageChart();   // your existing chart function
 setupStrainSearch();    // your existing search setup
 populateStrainList();   // your existing strain list
 
-// --- Start focusing after everything is initialized ---
-focusNodeFromURL();
-
+// --- Start focusing after chart nodes exist ---
+waitForNodesAndFocus();
     
 </script>
 </body>
