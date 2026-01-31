@@ -355,7 +355,7 @@ function calculateDownwardDescendantTotals(startNode, nodes) {
 
 
 
-const createLineageChart = (onRendered) => {
+const createLineageChart = () => {
     const chartContainer = document.querySelector('.chart-container');
     const width = chartContainer.clientWidth, height = chartContainer.clientHeight;
     d3.select("#lineageChart").selectAll("*").remove();
@@ -765,21 +765,6 @@ function dragNode(event, d, nodeElement) {
         })
         .attr("y", -14);
 
-
-    if (typeof onRendered === 'function') {
-        onRendered();
-    }
-};
-
-
-
-
-
-
-
-
-
-    
     function highlightLineage(event, d) {
 
     // Remove old percentage pills
@@ -1272,87 +1257,38 @@ function adjustButtonFontSize() {
 
 window.addEventListener('load', adjustButtonFontSize);
 
-// --- Popup behavior ---
 document.querySelector('.popup-overlay').addEventListener('click', function() {
     document.querySelectorAll('.popup').forEach(popup => popup.style.display = 'none');
     this.style.display = 'none';
 });
+
 document.querySelectorAll('.popup').forEach(popup => 
     popup.addEventListener('click', event => event.stopPropagation())
 );
 
-// --- Focus node from URL using underscores and fuzzy matching ---
-function focusNodeFromURL() {
-    const params = new URLSearchParams(window.location.search);
-    let strainFocus = params.get('focus'); // expects ?focus=Strain_Name_or_Product
-    if (!strainFocus) return;
+// --- Chart Loaded Confirmation & URL focus handling ---
+function onChartLoaded() {
+    console.log("Lineage chart fully loaded with", nodes.length, "nodes.");
+    
+    // Check URL for ?focus=strain_name
+    const urlParams = new URLSearchParams(window.location.search);
+    const focusStrain = urlParams.get('focus');
+    if (!focusStrain) return;
 
-    strainFocus = strainFocus.replace(/_/g, ' ').toLowerCase();
+    // Find the corresponding node (case-insensitive)
+    const targetNode = nodes.find(n => n.name.toLowerCase() === focusStrain.toLowerCase());
+    if (!targetNode) return;
 
-    if (!nodes || nodes.length === 0) return;
-
-    // --- Simple fuzzy match: prefer name over product ---
-    let bestMatch = null;
-    let bestScore = 0;
-
-    nodes.forEach(n => {
-        const name = n.name.toLowerCase();
-        const product = n.product ? n.product.toLowerCase() : '';
-        let score = 0;
-        if (name.includes(strainFocus)) score += 2;
-        if (product.includes(strainFocus)) score += 1;
-
-        if (score > bestScore) {
-            bestScore = score;
-            bestMatch = n;
-        }
-    });
-
-    if (!bestMatch) return;
-
-    // --- Wait until D3 nodes exist in the DOM ---
-    const waitForNode = () => {
-        const nodeSelection = d3.selectAll('.node')
-            .filter(d => d.id === bestMatch.id);
-
-        if (!nodeSelection.empty()) {
-            // Highlight node
-            highlightLineage(null, bestMatch);
-
-            // Optional: zoom and center
-            if (svg && zoom) {
-                const svgWidth = +svg.attr("width");
-                const svgHeight = +svg.attr("height");
-                const targetX = bestMatch.x;
-                const targetY = bestMatch.y;
-                const scale = 1.5;
-
-                svg.transition().duration(800).call(
-                    zoom.transform,
-                    d3.zoomIdentity
-                        .translate(svgWidth / 2 - targetX * scale, svgHeight / 2 - targetY * scale)
-                        .scale(scale)
-                );
-            }
-
-            nodeSelection.raise(); // bring node to front
-        } else {
-            setTimeout(waitForNode, 100); // retry until node exists
-        }
-    };
-
-    waitForNode();
+    // Simulate a click on the node
+    console.log("Focusing on strain:", targetNode.name);
+    highlightLineage(null, targetNode);
 }
 
-// --- AFTER chart creation ---
-// Insert this right **after your existing createLineageChart() call** (or in its onRendered callback)
-createLineageChart(() => {
-    if (typeof setupStrainSearch === "function") setupStrainSearch();
-    if (typeof populateStrainList === "function") populateStrainList();
-    focusNodeFromURL();  // will only run after the chart is fully rendered
-});
+// Wait a short tick to ensure all D3 elements are appended
+setTimeout(onChartLoaded, 50);
 
+
+    
 </script>
 </body>
 </html>
-
