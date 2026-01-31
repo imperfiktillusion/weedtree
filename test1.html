@@ -530,16 +530,13 @@ const createLineageChart = () => {
 
         if (gen === 1) {
             genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-     } else if (gen >= 2) {
-    // Barycentric ordering based on parent alignment
-    genNodes = barycentricSort(genNodes, nodes, 'parents');
+   } else if (gen >= 2) {
 
-    // Stable secondary sort (dominance + name)
-    genNodes.sort((a, b) => {
-        const dom = customSortColumn3Plus(a, b);
-        return dom !== 0 ? dom : a.name.localeCompare(b.name);
-    });
+    // 1️⃣ Initial stable order (dominance + name)
+    genNodes.sort(customSortColumn3Plus);
+
 }
+
 
 
         let yOffset = 0;
@@ -564,7 +561,30 @@ const createLineageChart = () => {
                 yOffset += variants.length * (pillHeight + 2);
             }
         });
+        // 🔁 Second pass: barycentric reorder now that Y exists
+if (gen >= 2) {
+    genNodes = barycentricSort(genNodes, nodes, 'parents');
+
+    // Re-assign Y positions after barycentric sort
+    yOffset = 0;
+    genNodes.forEach(node => {
+        if (!node.variant) {
+            node.y = startY + yOffset;
+            yOffset += pillHeight + 16;
+
+            const variants = nodes.filter(n => n.variant === node.name)
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            variants.forEach((variant, vIndex) => {
+                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+            });
+
+            yOffset += variants.length * (pillHeight + 2);
+        }
+    });
+}
     }
+
 
     calculateColumn1Positions();
 
