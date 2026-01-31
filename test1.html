@@ -1266,13 +1266,12 @@ document.querySelectorAll('.popup').forEach(popup =>
     popup.addEventListener('click', event => event.stopPropagation())
 );
 
-// --- Function to focus node from URL using underscores and fuzzy matching ---
+// --- Focus node from URL using underscores and fuzzy matching ---
 function focusNodeFromURL() {
     const params = new URLSearchParams(window.location.search);
     let strainFocus = params.get('focus'); // expects ?focus=Strain_Name_or_Product
     if (!strainFocus) return;
 
-    // Replace underscores with spaces and normalize case
     strainFocus = strainFocus.replace(/_/g, ' ').toLowerCase();
 
     if (!nodes || nodes.length === 0) return;
@@ -1286,7 +1285,7 @@ function focusNodeFromURL() {
         const product = n.product ? n.product.toLowerCase() : '';
 
         let score = 0;
-        if (name.includes(strainFocus)) score += 2;  // prioritize name
+        if (name.includes(strainFocus)) score += 2;
         if (product.includes(strainFocus)) score += 1;
 
         if (score > bestScore) {
@@ -1297,44 +1296,34 @@ function focusNodeFromURL() {
 
     if (!bestMatch) return;
 
-    // --- Poll until D3 nodes exist and then highlight ---
+    // --- Poll until D3 nodes exist ---
     const waitForNode = () => {
-        // Match node by name (avoid object reference issues)
-        const nodeSelection = d3.selectAll('.node').filter(d => d.name === bestMatch.name);
-
+        const nodeSelection = d3.selectAll('.node').filter(d => d === bestMatch);
         if (!nodeSelection.empty()) {
-            highlightLineage(nodeSelection.node(), bestMatch);
+            // Pass null for event, second arg is the data
+            highlightLineage(null, bestMatch);
+
+            // Optional: zoom or scroll to node
+            const transform = d3.zoomIdentity
+                .translate(svg.attr("width") / 2 - bestMatch.x, svg.attr("height") / 2 - bestMatch.y)
+                .scale(1.5);
+            svg.transition().duration(800).call(zoom.transform, transform);
         } else {
-            // Retry every 50ms
-            setTimeout(waitForNode, 50);
+            setTimeout(waitForNode, 100); // retry until exists
         }
     };
 
     waitForNode();
 }
 
-// --- Wait until chart nodes exist before focusing ---
-function waitForNodesAndFocus(maxRetries = 100, interval = 100) {
-    let retries = 0;
-    const check = () => {
-        if (nodes && nodes.length > 0) {
-            focusNodeFromURL();
-        } else if (retries < maxRetries) {
-            retries++;
-            setTimeout(check, interval);
-        }
-    };
-    check();
-}
-
 // --- Initialize chart and other elements ---
-createLineageChart();   // your existing chart function
-setupStrainSearch();    // your existing search setup
-populateStrainList();   // your existing strain list
+createLineageChart();
+setupStrainSearch();
+populateStrainList();
 
-// --- Start focusing after chart nodes exist ---
-waitForNodesAndFocus();
-    
+// --- Focus after everything is ready ---
+focusNodeFromURL();
+
 </script>
 </body>
 </html>
