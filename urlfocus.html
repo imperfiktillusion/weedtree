@@ -131,42 +131,48 @@ fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_
         createLineageChart();
         setupStrainSearch();
 
-        // --- URL Focus Handler ---
-        const urlParams = new URLSearchParams(window.location.search);
-        const focusParamRaw = urlParams.get('focus');
-        if (focusParamRaw) {
-            const focusName = focusParamRaw.replace(/_/g, ' ').toLowerCase();
+    // --- URL Focus Handler ---
+const urlParams = new URLSearchParams(window.location.search);
+const focusParamRaw = urlParams.get('focus');
+if (focusParamRaw) {
+    const focusName = focusParamRaw.replace(/_/g, ' ').trim().toLowerCase();
 
-            // Poll until nodes are ready
-            const waitForNodes = setInterval(() => {
-                if (nodes && nodes.length > 0) {
-                    clearInterval(waitForNodes);
+    // Wait until SVG nodes are drawn
+    const waitForSVGNodes = setInterval(() => {
+        const svgNodes = d3.selectAll(".node").data();
+        if (svgNodes && svgNodes.length > 0) {
+            clearInterval(waitForSVGNodes);
 
-                    const nodeToFocus = nodes.find(n => n.name.toLowerCase() === focusName);
-                    if (!nodeToFocus) return;
+            // Find node by name (trimmed & lowercased)
+            const nodeToFocus = nodes.find(n => n.name.trim().toLowerCase() === focusName);
+            if (!nodeToFocus) {
+                console.warn("Focus node not found:", focusName);
+                return;
+            }
 
-                    // Trigger the same behavior as if node was clicked
-                    highlightLineage(null, nodeToFocus);
+            // Call highlightLineage with fake event object to avoid errors
+            highlightLineage({ type: "urlFocus" }, nodeToFocus);
 
-                    // Auto zoom to node
-                    const chartContainer = document.querySelector('.chart-container');
-                    const containerWidth = chartContainer.clientWidth;
-                    const containerHeight = chartContainer.clientHeight;
+            // Auto zoom to focused node
+            const chartContainer = document.querySelector('.chart-container');
+            const containerWidth = chartContainer.clientWidth;
+            const containerHeight = chartContainer.clientHeight;
 
-                    const transform = d3.zoomTransform(svg.node());
-                    const x = nodeToFocus.x;
-                    const y = nodeToFocus.y;
+            const transform = d3.zoomTransform(svg.node());
+            const x = nodeToFocus.x;
+            const y = nodeToFocus.y;
 
-                    const k = transform.k || 1;
-                    const tx = containerWidth / 2 - x * k;
-                    const ty = containerHeight / 2 - y * k;
+            const k = transform.k || 1;
+            const tx = containerWidth / 2 - x * k;
+            const ty = containerHeight / 2 - y * k;
 
-                    svg.transition()
-                        .duration(800)
-                        .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
-                }
-            }, 200); // check every 200ms until nodes exist
+            svg.transition()
+                .duration(800)
+                .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
         }
+    }, 100); // check every 100ms until SVG nodes exist
+}
+
     })
     .catch(error => {
         showError("Error fetching data: " + error.message);
