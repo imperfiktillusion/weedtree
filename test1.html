@@ -255,6 +255,35 @@ function customSortColumn3Plus(a, b) {
     return a.name.localeCompare(b.name);
 }
 
+function barycentricSort(genNodes, nodes, direction = 'parents') {
+    return genNodes
+        .map(n => {
+            let refs = [];
+
+            if (direction === 'parents') {
+                refs = n.parents
+                    .map(pid => nodes.find(p => p.id === pid))
+                    .filter(Boolean);
+            } else {
+                refs = nodes.filter(c => c.parents.includes(n.id));
+            }
+
+            const avgY = refs.length
+                ? d3.mean(refs, r => r.y)
+                : n.y;
+
+            return { node: n, avgY };
+        })
+        .sort((a, b) => {
+            if (a.avgY == null && b.avgY == null) return 0;
+            if (a.avgY == null) return 1;
+            if (b.avgY == null) return -1;
+            return a.avgY - b.avgY;
+        })
+        .map(d => d.node);
+}
+
+    
 function calculateColumn1Positions() {
     const column1Nodes = nodes.filter(n => n.generation === 0);
     column1Nodes.forEach(node => {
@@ -501,10 +530,17 @@ const createLineageChart = () => {
 
         if (gen === 1) {
             genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-        } else if (gen >= 2) {
-            barycentricSort(genNodes);
+     } else if (gen >= 2) {
+    // Barycentric ordering based on parent alignment
+    genNodes = barycentricSort(genNodes, nodes, 'parents');
 
-        }
+    // Stable secondary sort (dominance + name)
+    genNodes.sort((a, b) => {
+        const dom = customSortColumn3Plus(a, b);
+        return dom !== 0 ? dom : a.name.localeCompare(b.name);
+    });
+}
+
 
         let yOffset = 0;
         const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
@@ -766,35 +802,6 @@ function dragNode(event, d, nodeElement) {
         })
         .attr("y", -14);
 
-    
-function barycentricSort(genNodes) {
-    genNodes.forEach(n => {
-        let refs = [];
-
-        if (n.parents && n.parents.length) {
-            refs = n.parents
-                .map(pid => nodeById.get(pid))
-                .filter(Boolean)
-                .map(p => p.y);
-        }
-
-        if (!refs.length) {
-            refs = nodes
-                .filter(x => x.parents && x.parents.includes(n.id))
-                .map(c => c.y);
-        }
-
-        n._baryY = refs.length ? d3.mean(refs) : n.y;
-    });
-
-    genNodes.sort((a, b) => {
-        if (a._baryY !== b._baryY) return a._baryY - b._baryY;
-        return a.name.localeCompare(b.name);
-    });
-
-    genNodes.forEach(n => delete n._baryY);
-}
-
 
     
     function highlightLineage(event, d) {
@@ -847,24 +854,15 @@ if (node.variant) {
 };
 
 
-   const getDescendants = (nodeId) => {
-    lineage.add(nodeId);
-    
-    // Include normal children
-    const children = nodes.filter(n => n.parents.includes(nodeId));
-    
-    // Include variant children
-    const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
-    
-    const allChildren = [...children, ...variantChildren];
-    
-    allChildren.forEach(child => {
-        if (!lineage.has(child.id)) {  // prevent infinite recursion
+    const getDescendants = (nodeId) => {
+        lineage.add(nodeId);
+        const children = nodes.filter(n => n.parents.includes(nodeId));
+        children.forEach(child => {
             lineage.add(child.id);
             getDescendants(child.id);
-        }
-    });
-};
+        });
+    };
+
     getAncestors(d);
     getDescendants(d.id);
 
