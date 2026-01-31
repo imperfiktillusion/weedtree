@@ -1257,28 +1257,26 @@ function adjustButtonFontSize() {
 
 window.addEventListener('load', adjustButtonFontSize);
 
-// --- Popup click handlers ---
+// --- Popup behavior ---
 document.querySelector('.popup-overlay').addEventListener('click', function() {
     document.querySelectorAll('.popup').forEach(popup => popup.style.display = 'none');
     this.style.display = 'none';
 });
-
 document.querySelectorAll('.popup').forEach(popup => 
     popup.addEventListener('click', event => event.stopPropagation())
 );
 
-// --- Function to focus node from URL using underscores as spaces, with fuzzy matching ---
+// --- Focus node from URL using underscores and fuzzy matching ---
 function focusNodeFromURL() {
     const params = new URLSearchParams(window.location.search);
     let strainFocus = params.get('focus'); // expects ?focus=Strain_Name_or_Product
     if (!strainFocus) return;
 
-    // Replace underscores with spaces and lowercase
     strainFocus = strainFocus.replace(/_/g, ' ').toLowerCase();
 
     if (!nodes || nodes.length === 0) return;
 
-    // Simple fuzzy match: find node with name or product containing the focus string
+    // --- Simple fuzzy match: prefer name over product ---
     let bestMatch = null;
     let bestScore = 0;
 
@@ -1287,7 +1285,7 @@ function focusNodeFromURL() {
         const product = n.product ? n.product.toLowerCase() : '';
 
         let score = 0;
-        if (name.includes(strainFocus)) score += 2;       // name higher priority
+        if (name.includes(strainFocus)) score += 2;
         if (product.includes(strainFocus)) score += 1;
 
         if (score > bestScore) {
@@ -1298,35 +1296,39 @@ function focusNodeFromURL() {
 
     if (!bestMatch) return;
 
-    // Simulate a click/highlight after a tiny delay to ensure chart is ready
-    setTimeout(() => {
-        highlightLineage(null, bestMatch);
-    }, 0);
-}
-
-// --- Wait for chart nodes to exist, then focus ---
-function waitForNodesAndFocus(retries = 20) {
-    if (nodes && nodes.length > 0) {
-        // Show popup first if needed
-        const popup = document.getElementById('popup3');
-        if (popup) popup.style.display = 'block';
-        const overlay = document.querySelector('.popup-overlay');
-        if (overlay) overlay.style.display = 'block';
-
-        // Focus node
-        focusNodeFromURL();
-    } else if (retries > 0) {
-        setTimeout(() => waitForNodesAndFocus(retries - 1), 50); // check again in 50ms
-    } else {
-        console.warn('focusNodeFromURL: nodes never initialized');
+    // --- Select the DOM element corresponding to the node ---
+    const nodeSelection = d3.selectAll('.node').filter(d => d === bestMatch);
+    if (!nodeSelection.empty()) {
+        highlightLineage(nodeSelection.node(), bestMatch);
     }
 }
 
-// --- Initialize chart and wait for focus ---
-createLineageChart();          // existing chart function
-setupStrainSearch();           // existing search setup
-populateStrainList();          // existing strain list
-waitForNodesAndFocus();        // focus node from URL when ready
+// --- Poll for chart nodes before focusing ---
+function waitForNodesAndFocus(maxRetries = 60, interval = 50) {
+    let retries = 0;
+
+    const check = () => {
+        const nodeElements = d3.selectAll('.node');
+        if (!nodeElements.empty()) {
+            focusNodeFromURL();
+        } else if (retries < maxRetries) {
+            retries++;
+            setTimeout(check, interval);
+        }
+    };
+
+    check();
+}
+
+// --- Call after chart creation ---
+createLineageChart();   // your existing chart function
+setupStrainSearch();    // your existing search setup
+populateStrainList();   // your existing strain list
+
+// Wait until nodes exist, then focus
+waitForNodesAndFocus();
+
+    
 </script>
 </body>
 </html>
