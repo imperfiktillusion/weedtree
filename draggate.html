@@ -576,22 +576,20 @@ const node = g.append("g")
         g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
     });
 
-// --- DRAGGING with long press on mobile + shift key for desktop ---
+// --- DRAGGING with long press on mobile + shift key for desktop (collision-aware snapping) ---
 node.call(d3.drag()
     .on("start", function(event, d) {
-        // Mobile: skip immediate drag, use long press
         if (event.sourceEvent.type.startsWith("touch")) {
             d.longPressTimer = setTimeout(() => {
                 startDrag(event, d, this);
-            }, 400); // 400ms long press
+            }, 400);
         } else {
-            // Desktop: only start drag if Shift is held
             if (!event.sourceEvent.shiftKey) return;
             startDrag(event, d, this);
         }
     })
     .on("drag", function(event, d) {
-        if (!d.dragging) return; // Only drag if long press (mobile) or Shift (desktop) activated
+        if (!d.dragging) return;
         dragNode(event, d, this);
     })
     .on("end", function(event, d) {
@@ -600,10 +598,42 @@ node.call(d3.drag()
             d.longPressTimer = null;
         }
         if (!d.dragging) return;
+
         d.dragging = false;
         dragging = false;
+
+        // --- Snap to nearest free vertical slot ---
+        const nodeHeightWithGap = nodePillHeight + 16; // your min gap
+        const generationNodes = nodes.filter(n => n.generation === d.generation && n.id !== d.id);
+        const occupiedYs = generationNodes.map(n => Math.round(n.y / nodeHeightWithGap));
+        let desiredSlot = Math.round(d.y / nodeHeightWithGap);
+
+        // Find closest unoccupied slot
+        let offset = 0;
+        while (occupiedYs.includes(desiredSlot + offset) || occupiedYs.includes(desiredSlot - offset)) {
+            offset++;
+        }
+        // pick the nearest free slot
+        desiredSlot = occupiedYs.includes(desiredSlot + offset) ? desiredSlot - offset : desiredSlot + offset;
+
+        d.y = desiredSlot * nodeHeightWithGap;
+
+        // Move variants with the same offset
+        if (d.variantOffsets) {
+            d.variantOffsets.forEach(vo => {
+                const variantNode = nodes.find(n => n.id === vo.id);
+                variantNode.y = d.y + vo.offsetY;
+                g.selectAll(".node")
+                    .filter(n => n.id === variantNode.id)
+                    .attr("transform", `translate(${variantNode.x},${variantNode.y})`);
+            });
+        }
+
+        d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
+        updateLinksAndPills();
     })
 );
+
 
 
 
