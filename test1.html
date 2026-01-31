@@ -1288,6 +1288,7 @@ function focusNodeFromURL() {
     if (!strainFocus) return;
 
     strainFocus = strainFocus.replace(/_/g, ' ').toLowerCase();
+
     if (!nodes || nodes.length === 0) return;
 
     // --- Simple fuzzy match: prefer name over product ---
@@ -1309,32 +1310,46 @@ function focusNodeFromURL() {
 
     if (!bestMatch) return;
 
-    // --- Highlight node ---
-    highlightLineage(null, bestMatch);
+    // --- Wait until D3 nodes exist in the DOM ---
+    const waitForNode = () => {
+        const nodeSelection = d3.selectAll('.node')
+            .filter(d => d.id === bestMatch.id);
 
-    // Optional: zoom and center
-    const svgWidth = +svg.attr("width");
-    const svgHeight = +svg.attr("height");
-    const targetX = bestMatch.x;
-    const targetY = bestMatch.y;
-    const scale = 1.5;
+        if (!nodeSelection.empty()) {
+            // Highlight node
+            highlightLineage(null, bestMatch);
 
-    svg.transition().duration(800).call(
-        zoom.transform,
-        d3.zoomIdentity
-            .translate(svgWidth / 2 - targetX * scale, svgHeight / 2 - targetY * scale)
-            .scale(scale)
-    );
+            // Optional: zoom and center
+            if (svg && zoom) {
+                const svgWidth = +svg.attr("width");
+                const svgHeight = +svg.attr("height");
+                const targetX = bestMatch.x;
+                const targetY = bestMatch.y;
+                const scale = 1.5;
 
-    // Bring node to front
-    g.selectAll(".node").filter(d => d.id === bestMatch.id).raise();
+                svg.transition().duration(800).call(
+                    zoom.transform,
+                    d3.zoomIdentity
+                        .translate(svgWidth / 2 - targetX * scale, svgHeight / 2 - targetY * scale)
+                        .scale(scale)
+                );
+            }
+
+            nodeSelection.raise(); // bring node to front
+        } else {
+            setTimeout(waitForNode, 100); // retry until node exists
+        }
+    };
+
+    waitForNode();
 }
 
 // --- AFTER chart creation ---
+// Insert this right **after your existing createLineageChart() call** (or in its onRendered callback)
 createLineageChart(() => {
-    setupStrainSearch();
-    populateStrainList();
-    focusNodeFromURL();  // safe to run now — chart is fully rendered
+    if (typeof setupStrainSearch === "function") setupStrainSearch();
+    if (typeof populateStrainList === "function") populateStrainList();
+    focusNodeFromURL();  // will only run after the chart is fully rendered
 });
 
 </script>
