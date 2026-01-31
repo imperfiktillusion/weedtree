@@ -1296,12 +1296,27 @@ function focusNodeFromURL() {
 
     if (!bestMatch) return;
 
-    // --- Select the DOM element corresponding to the node ---
-    const nodeSelection = d3.selectAll('.node').filter(d => d === bestMatch);
-    if (!nodeSelection.empty()) {
-        highlightLineage(nodeSelection.node(), bestMatch);
-    }
+    // --- Wait until D3 nodes exist ---
+    const waitForNode = () => {
+        const nodeSelection = d3.selectAll('.node').filter(d => d === bestMatch);
+        if (!nodeSelection.empty()) {
+            // Properly pass the element to highlightLineage
+            highlightLineage(nodeSelection.node(), bestMatch);
+        } else {
+            // Retry until it exists
+            setTimeout(waitForNode, 50);
+        }
+    };
+    waitForNode();
 }
+
+// --- Call after chart creation ---
+createLineageChart();   // your existing chart function
+setupStrainSearch();    // your existing search setup
+populateStrainList();   // your existing strain list
+
+// --- Trigger focus ---
+focusNodeFromURL();
 
 // --- Poll for chart nodes before focusing ---
 function waitForNodesAndFocus(maxRetries = 60, interval = 50) {
