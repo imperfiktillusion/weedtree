@@ -876,14 +876,25 @@ if (node.variant) {
 };
 
 
-    const getDescendants = (nodeId) => {
-        lineage.add(nodeId);
-        const children = nodes.filter(n => n.parents.includes(nodeId));
-        children.forEach(child => {
+ const getDescendants = (nodeId) => {
+    lineage.add(nodeId);
+    
+    // Include normal children
+    const children = nodes.filter(n => n.parents.includes(nodeId));
+    
+    // Include variant children
+    const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
+    
+    const allChildren = [...children, ...variantChildren];
+    
+    allChildren.forEach(child => {
+        if (!lineage.has(child.id)) {  // prevent infinite recursion
             lineage.add(child.id);
             getDescendants(child.id);
-        });
-    };
+        }
+    });
+};
+
 
     getAncestors(d);
     getDescendants(d.id);
