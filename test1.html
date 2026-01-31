@@ -1295,36 +1295,44 @@ function focusNodeFromURL() {
 
     if (!bestMatch) return;
 
-    // --- Poll until D3 node element exists using unique ID ---
+    // --- Wait until D3 nodes exist in the DOM ---
     const waitForNode = () => {
         const nodeSelection = d3.selectAll('.node')
-            .filter(d => d.id === bestMatch.id); // match by id, not object reference
+            .filter(d => d.id === bestMatch.id);
 
         if (!nodeSelection.empty()) {
+            // Highlight node
             highlightLineage(null, bestMatch);
 
-            // Optional: zoom/center
+            // Optional: zoom and center
             const svgWidth = +svg.attr("width");
             const svgHeight = +svg.attr("height");
-            const transform = d3.zoomIdentity
-                .translate(svgWidth / 2 - bestMatch.x, svgHeight / 2 - bestMatch.y)
-                .scale(1.5);
-            svg.transition().duration(800).call(zoom.transform, transform);
+            const targetX = bestMatch.x;
+            const targetY = bestMatch.y;
+            const scale = 1.5;
 
-            nodeSelection.raise(); // make sure node is on top
+            svg.transition().duration(800).call(
+                zoom.transform,
+                d3.zoomIdentity
+                    .translate(svgWidth / 2 - targetX * scale, svgHeight / 2 - targetY * scale)
+                    .scale(scale)
+            );
+
+            nodeSelection.raise(); // bring node to front
         } else {
-            setTimeout(waitForNode, 100); // retry
+            setTimeout(waitForNode, 100); // retry until node exists
         }
     };
 
     waitForNode();
 }
 
-// --- Call after chart creation ---
-createLineageChart();
-setupStrainSearch();
-populateStrainList();
-focusNodeFromURL();
+// --- AFTER chart creation ---
+createLineageChart();      // build nodes & links
+setupStrainSearch();       // search functionality
+populateStrainList();      // strain list
+focusNodeFromURL();        // focus from URL
+
 
 
 </script>
