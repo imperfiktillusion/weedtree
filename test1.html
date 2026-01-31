@@ -576,70 +576,53 @@ const node = g.append("g")
         g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
     });
 
-// --- DRAGGING with long press on mobile + shift key for desktop ---
-node.each(function(d) {
-    const nodeEl = this;
-    let longPressTimer = null;
+// --- DRAGGING: long press on mobile + Shift key on desktop ---
+node.call(d3.drag()
+    .on("start", function(event, d) {
+        const isTouch = event.sourceEvent?.type.startsWith("touch");
 
-    // Touch start: wait for long press
-    nodeEl.addEventListener('touchstart', (event) => {
-        event.stopPropagation();
-        longPressTimer = setTimeout(() => {
+        if (isTouch) {
+            // Mobile: start long press
+            d.longPressTimer = setTimeout(() => {
+                d.dragging = true;
+                dragging = true;
+                d3.select(this).raise();
+                // store offsets for variants
+                d.variantOffsets = nodes.filter(n => n.variant === d.name)
+                    .map(v => ({ id: v.id, offsetY: v.y - d.y }));
+            }, 400); // 400ms long press
+        } else {
+            // Desktop: only drag if Shift is pressed
+            if (!event.sourceEvent.shiftKey) {
+                d.dragging = false;
+                return;
+            }
+            // Start drag immediately
             d.dragging = true;
             dragging = true;
-            d3.select(nodeEl).raise();
-            // store offsets for variants
+            d3.select(this).raise();
             d.variantOffsets = nodes.filter(n => n.variant === d.name)
                 .map(v => ({ id: v.id, offsetY: v.y - d.y }));
-        }, 400); // 400ms long press
-    }, { passive: false });
-
-    nodeEl.addEventListener('touchmove', (event) => {
-        if (!d.dragging) {
-            // Cancel drag if finger moves before long press
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-            return;
         }
-        event.preventDefault();
-        d.y = event.touches[0].clientY;
-        d3.select(nodeEl).attr("transform", `translate(${d.x},${d.y})`);
-        dragVariantsAndPills(d);
-        updateLinks();
-    }, { passive: false });
-
-    nodeEl.addEventListener('touchend', (event) => {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-        if (d.dragging) {
-            d.dragging = false;
-            dragging = false;
+    })
+    .on("drag", function(event, d) {
+        if (!d.dragging) return; // only move if allowed
+        dragNode(event, d, this);
+    })
+    .on("end", function(event, d) {
+        // clear mobile long press timer if it exists
+        if (d.longPressTimer) {
+            clearTimeout(d.longPressTimer);
+            d.longPressTimer = null;
         }
-    });
+        if (!d.dragging) return;
+        d.dragging = false;
+        dragging = false;
+    })
+);
 
-    // Desktop drag (Shift + mouse)
-    d3.select(nodeEl).call(d3.drag()
-        .filter(event => event.sourceEvent.shiftKey) // only drag if Shift
-        .on("start", function(event) {
-            d.dragging = true;
-            dragging = true;
-            d3.select(nodeEl).raise();
-            d.variantOffsets = nodes.filter(n => n.variant === d.name)
-                .map(v => ({ id: v.id, offsetY: v.y - d.y }));
-        })
-        .on("drag", function(event) {
-            if (!d.dragging) return;
-            d.y = event.y;
-            d3.select(nodeEl).attr("transform", `translate(${d.x},${d.y})`);
-            dragVariantsAndPills(d);
-            updateLinks();
-        })
-        .on("end", function() {
-            d.dragging = false;
-            dragging = false;
-        })
-    );
-});
+
+ 
 
 // --- Helper functions for moving variants/pills & links ---
 function dragVariantsAndPills(d) {
