@@ -502,7 +502,8 @@ const createLineageChart = () => {
         if (gen === 1) {
             genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
         } else if (gen >= 2) {
-            genNodes.sort(customSortColumn3Plus);
+            barycentricSort(genNodes);
+
         }
 
         let yOffset = 0;
@@ -764,6 +765,35 @@ function dragNode(event, d, nodeElement) {
             return nodeWidth / 2 - 20; 
         })
         .attr("y", -14);
+
+    
+function barycentricSort(genNodes) {
+    genNodes.forEach(n => {
+        let refs = [];
+
+        if (n.parents && n.parents.length) {
+            refs = n.parents
+                .map(pid => nodeById.get(pid))
+                .filter(Boolean)
+                .map(p => p.y);
+        }
+
+        if (!refs.length) {
+            refs = nodes
+                .filter(x => x.parents && x.parents.includes(n.id))
+                .map(c => c.y);
+        }
+
+        n._baryY = refs.length ? d3.mean(refs) : n.y;
+    });
+
+    genNodes.sort((a, b) => {
+        if (a._baryY !== b._baryY) return a._baryY - b._baryY;
+        return a.name.localeCompare(b.name);
+    });
+
+    genNodes.forEach(n => delete n._baryY);
+}
 
 
     
