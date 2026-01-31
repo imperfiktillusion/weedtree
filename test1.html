@@ -576,41 +576,25 @@ const node = g.append("g")
         g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
     });
 
-// --- DRAGGING: long press on mobile + Shift key on desktop ---
+// --- DRAGGING with long press on mobile + shift key for desktop ---
 node.call(d3.drag()
     .on("start", function(event, d) {
-        const isTouch = event.sourceEvent?.type.startsWith("touch");
-
-        if (isTouch) {
-            // Mobile: start long press
+        // Mobile: skip immediate drag, use long press
+        if (event.sourceEvent.type.startsWith("touch")) {
             d.longPressTimer = setTimeout(() => {
-                d.dragging = true;
-                dragging = true;
-                d3.select(this).raise();
-                // store offsets for variants
-                d.variantOffsets = nodes.filter(n => n.variant === d.name)
-                    .map(v => ({ id: v.id, offsetY: v.y - d.y }));
+                startDrag(event, d, this);
             }, 400); // 400ms long press
         } else {
-            // Desktop: only drag if Shift is pressed
-            if (!event.sourceEvent.shiftKey) {
-                d.dragging = false;
-                return;
-            }
-            // Start drag immediately
-            d.dragging = true;
-            dragging = true;
-            d3.select(this).raise();
-            d.variantOffsets = nodes.filter(n => n.variant === d.name)
-                .map(v => ({ id: v.id, offsetY: v.y - d.y }));
+            // Desktop: only start drag if Shift is held
+            if (!event.sourceEvent.shiftKey) return;
+            startDrag(event, d, this);
         }
     })
     .on("drag", function(event, d) {
-        if (!d.dragging) return; // only move if allowed
+        if (!d.dragging) return; // Only drag if long press (mobile) or Shift (desktop) activated
         dragNode(event, d, this);
     })
     .on("end", function(event, d) {
-        // clear mobile long press timer if it exists
         if (d.longPressTimer) {
             clearTimeout(d.longPressTimer);
             d.longPressTimer = null;
@@ -622,10 +606,23 @@ node.call(d3.drag()
 );
 
 
- 
 
-// --- Helper functions for moving variants/pills & links ---
-function dragVariantsAndPills(d) {
+// --- Helper functions ---
+function startDrag(event, d, nodeElement) {
+    dragging = true;
+    d.dragging = true;
+    d3.select(nodeElement).raise();
+
+    // store offsets for variants
+    d.variantOffsets = nodes.filter(n => n.variant === d.name)
+        .map(v => ({ id: v.id, offsetY: v.y - d.y }));
+}
+
+function dragNode(event, d, nodeElement) {
+    d.y = event.y;
+    d3.select(nodeElement).attr("transform", `translate(${d.x},${d.y})`);
+
+    // move variants with stored offsets
     if (d.variantOffsets) {
         d.variantOffsets.forEach(vo => {
             const variantNode = nodes.find(n => n.id === vo.id);
@@ -636,16 +633,22 @@ function dragVariantsAndPills(d) {
         });
     }
 
-    g.selectAll('.pct-pill, .pct-pill-text')
-        .filter(p => nodes.find(n => n.id === p.nodeId) === d || 
-                     (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+    // move pct pills along with nodes
+    g.selectAll('.pct-pill')
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
         .attr("transform", p => {
             const nodeRef = nodes.find(n => n.id === p.nodeId);
             return `translate(${nodeRef.x},${nodeRef.y})`;
         });
-}
 
-function updateLinks() {
+    g.selectAll('.pct-pill-text')
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+        .attr("transform", p => {
+            const nodeRef = nodes.find(n => n.id === p.nodeId);
+            return `translate(${nodeRef.x},${nodeRef.y})`;
+        });
+
+    // update links
     g.selectAll(".link").attr("d", l => {
         const sourceNode = nodes.find(n => n.id === l.source);
         const targetNode = nodes.find(n => n.id === l.target);
@@ -657,7 +660,6 @@ function updateLinks() {
         return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
     });
 }
-
 
 
 
@@ -815,15 +817,24 @@ if (node.variant) {
 };
 
 
-    const getDescendants = (nodeId) => {
-        lineage.add(nodeId);
-        const children = nodes.filter(n => n.parents.includes(nodeId));
-        children.forEach(child => {
+   const getDescendants = (nodeId) => {
+    lineage.add(nodeId);
+    
+    // Include normal children
+    const children = nodes.filter(n => n.parents.includes(nodeId));
+    
+    // Include variant children
+    const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
+    
+    const allChildren = [...children, ...variantChildren];
+    
+    allChildren.forEach(child => {
+        if (!lineage.has(child.id)) {  // prevent infinite recursion
             lineage.add(child.id);
             getDescendants(child.id);
-        });
-    };
-
+        }
+    });
+};
     getAncestors(d);
     getDescendants(d.id);
 
