@@ -1295,26 +1295,6 @@ document.querySelectorAll('.popup').forEach(popup =>
     popup.addEventListener('click', event => event.stopPropagation())
 );
 
-// --- Chart Loaded Confirmation & URL focus handling ---
-function onChartLoaded() {
-    console.log("Lineage chart fully loaded with", nodes.length, "nodes.");
-    
-    // Check URL for ?focus=strain_name
-    const urlParams = new URLSearchParams(window.location.search);
-    const focusStrain = urlParams.get('focus');
-    if (!focusStrain) return;
-
-    // Find the corresponding node (case-insensitive)
-    const targetNode = nodes.find(n => n.name.toLowerCase() === focusStrain.toLowerCase());
-    if (!targetNode) return;
-
-    // Simulate a click on the node
-    console.log("Focusing on strain:", targetNode.name);
-    highlightLineage(null, targetNode);
-}
-
-// Wait a short tick to ensure all D3 elements are appended
-setTimeout(onChartLoaded, 50);
 
 
     
