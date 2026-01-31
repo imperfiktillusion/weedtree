@@ -766,10 +766,6 @@ function dragNode(event, d, nodeElement) {
         .attr("y", -14);
 
 
-
-
-
-
     
     function highlightLineage(event, d) {
 
@@ -1029,16 +1025,54 @@ g.selectAll('.node')
     const focusStrain = urlParams.get('focus');
     if (!focusStrain) return;
 
-    setTimeout(() => {
-        const targetNode = nodes.find(n => n.name.toLowerCase() === focusStrain.toLowerCase());
+    // Wait until the next animation frame so the chart nodes are fully positioned
+    requestAnimationFrame(() => {
+        const targetNode = nodes.find(
+            n => n.name.toLowerCase() === focusStrain.toLowerCase()
+        );
         if (!targetNode) return;
 
         console.log("Focusing on strain:", targetNode.name);
 
-        // Call highlightLineage with null event, same as manual click
+        // Highlight lineage
         highlightLineage(null, targetNode);
 
-    }, 0);
+        // Compute bounding box of the lineage
+        const lineageNodes = getLineageNodes(targetNode); // make sure this function returns all highlighted nodes
+        const xValues = lineageNodes.map(n => n.x);
+        const yValues = lineageNodes.map(n => n.y);
+
+        const minX = Math.min(...xValues);
+        const maxX = Math.max(...xValues);
+        const minY = Math.min(...yValues);
+        const maxY = Math.max(...yValues);
+
+        const chartWidth = document.querySelector('.chart-container').clientWidth;
+        const chartHeight = document.querySelector('.chart-container').clientHeight;
+
+        const padding = 50; // space around the lineage
+        const scaleX = (chartWidth - padding) / (maxX - minX || 1);
+        const scaleY = (chartHeight - padding) / (maxY - minY || 1);
+        let scale = Math.min(scaleX, scaleY);
+
+        // Clamp zoom to prevent excessive zoom-in
+        const minScale = 0.8;
+        const maxScale = 2.5;
+        scale = Math.max(minScale, Math.min(maxScale, scale));
+
+        // Center the lineage in the chart
+        const translateX = chartWidth / 2 - ((minX + maxX) / 2) * scale;
+        const translateY = chartHeight / 2 - ((minY + maxY) / 2) * scale;
+
+        svg.transition()
+            .duration(600)
+            .call(
+                zoom.transform,
+                d3.zoomIdentity
+                    .translate(translateX, translateY)
+                    .scale(scale)
+            );
+    });
 })();
 
 
