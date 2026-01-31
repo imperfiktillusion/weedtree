@@ -1135,11 +1135,14 @@ function setupStrainSearch() {
             div.innerHTML = strain.name + 
                             (strain.product ? `<br>(${strain.product})` : '') + 
                             (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
-            div.addEventListener('click', () => {
+            
+            // Use pointerdown to work on mobile too
+            div.addEventListener('pointerdown', () => {
                 highlightStrain(strain);
                 dropdown.style.display = 'none';
                 searchInput.value = '';
             });
+
             dropdown.appendChild(div);
         });
 
@@ -1153,19 +1156,25 @@ function setupStrainSearch() {
     });
 
     function highlightStrain(strain) {
+        // Remove previous arrow
         if (highlightedNode) {
             d3.select(highlightedNode).select('.highlight-arrow').remove();
             highlightedNode = null;
         }
 
+        // Select the node
         const node = g.selectAll('.node').filter(d => d.id === strain.id);
+
+        if (!node.node()) return; // node not found, skip
+
+        // Append the arrow
         const arrow = node.append('path')
             .attr('d', 'M-70,-6 L-39,0 L-70,6 Z')
             .attr('class', 'highlight-arrow')
             .attr('fill', 'red')
             .attr('transform', 'translate(0,0) scale(3)');
 
-        arrow.on('mouseover', function() {
+        arrow.on('mouseover pointerdown', function() {
             d3.select(this).remove();
             highlightedNode = null;
         });
@@ -1176,8 +1185,11 @@ function setupStrainSearch() {
 
         highlightedNode = node.node();
 
+        // Zoom to node
         zoomToNode(strain);
     }
+}
+
 
     function zoomToNode(strain) {
         const transform = d3.zoomTransform(svg.node());
