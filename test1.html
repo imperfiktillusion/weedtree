@@ -1266,26 +1266,43 @@ document.querySelectorAll('.popup').forEach(popup =>
     popup.addEventListener('click', event => event.stopPropagation())
 );
 
-// --- Function to focus node from URL using underscores as spaces ---
+// --- Function to focus node from URL using underscores as spaces, with fuzzy matching ---
 function focusNodeFromURL() {
     const params = new URLSearchParams(window.location.search);
     let strainFocus = params.get('focus'); // expects ?focus=Strain_Name_or_Product
     if (!strainFocus) return;
 
     // Replace underscores with spaces
-    strainFocus = strainFocus.replace(/_/g, ' ');
+    strainFocus = strainFocus.replace(/_/g, ' ').toLowerCase();
 
-    // Find the node by name OR product (case-insensitive)
-    const targetNode = nodes.find(n =>
-        n.name.toLowerCase() === strainFocus.toLowerCase() ||
-        (n.product && n.product.toLowerCase() === strainFocus.toLowerCase())
-    );
-    if (!targetNode) return;
+    if (!nodes || nodes.length === 0) return; // safety check
 
-    // Simulate a click on that node
-    highlightLineage(null, targetNode);
+    // --- Simple fuzzy match: find node with name or product containing the focus string ---
+    let bestMatch = null;
+    let bestScore = 0;
+
+    nodes.forEach(n => {
+        const name = n.name.toLowerCase();
+        const product = n.product ? n.product.toLowerCase() : '';
+
+        let score = 0;
+        if (name.includes(strainFocus)) score += 2;       // give name higher priority
+        if (product.includes(strainFocus)) score += 1;
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestMatch = n;
+        }
+    });
+
+    if (!bestMatch) return;
+
+    // --- Ensure highlightLineage has access to the correct D3 selections ---
+    // Use setTimeout 0 to defer execution until the rendering is complete
+    setTimeout(() => {
+        highlightLineage(null, bestMatch);
+    }, 0);
 }
-
 
 // --- Wait until DOM, chart, and popup are fully ready ---
 function initFocusAfterLoad() {
@@ -1294,15 +1311,18 @@ function initFocusAfterLoad() {
     popup.style.display = 'block';
     document.querySelector('.popup-overlay').style.display = 'block';
 
-    // Use requestAnimationFrame to ensure chart has rendered
+    // Wait for next frame to ensure chart is rendered
     requestAnimationFrame(() => {
         focusNodeFromURL();
     });
 }
 
-// Call this after chart creation
-createLineageChart();
-initFocusAfterLoad();
+// --- Call after chart creation ---
+createLineageChart();          // your existing chart function
+setupStrainSearch();           // your existing search setup
+populateStrainList();          // your existing strain list
+initFocusAfterLoad();          // focus node from URL
+
 
     
 </script>
