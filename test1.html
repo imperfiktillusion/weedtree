@@ -295,9 +295,11 @@ function calculateColumn1Positions() {
     });
 }
 
-  function formatPercentage(p) {
-    return p < 5 ? '<5%' : `${p.toFixed(0)}%`;
+function formatPercentage(p) {
+    const capped = Math.min(p, 100);  // limit to 100
+    return capped < 5 ? '<5%' : `${capped.toFixed(0)}%`;
 }
+
 
 
 
