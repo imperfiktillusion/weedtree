@@ -126,50 +126,53 @@ fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_
         }).filter(obj => Object.values(obj).some(value => value !== ''));
 
         document.getElementById('loading-message').style.display = 'none';
+
+        // --- Create chart and search ---
         createLineageChart();
         setupStrainSearch();
-      // --- URL-based strain focus with flexible parsing and auto-zoom ---
-(function focusFromUrl() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const focusParamRaw = urlParams.get('focus');
-    if (!focusParamRaw) return;
 
-    // Convert underscores to spaces and normalize
-    const focusName = focusParamRaw.replace(/_/g, ' ').toLowerCase();
+        // --- URL Focus Handler ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const focusParamRaw = urlParams.get('focus');
+        if (focusParamRaw) {
+            const focusName = focusParamRaw.replace(/_/g, ' ').toLowerCase();
 
-    // Find the node by exact name match (case-insensitive)
-    const nodeToFocus = nodes.find(n => n.name.toLowerCase() === focusName);
-    if (!nodeToFocus) return;
+            // Poll until nodes are ready
+            const waitForNodes = setInterval(() => {
+                if (nodes && nodes.length > 0) {
+                    clearInterval(waitForNodes);
 
-    // Delay slightly to ensure chart and DOM are fully rendered
-    setTimeout(() => {
-        // Trigger the same behavior as if the node was clicked
-        highlightLineage(null, nodeToFocus);
+                    const nodeToFocus = nodes.find(n => n.name.toLowerCase() === focusName);
+                    if (!nodeToFocus) return;
 
-        // --- Auto-zoom / center the focused node ---
-        const chartContainer = document.querySelector('.chart-container');
-        const containerWidth = chartContainer.clientWidth;
-        const containerHeight = chartContainer.clientHeight;
+                    // Trigger the same behavior as if node was clicked
+                    highlightLineage(null, nodeToFocus);
 
-        const transform = d3.zoomTransform(svg.node());
-        const x = nodeToFocus.x;
-        const y = nodeToFocus.y;
+                    // Auto zoom to node
+                    const chartContainer = document.querySelector('.chart-container');
+                    const containerWidth = chartContainer.clientWidth;
+                    const containerHeight = chartContainer.clientHeight;
 
-        const k = transform.k; // keep current zoom scale
-        const tx = containerWidth / 2 - x * k;
-        const ty = containerHeight / 2 - y * k;
+                    const transform = d3.zoomTransform(svg.node());
+                    const x = nodeToFocus.x;
+                    const y = nodeToFocus.y;
 
-        svg.transition()
-            .duration(600)
-            .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
-    }, 100);
-})();
+                    const k = transform.k || 1;
+                    const tx = containerWidth / 2 - x * k;
+                    const ty = containerHeight / 2 - y * k;
 
+                    svg.transition()
+                        .duration(800)
+                        .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
+                }
+            }, 200); // check every 200ms until nodes exist
+        }
     })
     .catch(error => {
         showError("Error fetching data: " + error.message);
         console.error("Fetch error:", error);
     });
+
 
 
 
