@@ -1288,7 +1288,6 @@ function focusNodeFromURL() {
     if (!strainFocus) return;
 
     strainFocus = strainFocus.replace(/_/g, ' ').toLowerCase();
-
     if (!nodes || nodes.length === 0) return;
 
     // --- Simple fuzzy match: prefer name over product ---
@@ -1310,43 +1309,32 @@ function focusNodeFromURL() {
 
     if (!bestMatch) return;
 
-    // --- Wait until D3 nodes exist in the DOM ---
-    const waitForNode = () => {
-        const nodeSelection = d3.selectAll('.node')
-            .filter(d => d.id === bestMatch.id);
+    // --- Highlight node ---
+    highlightLineage(null, bestMatch);
 
-        if (!nodeSelection.empty()) {
-            // Highlight node
-            highlightLineage(null, bestMatch);
+    // Optional: zoom and center
+    const svgWidth = +svg.attr("width");
+    const svgHeight = +svg.attr("height");
+    const targetX = bestMatch.x;
+    const targetY = bestMatch.y;
+    const scale = 1.5;
 
-            // Optional: zoom and center
-            const svgWidth = +svg.attr("width");
-            const svgHeight = +svg.attr("height");
-            const targetX = bestMatch.x;
-            const targetY = bestMatch.y;
-            const scale = 1.5;
+    svg.transition().duration(800).call(
+        zoom.transform,
+        d3.zoomIdentity
+            .translate(svgWidth / 2 - targetX * scale, svgHeight / 2 - targetY * scale)
+            .scale(scale)
+    );
 
-            svg.transition().duration(800).call(
-                zoom.transform,
-                d3.zoomIdentity
-                    .translate(svgWidth / 2 - targetX * scale, svgHeight / 2 - targetY * scale)
-                    .scale(scale)
-            );
-
-            nodeSelection.raise(); // bring node to front
-        } else {
-            setTimeout(waitForNode, 100); // retry until node exists
-        }
-    };
-
-    waitForNode();
+    // Bring node to front
+    g.selectAll(".node").filter(d => d.id === bestMatch.id).raise();
 }
 
 // --- AFTER chart creation ---
 createLineageChart(() => {
     setupStrainSearch();
     populateStrainList();
-    focusNodeFromURL();  // will only run after the chart is fully rendered
+    focusNodeFromURL();  // safe to run now — chart is fully rendered
 });
 
 </script>
