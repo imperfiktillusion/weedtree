@@ -105,71 +105,39 @@ const showError = (message) => {
 };
     
 fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978')
-  .then(response => {
-    if (!response.ok) throw new Error("Network response was not ok");
-    return response.text();
-  })
-  .then(csvText => {
-    const rows = csvText.trim().split('\n').map(row => row.split(',').map(cell => cell.trim()));
-    if (rows.length < 2) throw new Error("Not enough data in the spreadsheet.");
+    .then(response => {
+        if (!response.ok) throw new Error("Network response was not ok");
+        return response.text();
+    })
+    .then(csvText => {
+        const rows = csvText.trim().split('\n').map(row => row.split(',').map(cell => cell.trim()));
+        if (rows.length < 2) {
+            showError("Not enough data in the spreadsheet.");
+            return;
+        }
 
-    attributes = rows[0];
-    strainData = rows.slice(1).map(row => {
-      const obj = {};
-      attributes.forEach((attr, index) => obj[attr] = row[index] || '');
-      return obj;
-    }).filter(obj => Object.values(obj).some(v => v !== ''));
+        attributes = rows[0];
+        strainData = rows.slice(1).map(row => {
+            let obj = {};
+            attributes.forEach((attr, index) => {
+                obj[attr] = row[index] || '';
+            });
+            return obj;
+        }).filter(obj => Object.values(obj).some(value => value !== ''));
 
-    document.getElementById('loading-message').style.display = 'none';
+        document.getElementById('loading-message').style.display = 'none';
 
-    // --- Create chart ---
-    createLineageChart();
-    setupStrainSearch();
+        // --- Create chart and search ---
+        createLineageChart();
+        setupStrainSearch();
 
-    // --- URL focus ---
-    const urlParams = new URLSearchParams(window.location.search);
-    const focusParamRaw = urlParams.get('focus');
-    if (!focusParamRaw) return;
-
-    const focusName = focusParamRaw.replace(/_/g, ' ').trim().toLowerCase();
-
-    // Wait until SVG nodes exist in DOM
-    const waitForSVGNodes = setInterval(() => {
-      const svgNodes = d3.selectAll(".node").data();
-      if (!svgNodes || svgNodes.length === 0) return;
-
-      clearInterval(waitForSVGNodes);
-
-      const nodeToFocus = nodes.find(n => n.name.trim().toLowerCase() === focusName);
-      if (!nodeToFocus) {
-        console.warn("Focus node not found:", focusName);
-        return;
-      }
-
-      // Highlight lineage with dummy event to avoid errors
-      highlightLineage({ type: "urlFocus" }, nodeToFocus);
-
-      // Auto-zoom to node
-      const chartContainer = document.querySelector('.chart-container');
-      const containerWidth = chartContainer.clientWidth;
-      const containerHeight = chartContainer.clientHeight;
-
-      const transform = d3.zoomTransform(svg.node());
-      const k = transform.k || 1;
-
-      const tx = containerWidth / 2 - nodeToFocus.x * k;
-      const ty = containerHeight / 2 - nodeToFocus.y * k;
-
-      svg.transition()
-         .duration(800)
-         .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
-
-    }, 50); // check every 50ms
-  })
-  .catch(error => {
-    showError("Error fetching data: " + error.message);
-    console.error(error);
-  });
+        // --- NEW: URL focus AFTER chart is ready ---
+        applyUrlFocus();  // <-- Add this line
+    })
+    .catch(error => {
+        showError("Error fetching data: " + error.message);
+        console.error("Fetch error:", error);
+    });
 
 
 
@@ -1116,6 +1084,37 @@ function setupStrainSearch() {
         }
     });
 
+function applyUrlFocus() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const focusParamRaw = urlParams.get('focus');
+    if (!focusParamRaw) return; // no focus param, do nothing
+
+    const focusName = focusParamRaw.replace(/_/g, ' ').toLowerCase();
+
+    // Find the node to focus
+    const nodeToFocus = nodes.find(n => n.name.toLowerCase() === focusName);
+    if (!nodeToFocus) return;
+
+    // Trigger the same behavior as if node was clicked
+    highlightLineage(null, nodeToFocus);
+
+    // Auto zoom to node
+    const chartContainer = document.querySelector('.chart-container');
+    const containerWidth = chartContainer.clientWidth;
+    const containerHeight = chartContainer.clientHeight;
+
+    const transform = d3.zoomTransform(svg.node());
+    const x = nodeToFocus.x;
+    const y = nodeToFocus.y;
+
+    const k = transform.k || 1;
+    const tx = containerWidth / 2 - x * k;
+    const ty = containerHeight / 2 - y * k;
+
+    svg.transition()
+        .duration(800)
+        .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
+}
 
   
     function highlightStrain(strain) {
