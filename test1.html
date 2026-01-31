@@ -355,7 +355,7 @@ function calculateDownwardDescendantTotals(startNode, nodes) {
 
 
 
-const createLineageChart = () => {
+const createLineageChart = (onRendered) => {
     const chartContainer = document.querySelector('.chart-container');
     const width = chartContainer.clientWidth, height = chartContainer.clientHeight;
     d3.select("#lineageChart").selectAll("*").remove();
@@ -765,10 +765,7 @@ function dragNode(event, d, nodeElement) {
         })
         .attr("y", -14);
 
-const createLineageChart = (onRendered) => {
-    // ... all your current chart creation code ...
 
-    // Call the callback when fully rendered
     if (typeof onRendered === 'function') {
         onRendered();
     }
