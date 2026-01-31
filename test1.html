@@ -1032,20 +1032,15 @@ g.selectAll('.node')
     setTimeout(() => {
         const targetNode = nodes.find(n => n.name.toLowerCase() === focusStrain.toLowerCase());
         if (!targetNode) return;
+
         console.log("Focusing on strain:", targetNode.name);
+
+        // Call highlightLineage with null event, same as manual click
         highlightLineage(null, targetNode);
 
-        if (targetNode.x !== undefined && targetNode.y !== undefined) {
-            svg.transition().duration(600).call(
-                zoom.transform,
-                d3.zoomIdentity.translate(
-                    document.querySelector('.chart-container').clientWidth / 2 - targetNode.x,
-                    document.querySelector('.chart-container').clientHeight / 2 - targetNode.y
-                ).scale(1.5)
-            );
-        }
     }, 0);
 })();
+
 
 
     //end of createlineagechart
