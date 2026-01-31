@@ -565,25 +565,20 @@ const node = g.append("g")
 
 // --- DRAGGING with long press on mobile + shift key for desktop ---
 node.call(d3.drag()
-    .filter(event => {
-        // Mobile: allow long press drag (touches)
-        if (event.sourceEvent.type.startsWith("touch")) return true;
-        // Desktop: only allow drag if Shift is held
-        return event.sourceEvent.shiftKey === true;
-    })
     .on("start", function(event, d) {
-        // Skip immediate drag on touch devices
+        // Mobile: skip immediate drag, use long press
         if (event.sourceEvent.type.startsWith("touch")) {
             d.longPressTimer = setTimeout(() => {
                 startDrag(event, d, this);
             }, 400); // 400ms long press
         } else {
-            // Mouse devices start immediately (Shift already checked by filter)
+            // Desktop: only start drag if Shift is held
+            if (!event.sourceEvent.shiftKey) return;
             startDrag(event, d, this);
         }
     })
     .on("drag", function(event, d) {
-        if (!d.dragging) return; // Only drag if long press activated
+        if (!d.dragging) return; // Only drag if long press (mobile) or Shift (desktop) activated
         dragNode(event, d, this);
     })
     .on("end", function(event, d) {
@@ -596,6 +591,7 @@ node.call(d3.drag()
         dragging = false;
     })
 );
+
 
 
 // --- Helper functions ---
