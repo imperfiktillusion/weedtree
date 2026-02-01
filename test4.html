@@ -534,40 +534,33 @@ const createLineageChart = () => {
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
     column2Nodes.sort(customSortColumn2);
 
-   for (let gen = 0; gen <= maxGeneration + 1; gen++) {
+for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     // 1️⃣ Filter nodes for this generation
     let genNodes = nodes.filter(n =>
-        (n.generation === gen) ||
+        n.generation === gen ||
         (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
     );
 
-    // 2️⃣ Handle column 2 (generation 1) landrace prioritization
-    if (gen === 1) {
-        genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-    }
-
-    // 3️⃣ Set X positions
+    // 2️⃣ Set X positions based on generation
     genNodes.forEach(node => node.x = gen * columnWidth);
 
-    // 4️⃣ Apply sorting
-    if (gen >= 2) {
-        // Group nodes by dominance
+    // 3️⃣ Sorting
+    if (gen === 1) {
+        // Column 2: landraces — dominance + landrace + alphabetical
+        genNodes.sort(sortByDominanceAndLandrace);
+    } else if (gen >= 2) {
+        // Columns 3+: preserve dominance order across the column
         const dominanceGroups = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
 
-        // Sort within each dominance group
+        // Apply barycentric sorting within each dominance group
         const sortedGroups = dominanceGroups.map(([dominance, groupNodes]) => {
-            // 1. Barycentric sort within group
-            const barySorted = barycentricSort(groupNodes, nodes, 'parents');
-
-            // 2. Tie-breaker within group: dominance + landrace + name
-            return barySorted.sort(sortByDominanceAndLandrace);
+            return barycentricSort(groupNodes, nodes, 'parents');
         });
 
-        // Flatten back into single array for this generation
         genNodes = sortedGroups.flat();
     }
 
-    // 5️⃣ Assign Y positions
+    // 4️⃣ Assign Y positions
     let yOffset = 0;
     const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
                         genNodes.filter(n => n.variant).length * (pillHeight + 2);
@@ -578,7 +571,7 @@ const createLineageChart = () => {
             node.y = startY + yOffset;
             yOffset += pillHeight + 16;
 
-            // Position variants below parent
+            // 5️⃣ Position variants under parent
             const variants = nodes.filter(n => n.variant === node.name)
                 .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -591,6 +584,7 @@ const createLineageChart = () => {
         }
     });
 }
+
 
 
 
