@@ -530,38 +530,26 @@ const createLineageChart = () => {
 
 //column2+ sort
 
-const dominanceOrder = {
-    'indica dominant': 1,
-    'hybrid': 2,
-    'unknown': 3,
-    'sativa dominant': 4
-};
+if (gen === 1) {
+    // Column 2 nodes: dominance first, then existing custom sort
+    const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
+    column2Nodes.sort((a, b) => {
+        const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
+        const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
+        return da - db || customSortColumn2(a, b);
+    });
 
-for (let gen = 0; gen <= maxGeneration + 1; gen++) {
-    let genNodes = nodes.filter(n => 
-        (n.generation === gen) || 
-        (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
-    );
+    genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
 
-    if (gen === 1) {
-        // Column 2 nodes: sort by dominance first, then existing custom sort
-        const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
-        column2Nodes.sort((a, b) => {
-            const da = dominanceOrder[a.dominance?.toLowerCase()] || 99;
-            const db = dominanceOrder[b.dominance?.toLowerCase()] || 99;
-            return da - db || customSortColumn2(a, b);
-        });
+} else if (gen >= 2) {
+    // Gen 2+ nodes: dominance first, then existing custom sort
+    genNodes.sort((a, b) => {
+        const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
+        const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
+        return da - db || customSortColumn3Plus(a, b);
+    });
+}
 
-        genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-
-    } else if (gen >= 2) {
-        // Gen 2+ nodes: dominance first, then existing custom sort
-        genNodes.sort((a, b) => {
-            const da = dominanceOrder[a.dominance?.toLowerCase()] || 99;
-            const db = dominanceOrder[b.dominance?.toLowerCase()] || 99;
-            return da - db || customSortColumn3Plus(a, b);
-        });
-    }
 
     // Assign X/Y positions
     let yOffset = 0;
