@@ -1,104 +1,90 @@
+<!-- === HEAD START === -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<base href="https://www.weedtree.fyi">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeedTree.fyi Strain Lineage Chart</title>
+    <base href="https://www.weedtree.fyi">
 
-<script src="https://cdn.counter.dev/script.js" data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" data-utcoffset="13"></script>
+    <!-- Counter -->
+    <script src="https://cdn.counter.dev/script.js" 
+            data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" 
+            data-utcoffset="13"></script>
 
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"></script>
-<script>
-    window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-XXXXXXX');
+    </script>
 
-  gtag('config', 'G-8527SLLPYV');
-</script>
+    <!-- D3 Library -->
+    <script src="https://d3js.org/d3.v6.min.js"></script>
 
-<title>WeedTree Strain Lineage Chart</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="icon" type="image/svg+xml" xhref='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 850"><path fill="%2391C83E" d="M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/><path fill="%236FAC43" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7z"/><path fill="none" stroke="%23444" stroke-width="79.2" stroke-linejoin="round" stroke-miterlimit="8" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7zm-44.8 237.5c137.8 80.2 275.3 80.2 412.7 0M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/></svg>' />
-<style>
-body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;padding:0;font-size:14px;height:100%;overflow:hidden}.header-ribbon{background-color:#434343;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center}.header-ribbon h1{margin:0;font-size:1.8em;color:#fff;margin-left:6px}.subhead{font-size:.4em;font-weight:400;margin-left:3px}.container{height:calc(100vh - 50px);display:flex;flex-direction:column}.chart-container{flex-grow:1;width:100%;overflow:hidden}#lineageChart{width:100%;height:100%}.header-buttons{display:flex;gap:10px;align-items:center}.btn{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;cursor:pointer;font-size:0.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.btn:hover{background-color:rgba(255,255,255,.1)}.node text{font-size:16px;fill:black;text-anchor:start;dominant-baseline:middle;font-family:'Roboto',Arial,sans-serif;font-weight:700}.node text.product{font-size:10px;font-weight:normal;}.node.dimmed rect{opacity:.05}.node.dimmed text{opacity:.05}.node.dimmed use{opacity:.05}.link.dimmed{opacity:.05}.node.highlighted rect{stroke:#f0f;stroke-width:3px}.link.highlighted{stroke:#f0f!important;stroke-width:3px}.node.clicked rect{stroke:#f0f;stroke-width:8px}.popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:10px;max-width:80%;max-height:80%;overflow-y:auto;z-index:1000;display:none;}.popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,.5);z-index:999;display:none}#loading-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background-color:rgba(255,255,255,0.8);padding:20px;border-radius:10px;z-index:1001;display:none}#strainSearch{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;font-size:.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;width:180px}#strainSearch::placeholder{color:rgba(255,255,255,0.7)}#strainSearch:focus{outline:none;background-color:rgba(255,255,255,0.1)}#strainDropdown{position:absolute;background-color:#fff;border:1px solid #ccc;max-height:400px;overflow-y:auto;display:none;z-index:1000;width:210px;box-shadow:1 4px 8px rgba(0,0,0,0.1);border-radius:0 0 4px 4px}#strainDropdown div{padding:5px 10px;cursor:pointer;transition:background-color 0.2s;color:#434343;font-size:8pt;line-height:1.2}#strainDropdown div:hover{background-color:#f0f0f0}.search-container{position:relative}.node.highlighted-search .highlight-arrow{fill:red}#centerLine {position: fixed;top: 0;left: 0;width: 100%;height: 100%;pointer-events: none;}.fullscreen-button-container {display: flex;flex-direction: column;gap: 5px;position: absolute;top: 70px;right: 10px;z-index: 997;}.zoom-button-container {display: flex;width: 100%;gap: 5px;}.fullscreen-button-container button {width: 100%;padding: 3px 5px;border: 2px solid #cccccc;border-radius: 0;cursor: pointer;font-size: 0.3em;font-family: 'Poppins', Arial, sans-serif;transition: all 0.3s ease;color: #cccccc;background-color: white;}.node{transition: transform 0.0s ease;}.strain-list {column-width: 228px;column-gap: 5px;padding: 10px;max-height: 96%;overflow-x: auto;white-space: nowrap;}.strain-item {display: flex;align-items: center;margin-bottom: 0px;break-inside: avoid-column;}.strain-checkbox {appearance: none;-webkit-appearance: none;width: 16px;height: 16px;border: 2px solid #434343;border-radius: 50%;margin-right: 5px;cursor: pointer;position: relative;}.strain-checkbox:checked::after {content: '';position: absolute;top: 50%;left: 50%;transform: translate(-50%, -50%);width: 10px;height: 10px;background-color:#434343;border-radius:50%;}.strain-checkbox:hover {background-color: #f0f0f0;}.strain-label {font-size: 8pt;cursor: pointer;}#popup1 {padding: 0;}#popup2, #popup3 {padding: 20px;}.node use {z-index: 1000; pointer-events: none;} .node text {z-index: 999;}#zoomInButton, #zoomOutButton {flex: 1;padding: 0px 5px;font-size: 16px;font-weight: bold;}#zoomInButton {border-right: 2px solid #cccccc; border-top-right-radius: 0;border-bottom-right-radius: 0;}#zoomOutButton {border-left: 2px solid #cccccc; border-top-left-radius: 0;border-bottom-left-radius: 0;}.close-button {position: absolute;top: 10px;right: 10px;width: 30px;height: 30px;border:none;background:#434343;color:white;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color 0.3s;}.close-button:hover {background-color:#666;}.pct-pill {fill: #000;stroke: #000;stroke-width: 0px;}.pct-pill-text {fill: #fff;font-size: 9px;  font-weight: 700;pointer-events: none;}
-
-
-</style>
-<script src="https://d3js.org/d3.v6.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-<div class="header-ribbon">
-    <h1>WeedTree.fyi Strain Lineage Chart <span class="subhead">Work in progress, errors probable</span></h1>
-    <div class="header-buttons">
-        <div class="search-container">
-            <input type="text" id="strainSearch" placeholder="Locate strain">
-            <div id="strainDropdown"></div>
-        </div>
-        
-        <button id="btn3" class="btn">About</button>
-    </div>
-</div>
-<div class="fullscreen-button-container">
-    <button id="fullscreenToggle" class="btn">Toggle Full Screen</button>
-    <div class="zoom-button-container">
-        <button id="zoomInButton" class="btn">+</button>
-        <button id="zoomOutButton" class="btn">-</button>
-    </div>
-    <button id="deselectButton" class="btn">De-select</button>
-</div>
-<div class="container">
-    <div class="chart-container">
-        <div id="lineageChart"></div>
-    </div>
-</div>
-<div class="popup-overlay"></div>
-<div id="popup1" class="popup">
-    <div id="strainList" class="strain-list"></div>
-</div>
-<div id="popup2" class="popup"><h5>Record and rate your strains - coming soon</h5></div>
-<div id="popup3" class="popup">
-    <button class="close-button">×</button>
-    
-<h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
-    
-<p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself. </p>
-    
-<p>I don't claim that the chart is completely accurate, it is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously it is far from complete.</p>
-    
-<p></br>Push F11 to toggle full screen.
-</br>Use the mouse or controls to zoom in and out.
-</br> Nodes are draggable within their column (press shift / long press on mobile).
-</br> Click on a strain to isolate its lineage.</p>
-    
-<p>Isolation mode shows rough percentage of contribution based on lineage, but will be inaccurate as it does not account for the realities and nuances of selective breeding.</p>
+<!-- === HEAD END === -->
 
-<p>Sorry it's a bit hard to use on mobile, best on a large screen. Strain search isn't working on mobile at the moment either.</p>
-    
-</div>
-<div id="loading-message">Loading strain data, please wait...</div>
-<div id="centerLine"></div>
-<svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
-  <symbol id="nzIcon">
-    <circle cx="14" cy="14" r="12.5" fill="white" stroke="black" stroke-width="3"/>
-    <line x1="7" y1="9" x2="7" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
-    <line x1="7" y1="9" x2="13" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
-    <line x1="13" y1="9" x2="13" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
-    <line x1="16" y1="9" x2="20.5" y2="9" stroke="black" stroke-width="3" stroke-linecap="round"/>
-    <line x1="16" y1="19" x2="21.5" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
-    <line x1="21.5" y1="9" x2="16" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
-  </symbol>
-</svg>
+<!-- === BODY START === -->
+<body>
+    <div class="header-ribbon">
+        <h1>
+            WeedTree.fyi Strain Lineage Chart
+            <span class="subhead">Work in progress, errors probable</span>
+        </h1>
+
+        <div class="header-buttons">
+            <div class="search-container">
+                <input type="text" placeholder="Search strains..." />
+            </div>
+        </div>
+    </div>
+
+    <div id="chart-container"></div>
+
+    <div class="info-panel">
+        <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
+        <p>
+            I've always wondered how strain lineage correlated with the strains I personally prefer.
+            Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a
+            lineage chart anywhere online so decided to create one myself.
+        </p>
+        <p>
+            I don't claim that the chart is completely accurate; it is based on what I could interpret
+            from the multitude of, often contradictory, strain database sites internationally, and I've
+            made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously it
+            is far from complete.
+        </p>
+        <p>
+            Push F11 to toggle full screen.<br>
+            Use the mouse or controls to zoom in and out.<br>
+            Nodes are draggable within their column (press shift / long press on mobile).<br>
+            Click on a strain to isolate its lineage.
+        </p>
+        <p>
+            Isolation mode shows rough percentage of contribution based on lineage, but will be
+            inaccurate as it does not account for the realities and nuances of selective breeding.
+        </p>
+        <p>
+            Sorry it's a bit hard to use on mobile, best on a large screen. Strain search isn't
+            working on mobile at the moment either.
+        </p>
+        <p>Loading strain data, please wait...</p>
+    </div>
+</body>
+<!-- === BODY END === -->
 
 <script>
 
 let strainData = [], attributes = [], nodes = [], svg, g, zoom, focusedNode = null, lineWidth = 2;
-    // --- Shared node layout constants ---
 const nodePillHeight = 30;
 const nodeStrokeWidth = 3;
 const nodeStrokeColor = '#000';
 const nodeTextYOffset = 1;
-
-
 const showError = (message) => {
     document.getElementById('loading-message').style.display = 'none';
     alert(message);
@@ -133,10 +119,6 @@ fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_
         showError("Error fetching data: " + error.message);
         console.error("Fetch error:", error);
     });
-
-
-
-
 
 function populateStrainList() {
     const strainList = document.getElementById('strainList');
@@ -203,35 +185,27 @@ function customSortColumn2(a, b) {
         'Hawaiian Sativa Landraces'
     ];
 
-    // First check dominance differences
     if (a.dominance.toLowerCase() !== b.dominance.toLowerCase()) {
         return dominanceOrder[a.dominance.toLowerCase()] - dominanceOrder[b.dominance.toLowerCase()];
     }
 
-    // Then check specific ordering for indica dominant strains
     if (a.dominance.toLowerCase() === 'indica dominant') {
         const aIndex = indicaOrder.indexOf(a.name);
         const bIndex = indicaOrder.indexOf(b.name);
         
-        // Only apply special ordering if both strains are in the ordering list
         if (aIndex !== -1 && bIndex !== -1) {
             return aIndex - bIndex;
         }
-        // If only one strain is in the list, prioritize it
         if (aIndex !== -1) return -1;
         if (bIndex !== -1) return 1;
     }
 
-    // Then check specific ordering for sativa dominant strains
     if (a.dominance.toLowerCase() === 'sativa dominant') {
         const aIndex = sativaOrder.indexOf(a.name);
         const bIndex = sativaOrder.indexOf(b.name);
-        
-        // Only apply special ordering if both strains are in the ordering list
+
         if (aIndex !== -1 && bIndex !== -1) {
             return aIndex - bIndex;
-        }
-        // If only one strain is in the list, prioritize it
         if (aIndex !== -1) return -1;
         if (bIndex !== -1) return 1;
     }
@@ -255,6 +229,34 @@ function customSortColumn3Plus(a, b) {
     return a.name.localeCompare(b.name);
 }
 
+function barycentricSort(genNodes, nodes, direction = 'parents') {
+    return genNodes
+        .map(n => {
+            let refs = [];
+
+            if (direction === 'parents') {
+                refs = n.parents
+                    .map(pid => nodes.find(p => p.id === pid))
+                    .filter(Boolean);
+            } else {
+                refs = nodes.filter(c => c.parents.includes(n.id));
+            }
+
+            const avgY = refs.length
+                ? d3.mean(refs, r => r.y)
+                : n.y;
+
+            return { node: n, avgY };
+        })
+        .sort((a, b) => {
+            if (a.avgY == null && b.avgY == null) return 0;
+            if (a.avgY == null) return 1;
+            if (b.avgY == null) return -1;
+            return a.avgY - b.avgY;
+        })
+        .map(d => d.node);
+}
+ 
 function calculateColumn1Positions() {
     const column1Nodes = nodes.filter(n => n.generation === 0);
     column1Nodes.forEach(node => {
@@ -272,9 +274,6 @@ function formatPercentage(p) {
 }
 
 
-
-
-
 function calculateUpwardChildTotals(startNode, nodes) {
     const contributions = new Map();
 
@@ -286,14 +285,12 @@ function calculateUpwardChildTotals(startNode, nodes) {
 
         let parents = [];
 
-        // NORMAL parents
         if (node.parents && node.parents.length > 0) {
             parents = node.parents
                 .map(pid => nodes.find(n => n.id === pid))
                 .filter(Boolean);
         }
 
-        // VARIANT parent (treated as a normal single parent)
         if (node.variant) {
             const base = nodes.find(n => n.name === node.variant);
             if (base) parents.push(base);
@@ -354,10 +351,6 @@ function calculateDownwardDescendantTotals(startNode, nodes) {
 }
 
 
-
-
-
-
 const createLineageChart = () => {
     const chartContainer = document.querySelector('.chart-container');
     const width = chartContainer.clientWidth, height = chartContainer.clientHeight;
@@ -391,7 +384,6 @@ const createLineageChart = () => {
         }
     });
 
-    // Sort the nodes array to prioritize products in the initial rendering
     nodes.sort((a, b) => {
         if (a.product && !b.product) return 1;
         if (!a.product && b.product) return -1;
@@ -415,9 +407,8 @@ const createLineageChart = () => {
         while (changed) {
             changed = false;
             nodes.forEach(node => {
-                // Force "unknown lineages" to be in column 3
                 if (node.name.toLowerCase().includes('unknown lineages')) {
-                    if (node.generation !== 2) {  // Column 3 is generation 2 (0-based indexing)
+                    if (node.generation !== 2) {  
                         node.generation = 2;
                         changed = true;
                     }
@@ -438,9 +429,8 @@ const createLineageChart = () => {
                         changed = true;
                     }
                 } else {
-                    // Check if name contains "unknown" (but not "unknown lineages")
                     if (node.name.toLowerCase().includes('unknown') && !node.name.toLowerCase().includes('unknown lineages')) {
-                        if (node.generation < 2) {  // Ensure minimum generation is 2
+                        if (node.generation < 2) {  
                             node.generation = 2;
                             changed = true;
                         }
@@ -465,7 +455,6 @@ const createLineageChart = () => {
         while (specialCaseChanged) {
             specialCaseChanged = false;
             nodes.forEach(node => {
-                // Skip "unknown lineages" in this adjustment
                 if (!node.name.toLowerCase().includes('unknown lineages') &&
                     (node.name.toLowerCase().includes('unknown') || 
                     (node.parents.length > 0 && node.parents.every(parentId => {
@@ -504,9 +493,10 @@ const createLineageChart = () => {
 
         if (gen === 1) {
             genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-        } else if (gen >= 2) {
-            genNodes.sort(customSortColumn3Plus);
-        }
+   } else if (gen >= 2) {
+
+    genNodes.sort(customSortColumn3Plus);
+}
 
         let yOffset = 0;
         const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
@@ -530,7 +520,30 @@ const createLineageChart = () => {
                 yOffset += variants.length * (pillHeight + 2);
             }
         });
+
+if (gen >= 2) {
+    genNodes = barycentricSort(genNodes, nodes, 'parents');
+
+    // Re-assign Y positions after barycentric sort
+    yOffset = 0;
+    genNodes.forEach(node => {
+        if (!node.variant) {
+            node.y = startY + yOffset;
+            yOffset += pillHeight + 16;
+
+            const variants = nodes.filter(n => n.variant === node.name)
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            variants.forEach((variant, vIndex) => {
+                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+            });
+
+            yOffset += variants.length * (pillHeight + 2);
+        }
+    });
+}
     }
+
 
     calculateColumn1Positions();
 
@@ -539,7 +552,7 @@ const createLineageChart = () => {
         .data(links)
         .join("path")
         .attr("class", "link")
-        .attr("stroke", d => darkenColor(getColorByDominance(nodes.find(n => n.id === d.source).dominance), 2)) // Changed from 0 to 2 for 20% darker
+        .attr("stroke", d => darkenColor(getColorByDominance(nodes.find(n => n.id === d.source).dominance), 2)) 
         .attr("stroke-opacity", 1)
         .attr("stroke-width", lineWidth + 1) 
         .attr("fill", "none")
@@ -554,7 +567,7 @@ const createLineageChart = () => {
             return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
         });
 
-let dragging = false; // global flag to prevent hover while dragging
+let dragging = false; 
 
 const node = g.append("g")
     .selectAll("g")
@@ -594,7 +607,7 @@ node.call(d3.drag()
         }
     })
     .on("drag", function(event, d) {
-        if (!d.dragging) return; // Only drag if long press (mobile) or Shift (desktop) activated
+        if (!d.dragging) return; 
         dragNode(event, d, this);
     })
     .on("end", function(event, d) {
@@ -636,7 +649,6 @@ function dragNode(event, d, nodeElement) {
         });
     }
 
-    // move pct pills along with nodes
     g.selectAll('.pct-pill')
         .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
         .attr("transform", p => {
@@ -651,7 +663,6 @@ function dragNode(event, d, nodeElement) {
             return `translate(${nodeRef.x},${nodeRef.y})`;
         });
 
-    // update links
     g.selectAll(".link").attr("d", l => {
         const sourceNode = nodes.find(n => n.id === l.source);
         const targetNode = nodes.find(n => n.id === l.target);
@@ -664,9 +675,6 @@ function dragNode(event, d, nodeElement) {
     });
 }
 
-
-
-    // First append the rect background
     node.append("rect")
         .attr("rx", pillHeight / 2)
         .attr("ry", pillHeight / 2)
@@ -689,7 +697,6 @@ function dragNode(event, d, nodeElement) {
         .attr("stroke", d => d.product ? "black" : getColorByDominance(d.dominance))
         .attr("stroke-width", d => d.product ? 3 : 3);
 
-    // Then append text
     node.append("text")
         .attr("class", "strain-name")
         .text(d => d.displayName)
@@ -719,7 +726,6 @@ function dragNode(event, d, nodeElement) {
             }
         });
 
-    // Updated product text append code to work with condensed strain names
     node.append("text")
         .filter(d => d.product)
         .text(d => d.product)
@@ -756,7 +762,6 @@ function dragNode(event, d, nodeElement) {
             }
         });
 
-    // Finally append the product icon on top
     node.filter(d => d.product)
         .append("use")
         .attr("xhref", "#nzIcon")
@@ -791,15 +796,11 @@ function dragNode(event, d, nodeElement) {
     return;
 }
 
-      
-
-    // ---- lineage isolation (UNCHANGED variant logic) ----
     const lineage = new Set();
 
     const getAncestors = (node) => {
     lineage.add(node.id);
 
-    // If variant, climb through base strain
 if (node.variant) {
     const base = nodes.find(n => n.name === node.variant);
     if (base) {
@@ -808,7 +809,6 @@ if (node.variant) {
     }
     return;
 }
-
 
     node.parents.forEach(parentId => {
         const parent = nodes.find(n => n.id === parentId);
@@ -823,16 +823,14 @@ if (node.variant) {
  const getDescendants = (nodeId) => {
     lineage.add(nodeId);
     
-    // Include normal children
     const children = nodes.filter(n => n.parents.includes(nodeId));
     
-    // Include variant children
     const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
     
     const allChildren = [...children, ...variantChildren];
     
     allChildren.forEach(child => {
-        if (!lineage.has(child.id)) {  // prevent infinite recursion
+        if (!lineage.has(child.id)) {  
             lineage.add(child.id);
             getDescendants(child.id);
         }
@@ -869,7 +867,6 @@ const descendantContrib = calculateDownwardDescendantTotals(
 
 const contributions = new Map();
 
-// merge ancestor + descendant maps
 ancestorContrib.forEach((v, k) => {
     contributions.set(k, v);
 });
@@ -878,11 +875,7 @@ descendantContrib.forEach((v, k) => {
     contributions.set(k, (contributions.get(k) || 0) + v);
 });
 
-// focused strain is always 100 (but not rendered)
 contributions.set(contributionStartNode.id, 100);
-
-
-
 
 
 g.selectAll('.node')
@@ -900,7 +893,6 @@ g.selectAll('.node')
     const pillWidth = 80;
     const pillX = nodeWidth / 2;
 
-    // **Append rect directly to node group**
     group.insert('rect', ':first-child') // insert behind everything in this node
       .attr('class', 'pct-pill')
       .attr('x', pillX - pillPaddingX *2 - 4 )
@@ -913,7 +905,6 @@ g.selectAll('.node')
       .attr('stroke', nodeStrokeColor)
       .attr('stroke-width', nodeStrokeWidth);
 
-    // **Append text on top of everything**
     group.append('text')
       .attr('class', 'pct-pill-text')
       .attr('x', nodeWidth / 2 + pillPaddingX)  
@@ -924,11 +915,7 @@ g.selectAll('.node')
       .style('fill', 'white')
       .style('pointer-events', 'none');
   });
-
-
-
 }
-
 
 
     function highlightHoverLineage(event, d) {
@@ -1030,16 +1017,13 @@ g.selectAll('.node')
     const initialTransform = calculateInitialTransform();
     svg.call(zoom.transform, initialTransform);
 
-    // Populate the strain list here
     populateStrainList();
 
-// Auto-focus URL strain (case & spacing insensitive)
 (function autoFocusFromURL() {
     const urlParams = new URLSearchParams(window.location.search);
     let focusStrain = urlParams.get('focus');
     if (!focusStrain) return;
 
-    // Normalize: replace underscores with spaces, collapse multiple spaces, trim
     focusStrain = focusStrain.replace(/_/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 
     requestAnimationFrame(() => {
@@ -1051,10 +1035,8 @@ g.selectAll('.node')
 
         console.log("Focusing on strain:", targetNode.name);
 
-        // Highlight lineage
         highlightLineage(null, targetNode);
 
-        // Compute bounding box of the lineage
         const lineageNodes = getLineageNodes(targetNode); // all highlighted nodes
         const xValues = lineageNodes.map(n => n.x);
         const yValues = lineageNodes.map(n => n.y);
@@ -1072,12 +1054,10 @@ g.selectAll('.node')
         const scaleY = (chartHeight - padding) / (maxY - minY || 1);
         let scale = Math.min(scaleX, scaleY);
 
-        // Clamp zoom
         const minScale = 0.8;
         const maxScale = 2.5;
         scale = Math.max(minScale, Math.min(maxScale, scale));
 
-        // Center the lineage
         const translateX = chartWidth / 2 - ((minX + maxX) / 2) * scale;
         const translateY = chartHeight / 2 - ((minY + maxY) / 2) * scale;
 
@@ -1092,13 +1072,7 @@ g.selectAll('.node')
     });
 })();
 
-
-
-
-    //end of createlineagechart
 };
-
-
 
 
 
@@ -1118,7 +1092,6 @@ const darkenColor = (color, amount) => d3.color(color).darker(amount / 10).toStr
 const blendToWhite = (color, amount) => {
     const baseColor = d3.color(color);
     const whiteColor = d3.color("#ffffff");
-    // Interpolating the color towards white based on the amount (0 to 1)
     const interpolatedColor = d3.interpolateRgb(baseColor, whiteColor)(amount);
     return interpolatedColor;
 };
@@ -1204,9 +1177,8 @@ function setupStrainSearch() {
             .call(d3.zoom().transform, d3.zoomIdentity.translate(x, y).scale(scale));
     }
 }
-// --- FIX: remove undefined fetchData() call and ensure About popup opens ---
+    
 window.addEventListener('load', function() {
-    // Add event listeners for About popup
     const aboutBtn = document.getElementById('btn3');
     const popup3 = document.getElementById('popup3');
     const overlay = document.querySelector('.popup-overlay');
@@ -1215,7 +1187,6 @@ window.addEventListener('load', function() {
             popup3.style.display = 'block';
             overlay.style.display = 'block';
         });
-        // Show About popup on initial load
         popup3.style.display = 'block';
         overlay.style.display = 'block';
     }
@@ -1234,7 +1205,7 @@ document.getElementById('zoomInButton').addEventListener('click', () => {
     const currentTransform = d3.zoomTransform(svg.node());
     const newScale = currentTransform.k * 1.05; // Increase zoom by 20%
     
-    if (newScale <= zoom.scaleExtent()[1]) { // Check if within max zoom limit
+    if (newScale <= zoom.scaleExtent()[1]) { 
         svg.transition()
             .duration(250)
             .call(zoom.transform, 
@@ -1249,7 +1220,7 @@ document.getElementById('zoomOutButton').addEventListener('click', () => {
     const currentTransform = d3.zoomTransform(svg.node());
     const newScale = currentTransform.k / 1.05; // Decrease zoom by 20%
     
-    if (newScale >= zoom.scaleExtent()[0]) { // Check if within min zoom limit
+    if (newScale >= zoom.scaleExtent()[0]) { 
         svg.transition()
             .duration(250)
             .call(zoom.transform, 
@@ -1306,10 +1277,9 @@ function adjustFullscreenButtonPosition() {
 }
 
 function adjustButtonFontSize() {
-    const buttons = document.querySelectorAll('.btn:not(#btn3)'); // Exclude the About button
+    const buttons = document.querySelectorAll('.btn:not(#btn3)'); 
     const headerButtons = document.querySelector('.header-buttons');
     
-    // Guard clause - if either buttons or headerButtons don't exist, return early
     if (!buttons.length || !headerButtons) {
         return;
     }
@@ -1317,7 +1287,6 @@ function adjustButtonFontSize() {
     const availableWidth = headerButtons.offsetWidth;
     let totalButtonWidth = 0;
 
-    // Add the fixed width of the About button
     const aboutButton = document.getElementById('btn3');
     const aboutButtonWidth = aboutButton ? aboutButton.offsetWidth : 0;
     
@@ -1328,7 +1297,6 @@ function adjustButtonFontSize() {
         }
     });
 
-    // Account for the About button's width in the available space
     const adjustableWidth = availableWidth - aboutButtonWidth;
 
     if (totalButtonWidth > adjustableWidth) {
@@ -1359,5 +1327,3 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
-
-
