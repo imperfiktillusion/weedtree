@@ -528,8 +528,18 @@ const createLineageChart = () => {
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
-// --- VERTICAL ORDERING FOR COLUMNS 2+ (bottom-up) ---
-for (let gen = maxGeneration; gen >= 1; gen--) {
+
+
+
+
+    
+// --- STEP 1: ASSIGN X POSITIONS FOR ALL COLUMNS ---
+nodes.forEach(n => {
+    n.x = n.generation * columnWidth - columnWidth / 2; // center of the column
+});
+
+// --- STEP 2: VERTICAL ORDERING FOR COLUMNS 2+ (bottom-up) ---
+for (let gen = maxGeneration; gen >= 2; gen--) {  // only columns 2+
     const genNodes = nodes.filter(n => n.generation === gen && !n.variant);
 
     // Leaf nodes (no children) get evenly spaced positions
@@ -544,16 +554,14 @@ for (let gen = maxGeneration; gen >= 1; gen--) {
         });
     }
 
-    // For other nodes, compute y as the mean of already-positioned children
+    // Other nodes: mean of children
     const parents = genNodes.filter(n => n.y === undefined);
     parents.forEach(node => {
         const children = nodes.filter(c => c.parents.includes(node.id));
-        if (children.length > 0) {
-            node.y = d3.mean(children, d => d.y);
-        }
+        if (children.length > 0) node.y = d3.mean(children, d => d.y);
     });
 
-    // For any remaining nodes without y, fallback to alphabetical spacing
+    // Remaining nodes: alphabetical fallback
     const orphans = genNodes.filter(n => n.y === undefined)
         .sort((a, b) => a.name.localeCompare(b.name));
     if (orphans.length > 0) {
@@ -566,17 +574,16 @@ for (let gen = maxGeneration; gen >= 1; gen--) {
         });
     }
 
-    // Position variants below their parent
+    // Variants below parent
     genNodes.forEach(node => {
         const variants = nodes.filter(n => n.variant === node.name)
             .sort((a, b) => a.name.localeCompare(b.name));
         variants.forEach((variant, vIndex) => {
             variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+            variant.x = node.x; // align variant with parent column
         });
     });
 }
-
-
 
 
 
