@@ -1,51 +1,155 @@
-<html><head><base href="https://imperfiktillusion.github.io/weedtree/">
-<title>WeedTree.fyi  Strain Lineage Chart</title>
+<!DOCTYPE html> 
+<html>
+<head>
+<base href="https://www.weedtree.fyi">
+
+<script src="https://cdn.counter.dev/script.js" data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" data-utcoffset="13"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"></script>
+<script> window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-8527SLLPYV'); </script>
+<script src="https://d3js.org/d3.v6.min.js"></script>
+
+<title>WeedTree Strain Lineage Chart</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 850"><path fill="%2391C83E" d="M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/><path fill="%236FAC43" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7z"/><path fill="none" stroke="%23444" stroke-width="79.2" stroke-linejoin="round" stroke-miterlimit="8" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7zm-44.8 237.5c137.8 80.2 275.3 80.2 412.7 0M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/></svg>' />
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 850"%3E%3Cpath fill="%2391C83E" d="M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/%3E%3Cpath fill="%236FAC43" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7z"/%3E%3Cpath fill="none" stroke="%23444" stroke-width="79.2" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7zm-44.8 237.5c137.8 80.2 275.3 80.2 412.7 0M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/%3E%3C/svg%3E' />
+    
+
 <style>
-body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;padding:0;font-size:14px;height:100%;overflow:hidden}.header-ribbon{background-color:#434343;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center}.header-ribbon h1{margin:0;font-size:1.8em;color:#fff;margin-left:6px}.subhead{font-size:.4em;font-weight:400;margin-left:3px}.container{height:calc(100vh - 50px);display:flex;flex-direction:column}.chart-container{flex-grow:1;width:100%;overflow:hidden}#lineageChart{width:100%;height:100%}.header-buttons{display:flex;gap:10px;align-items:center}.btn{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;cursor:pointer;font-size:0.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.btn:hover{background-color:rgba(255,255,255,.1)}.node text{font-size:16px;fill:black;text-anchor:start;dominant-baseline:middle;font-family:'Roboto',Arial,sans-serif;font-weight:700}.node text.product{font-size:10px;font-weight:normal;}.node.dimmed rect{opacity:.0}.node.dimmed text{opacity:.0}.node.dimmed use{opacity:.0}.link.dimmed{opacity:.1}.node.highlighted rect{stroke:#f0f;stroke-width:3px}.link.highlighted{stroke:#f0f!important;stroke-width:3px}.node.clicked rect{stroke:#f0f;stroke-width:8px}.popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:10px;max-width:80%;max-height:80%;overflow-y:auto;z-index:1000;display:none;}.popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,.5);z-index:999;display:none}#loading-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background-color:rgba(255,255,255,0.8);padding:20px;border-radius:10px;z-index:1001;display:none}#strainSearch{background-color:transparent;color:#fff;padding:5px 15px;border:2px solid #fff;border-radius:18px;font-size:.9em;font-family:'Poppins',Arial,sans-serif;transition:all .3s ease;width:180px}#strainSearch::placeholder{color:rgba(255,255,255,0.7)}#strainSearch:focus{outline:none;background-color:rgba(255,255,255,0.1)}#strainDropdown{position:absolute;background-color:#fff;border:1px solid #ccc;max-height:400px;overflow-y:auto;display:none;z-index:1000;width:210px;box-shadow:1 4px 8px rgba(0,0,0,0.1);border-radius:0 0 4px 4px}#strainDropdown div{padding:5px 10px;cursor:pointer;transition:background-color 0.2s;color:#434343;font-size:8pt;line-height:1.2}#strainDropdown div:hover{background-color:#f0f0f0}.search-container{position:relative}.node.highlighted-search .highlight-arrow{fill:red}#centerLine {position: fixed;top: 0;left: 0;width: 100%;height: 100%;pointer-events: none;}.fullscreen-button-container {display: flex;flex-direction: column;gap: 5px;position: absolute;top: 70px;right: 10px;z-index: 997;}.zoom-button-container {display: flex;width: 100%;gap: 5px;}.fullscreen-button-container button {width: 100%;padding: 3px 5px;border: 2px solid #cccccc;border-radius: 0;cursor: pointer;font-size: 0.3em;font-family: 'Poppins', Arial, sans-serif;transition: all 0.3s ease;color: #cccccc;background-color: white;}.node{transition: transform 0.0s ease;}.strain-list {column-width: 228px;column-gap: 5px;padding: 10px;max-height: 96%;overflow-x: auto;white-space: nowrap;}.strain-item {display: flex;align-items: center;margin-bottom: 0px;break-inside: avoid-column;}.strain-checkbox {appearance: none;-webkit-appearance: none;width: 16px;height: 16px;border: 2px solid #434343;border-radius: 50%;margin-right: 5px;cursor: pointer;position: relative;}.strain-checkbox:checked::after {content: '';position: absolute;top: 50%;left: 50%;transform: translate(-50%, -50%);width: 10px;height: 10px;background-color:#434343;border-radius:50%;}.strain-checkbox:hover {background-color: #f0f0f0;}.strain-label {font-size: 8pt;cursor: pointer;}#popup1 {padding: 0;}#popup2, #popup3 {padding: 20px;}.node use {z-index: 1000; pointer-events: none;} .node text {z-index: 999;}#zoomInButton, #zoomOutButton {flex: 1;padding: 0px 5px;font-size: 16px;font-weight: bold;}#zoomInButton {border-right: 2px solid #cccccc; border-top-right-radius: 0;border-bottom-right-radius: 0;}#zoomOutButton {border-left: 2px solid #cccccc; border-top-left-radius: 0;border-bottom-left-radius: 0;}.close-button {position: absolute;top: 10px;right: 10px;width: 30px;height: 30px;border:none;background:#434343;color:white;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color 0.3s;}.close-button:hover {background-color:#666;}
+body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; margin:0; padding:0; font-size:14px; height:100%; overflow:hidden; }
+#centerLine { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+.header-ribbon { background-color:#434343; color:#fff; padding:10px; display:flex; justify-content:space-between; align-items:center; }
+.header-ribbon h1 { margin:0; font-size:1.8em; color:#fff; margin-left:6px; }
+.header-buttons { display:flex; gap:10px; align-items:center; }
+.subhead { font-size:.4em; font-weight:400; margin-left:3px; }
+.btn { background-color:transparent; color:#fff; padding:5px 15px; border:2px solid #fff; border-radius:18px; cursor:pointer; font-size:0.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.btn:hover { background-color:rgba(255,255,255,.1); }
+.popup-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,.5); z-index:999; display:none; }
+.popup { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:20px; border-radius:10px; max-width:80%; max-height:80%; overflow-y:auto; z-index:1000; display:none; }
+#popup1 { padding:0; }
+#popup2, #popup3 { padding:20px; }
+.search-container { position:relative; }   
+#strainSearch { background-color:transparent; color:#fff; padding:5px 15px; border:2px solid #fff; border-radius:18px; font-size:.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; width:180px; }
+#strainSearch::placeholder { color:rgba(255,255,255,0.7); }
+#strainSearch:focus { outline:none; background-color:rgba(255,255,255,0.1); }
+#strainDropdown { position:absolute; background-color:#fff; border:1px solid #ccc; max-height:400px; overflow-y:auto; display:none; z-index:1000; width:210px; box-shadow:1 4px 8px rgba(0,0,0,0.1); border-radius:0 0 4px 4px; }
+#strainDropdown div { padding:5px 10px; cursor:pointer; transition:background-color 0.2s; color:#434343; font-size:8pt; line-height:1.2; }
+#strainDropdown div:hover { background-color:#f0f0f; }
+.strain-list { column-width:228px; column-gap:5px; padding:10px; max-height:96%; overflow-x:auto; white-space:nowrap; }
+.strain-item { display:flex; align-items:center; margin-bottom:0px; break-inside:avoid-column; }
+.strain-checkbox { appearance:none; -webkit-appearance:none; width:16px; height:16px; border:2px solid #434343; border-radius:50%; margin-right:5px; cursor:pointer; position:relative; }
+.strain-checkbox:checked::after { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:10px; height:10px; background-color:#434343; border-radius:50%; }
+.strain-checkbox:hover { background-color:#f0f0f0; }
+.strain-label { font-size:8pt; cursor:pointer; }    
+#loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
+.container { height:calc(100vh - 50px); display:flex; flex-direction:column; }
+.close-button { position:absolute; top:10px; right:10px; width:30px; height:30px; border:none; background:#434343; color:white; border-radius:50%; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color 0.3s; }
+.close-button:hover { background-color:#666; }
+.fullscreen-button-container { display:flex; flex-direction:column; gap:5px; position:absolute; top:70px; right:10px; z-index:997; }
+.fullscreen-button-container button { width:100%; padding:3px 5px; border:2px solid #cccccc; border-radius:0; cursor:pointer; font-size:0.3em; font-family:'Poppins', Arial, sans-serif; transition:all 0.3s ease; color:#cccccc; background-color:white; }
+.zoom-button-container { display:flex; width:100%; gap:5px; }
+#zoomInButton, #zoomOutButton { flex:1; padding:0px 5px; font-size:16px; font-weight:bold; }
+#zoomInButton { border-right:2px solid #cccccc; border-top-right-radius:0; border-bottom-right-radius:0; }
+#zoomOutButton { border-left:2px solid #cccccc; border-top-left-radius:0; border-bottom-left-radius:0; }
+.chart-container { flex-grow:1; width:100%; overflow:hidden; }
+#lineageChart { width:100%; height:100%; }
+.node { transition: transform 0.0s ease; }
+.node use { z-index:1000; pointer-events:none; }    
+.node text { font-size:16px; fill:black; text-anchor:start; dominant-baseline:middle; font-family:'Roboto', Arial, sans-serif; font-weight:700; }
+.node text { z-index:999; }
+.node text.product { font-size:10px; font-weight:normal; }
+.node.clicked rect { stroke:#f0f; stroke-width:8px; }    
+.node.dimmed rect { opacity:.05; }
+.node.dimmed text { opacity:.05; }
+.node.dimmed use { opacity:.05; }
+.link.dimmed { opacity:.05; }
+.node.highlighted rect { stroke:#f0f; stroke-width:3px; }
+.node.highlighted-search .highlight-arrow { fill:red; }        
+.link.highlighted { stroke:#f0f !important; stroke-width:3px; }
+.pct-pill { fill:#000; stroke:#000; stroke-width:0px; }
+.pct-pill-text { fill:#fff; font-size:9px; font-weight:700; pointer-events:none; }
 </style>
-<script src="https://d3js.org/d3.v6.min.js"></script>
+
+</head>
 <body>
+
+<!-- Header -->
 <div class="header-ribbon">
-    <h1>WeedTree.fyi Strain Lineage Chart <span class="subhead">Work in progress, errors probable</span></h1>
+    <h1>
+        WeedTree.fyi Strain Lineage Chart
+        <span class="subhead">Work in progress, errors probable</span>
+    </h1>
     <div class="header-buttons">
+        <!-- Search -->
         <div class="search-container">
             <input type="text" id="strainSearch" placeholder="Locate strain">
             <div id="strainDropdown"></div>
         </div>
-        
+        <!-- About Button -->
         <button id="btn3" class="btn">About</button>
     </div>
 </div>
+
+<!-- Fullscreen & Zoom Controls -->
 <div class="fullscreen-button-container">
     <button id="fullscreenToggle" class="btn">Toggle Full Screen</button>
+    
     <div class="zoom-button-container">
         <button id="zoomInButton" class="btn">+</button>
         <button id="zoomOutButton" class="btn">-</button>
     </div>
+    
     <button id="deselectButton" class="btn">De-select</button>
 </div>
+
+<!-- Chart Container -->
 <div class="container">
     <div class="chart-container">
         <div id="lineageChart"></div>
     </div>
 </div>
+
+<!-- Popups -->
 <div class="popup-overlay"></div>
+
+<!-- Strain List Popup -->
 <div id="popup1" class="popup">
     <div id="strainList" class="strain-list"></div>
 </div>
-<div id="popup2" class="popup"><h5>Record and rate your strains - coming soon</h5></div>
+
+<!-- Coming Soon Popup -->
+<div id="popup2" class="popup">
+    <h5>Record and rate your strains - coming soon</h5>
+</div>
+
+<!-- About / Welcome Popup -->
 <div id="popup3" class="popup">
     <button class="close-button">×</button>
-    <h2>Welcome to Weedtree, the family tree of cannabis</h2>
-    <p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself. I don't claim that the chart is completely accurate, it is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree.</p>
-    <p>Let me know your favourite strains you'd like added! Join me on Discord or Reddit <a href="https://www.reddit.com/user/imperfikt_illusion/"><b>u/imperfikt_illusion</b></a> to share knowledge or help grow the project</p>
-    <p>Push F11 to toggle full screen.</br> Click on a strain to isolate its lineage.</br>A filter to show only the lineage of strains you're interested in is coming as soon as I can get it working.</br></p>
+    
+    <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
+    
+    <p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself.</p>
+    
+    <p>I don't claim that the chart is completely accurate. It is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously, it is far from complete.</p>
+    
+    <p>
+        Push F11 to toggle full screen.<br>
+        Use the mouse or controls to zoom in and out.<br>
+        Nodes are draggable within their column (press shift / long press on mobile).<br>
+        Click on a strain to isolate its lineage.
+    </p>
+    
+    <p>Isolation mode shows rough percentage of contribution based on lineage, but will be inaccurate as it does not account for the realities and nuances of selective breeding.</p>
+    
+    <p>Sorry it's a bit hard to use on mobile; best on a large screen. Strain search isn't working on mobile at the moment either.</p>
 </div>
+
+<!-- Loading Message -->
 <div id="loading-message">Loading strain data, please wait...</div>
+
+<!-- Center Line for Chart -->
 <div id="centerLine"></div>
+
+    
 <svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
   <symbol id="nzIcon">
     <circle cx="14" cy="14" r="12.5" fill="white" stroke="black" stroke-width="3"/>
@@ -57,14 +161,66 @@ body,html{font-family:'Poppins',Arial,sans-serif;background-color:#fff;margin:0;
     <line x1="21.5" y1="9" x2="16" y2="19" stroke="black" stroke-width="3" stroke-linecap="round"/>
   </symbol>
 </svg>
-<script>
-let strainData = [], attributes = [], nodes = [], svg, g, zoom, focusedNode = null, lineWidth = 2;
 
+<script>
+let strainData = [];
+let attributes = [];
+let nodes = [];
+let svg, g, zoom;
+let focusedNode = null;
+let lineWidth = 2;
+
+// --- Shared node layout constants ---
+const nodePillHeight = 30;
+const nodeStrokeWidth = 3;
+const nodeStrokeColor = '#000';
+const nodeTextYOffset = 1;
+
+// --- Global constants for sorting ---
+const dominanceOrder = {
+    'indica dominant': 0,
+    'ruderalis dominant': 1,
+    'balanced hybrid': 2,
+    'unknown': 3,
+    'sativa dominant': 4
+};
+
+const indicaOrder = [
+    'Afghan/Pakistan Indica Landraces',
+    'Purple Afghan Indica Landraces',
+    'Hindu Kush Landraces',
+    'Nepalese Indica Landraces',
+    'North American Indica Landraces'
+];
+
+const sativaOrder = [
+    'South India Sativa Landraces',
+    'Burmese Sativa Landraces',
+    'Cambodia Sativa Landraces',
+    'Thai Sativa Landraces',
+    'Chocolate Thai Sativa Landraces',
+    'Purple Thai Sativa Landraces',
+    'Indonesia Sativa Landraces',
+    'North African Sativa Landraces',
+    'East African Sativa landraces',
+    'South African Sativa Landraces',
+    'Jamaican Sativa Landraces',
+    'California Sativa Landraces',
+    'Mexico Sativa Landraces',
+    'Panama Sativa Landraces',
+    'Colombian Sativa Landraces',
+    'Brazil Sativa Landraces',
+    'Hawaiian Sativa Landraces'
+];
+
+
+// --- Error handling ---
 const showError = (message) => {
     document.getElementById('loading-message').style.display = 'none';
     alert(message);
 };
-    
+
+// --- Fetch and parse CSV data ---
 fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978')
     .then(response => {
         if (!response.ok) throw new Error("Network response was not ok");
@@ -80,9 +236,7 @@ fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_
         attributes = rows[0];
         strainData = rows.slice(1).map(row => {
             let obj = {};
-            attributes.forEach((attr, index) => {
-                obj[attr] = row[index] || '';
-            });
+            attributes.forEach((attr, index) => obj[attr] = row[index] || '');
             return obj;
         }).filter(obj => Object.values(obj).some(value => value !== ''));
 
@@ -95,6 +249,7 @@ fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_
         console.error("Fetch error:", error);
     });
 
+// --- Strain list population ---
 function populateStrainList() {
     const strainList = document.getElementById('strainList');
     strainList.innerHTML = '';
@@ -123,106 +278,123 @@ function populateStrainList() {
     });
 }
 
-function customSortColumn2(a, b) {
-    const dominanceOrder = {
-        'indica dominant': 0,
-        'ruderalis dominant': 1,
-        'balanced hybrid': 2,
-        'unknown': 3,
-        'sativa dominant': 4
-    };
+// --- Global dominance + landrace sort ---
+function sortByDominanceAndLandrace(a, b) {
+    const aDom = a.dominance?.toLowerCase() || 'unknown';
+    const bDom = b.dominance?.toLowerCase() || 'unknown';
 
-    const indicaOrder = [
-        'Afghan/Pakistan Indica Landraces',
-        'Purple Afghan Indica Landraces',
-        'Hindu Kush Landraces',
-        'Nepalese Indica Landraces',
-        'North American Indica Landraces',
-        'Ruderalis Landraces'
-    ];
+    // Step 1: dominance order
+    if (aDom !== bDom) return dominanceOrder[aDom] - dominanceOrder[bDom];
 
-    const sativaOrder = [
-        'South India Sativa Landraces',
-        'Burmese Sativa Landraces',
-        'Cambodia Sativa Landraces',
-        'Thai Sativa Landraces',
-        'Chocolate Thai Sativa Landraces',
-        'Purple Thai Sativa Landraces',
-        'Indonesia Sativa Landraces',
-        'North African Sativa Landraces',
-        'East African Sativa landraces',
-        'South African Sativa Landraces',
-        'Jamaican Sativa Landraces',
-        'California Sativa Landraces',
-        'Mexico Sativa Landraces',
-        'Panama Sativa Landraces',
-        'Colombian Sativa Landraces',
-        'Brazil Sativa Landraces',
-        'Hawaiian Sativa Landraces'
-    ];
-
-    // First check dominance differences
-    if (a.dominance.toLowerCase() !== b.dominance.toLowerCase()) {
-        return dominanceOrder[a.dominance.toLowerCase()] - dominanceOrder[b.dominance.toLowerCase()];
-    }
-
-    // Then check specific ordering for indica dominant strains
-    if (a.dominance.toLowerCase() === 'indica dominant') {
+    // Step 2: within indica, respect landrace order
+    if (aDom === 'indica dominant') {
         const aIndex = indicaOrder.indexOf(a.name);
         const bIndex = indicaOrder.indexOf(b.name);
-        
-        // Only apply special ordering if both strains are in the ordering list
-        if (aIndex !== -1 && bIndex !== -1) {
-            return aIndex - bIndex;
-        }
-        // If only one strain is in the list, prioritize it
+        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
         if (aIndex !== -1) return -1;
         if (bIndex !== -1) return 1;
     }
 
-    // Then check specific ordering for sativa dominant strains
-    if (a.dominance.toLowerCase() === 'sativa dominant') {
+    // Step 3: within sativa, respect landrace order
+    if (aDom === 'sativa dominant') {
         const aIndex = sativaOrder.indexOf(a.name);
         const bIndex = sativaOrder.indexOf(b.name);
-        
-        // Only apply special ordering if both strains are in the ordering list
-        if (aIndex !== -1 && bIndex !== -1) {
-            return aIndex - bIndex;
-        }
-        // If only one strain is in the list, prioritize it
+        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
         if (aIndex !== -1) return -1;
         if (bIndex !== -1) return 1;
     }
 
-    // Default to alphabetical sorting
+    // Step 4: default alphabetical
     return a.name.localeCompare(b.name);
 }
 
-function customSortColumn3Plus(a, b) {
-    const dominanceOrder = {
-        'indica dominant': 0,
-        'balanced hybrid': 1,
-        'unknown': 2,
-        'sativa dominant': 3
-    };
 
-    if (a.dominance.toLowerCase() !== b.dominance.toLowerCase()) {
-        return dominanceOrder[a.dominance.toLowerCase()] - dominanceOrder[b.dominance.toLowerCase()];
-    }
+function sortByDominanceThenName(a, b) {
+    const aDom = a.dominance?.toLowerCase() || 'unknown';
+    const bDom = b.dominance?.toLowerCase() || 'unknown';
+
+    if (aDom !== bDom) return dominanceOrder[aDom] - dominanceOrder[bDom];
 
     return a.name.localeCompare(b.name);
 }
 
+
+// --- Barycentric sorting ---
+function barycentricSort(genNodes, nodes, direction = 'parents') {
+    return genNodes
+        .map(n => {
+            const refs = direction === 'parents'
+                ? n.parents.map(pid => nodes.find(p => p.id === pid)).filter(Boolean)
+                : nodes.filter(c => c.parents.includes(n.id));
+            const avgY = refs.length ? d3.mean(refs, r => r.y) : n.y;
+            return { node: n, avgY };
+        })
+        .sort((a, b) => (a.avgY ?? Infinity) - (b.avgY ?? Infinity))
+        .map(d => d.node);
+}
+
+// --- Column positioning ---
 function calculateColumn1Positions() {
-    const column1Nodes = nodes.filter(n => n.generation === 0);
-    column1Nodes.forEach(node => {
+    nodes.filter(n => n.generation === 0).forEach(node => {
         const children = nodes.filter(n => n.parents.includes(node.id));
-        if (children.length > 0) {
-            const avgY = d3.mean(children, d => d.y);
-            node.y = avgY;
-        }
+        if (children.length) node.y = d3.mean(children, d => d.y);
     });
 }
+
+// --- Percentage formatting ---
+function formatPercentage(p) {
+    const capped = Math.min(p, 100);
+    return capped < 5 ? '<5%' : `${capped.toFixed(0)}%`;
+}
+
+// --- Upward contribution calculation ---
+function calculateUpwardChildTotals(startNode, nodes) {
+    const contributions = new Map();
+
+    function walk(node, amount) {
+        contributions.set(node.id, (contributions.get(node.id) || 0) + amount);
+
+        let parents = (node.parents || []).map(pid => nodes.find(n => n.id === pid)).filter(Boolean);
+        if (node.variant) {
+            const base = nodes.find(n => n.name === node.variant);
+            if (base) parents.push(base);
+        }
+
+        if (!parents.length) return;
+
+        const split = amount / parents.length;
+        parents.forEach(parent => walk(parent, split));
+    }
+
+    walk(startNode, 100);
+    return contributions;
+}
+
+// --- Downward contribution calculation ---
+function calculateDownwardDescendantTotals(startNode, nodes) {
+    const contributions = new Map();
+
+    function walk(node, amount) {
+        if (node.id !== startNode.id) {
+            contributions.set(node.id, (contributions.get(node.id) || 0) + amount);
+        }
+
+        const children = nodes.filter(n =>
+            (n.parents && n.parents.includes(node.id)) || n.variant === node.name
+        );
+
+        children.forEach(child => {
+            let parentCount = (child.parents?.length || 0) + (child.variant ? 1 : 0);
+            if (!parentCount) return;
+            walk(child, amount / parentCount);
+        });
+    }
+
+    walk(startNode, 100);
+    return contributions;
+}
+
+
 
 const createLineageChart = () => {
     const chartContainer = document.querySelector('.chart-container');
@@ -360,43 +532,63 @@ const createLineageChart = () => {
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
-    column2Nodes.sort(customSortColumn2);
+    column2Nodes.sort(sortByDominanceAndLandrace);
 
-    for (let gen = 0; gen <= maxGeneration + 1; gen++) {
-        let genNodes = nodes.filter(n => 
-            (n.generation === gen) || 
-            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
-        );
+for (let gen = 0; gen <= maxGeneration + 1; gen++) {
+    // 1️⃣ Filter nodes for this generation
+    let genNodes = nodes.filter(n =>
+        n.generation === gen ||
+        (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
+    );
 
-        if (gen === 1) {
-            genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-        } else if (gen >= 2) {
-            genNodes.sort(customSortColumn3Plus);
-        }
+    // 2️⃣ Set X positions based on generation
+    genNodes.forEach(node => node.x = gen * columnWidth);
 
-        let yOffset = 0;
-        const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
-                            genNodes.filter(n => n.variant).length * (pillHeight + 2);
-        const startY = (height - totalHeight) / 2;
+    // 3️⃣ Sorting
+    if (gen === 1) {
+        // Column 2: landraces — dominance + landrace + alphabetical
+        genNodes.sort(sortByDominanceAndLandrace);
+    } else if (gen >= 2) {
+        // Columns 3+: preserve dominance order across the column
+        // 1. Group by dominance
+const groupedByDom = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
 
-        genNodes.forEach((node, index) => {
-            node.x = gen * columnWidth; // Set x position based on generation
-            if (!node.variant) {
-                if (gen !== 0 || node.y === undefined) {
-                    node.y = startY + yOffset;
-                }
-                yOffset += pillHeight + 16; // min gap between standard nodes
+// 2. Sort the groups according to dominanceOrder
+groupedByDom.sort(([aDom], [bDom]) => (dominanceOrder[aDom] ?? 99) - (dominanceOrder[bDom] ?? 99));
 
-                const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
-                variants.forEach((variant, vIndex) => {
-                    variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                    variant.x = node.x;
-                });
+// 3. Apply barycentric within each group
+const sortedGroups = groupedByDom.map(([dominance, groupNodes]) => barycentricSort(groupNodes, nodes, 'parents'));
 
-                yOffset += variants.length * (pillHeight + 2);
-            }
-        });
+// 4. Flatten back
+genNodes = sortedGroups.flat();
+
     }
+
+    // 4️⃣ Assign Y positions
+    let yOffset = 0;
+    const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
+                        genNodes.filter(n => n.variant).length * (pillHeight + 2);
+    const startY = (height - totalHeight) / 2;
+
+    genNodes.forEach(node => {
+        if (!node.variant) {
+            node.y = startY + yOffset;
+            yOffset += pillHeight + 16;
+
+            // 5️⃣ Position variants under parent
+            const variants = nodes.filter(n => n.variant === node.name)
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            variants.forEach((variant, vIndex) => {
+                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                variant.x = node.x;
+            });
+
+            yOffset += variants.length * (pillHeight + 2);
+        }
+    });
+}
+
 
     calculateColumn1Positions();
 
@@ -420,34 +612,117 @@ const createLineageChart = () => {
             return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
         });
 
-    const node = g.append("g")
-        .selectAll("g")
-        .data(nodes)
-        .join("g")
-        .attr("class", "node")
-        .attr("transform", d => `translate(${d.x},${d.y})`)
-        .each(function(d) {
-            if (d.product) {
-                d3.select(this).raise();
-            }
-        })
-        .on("click", highlightLineage)
-        .on("mouseover", function(event, d) {
-            highlightHoverLineage(event, d);
-            d3.select(this).raise().transition()
-                .attr("transform", d => `translate(${d.x},${d.y}) scale(1.7, 1.7)`);
-        })
-        .on("mouseout", function(event, d) {
-            removeHighlightHoverLineage();
-            d3.select(this).transition()
-                .attr("transform", d => `translate(${d.x},${d.y}) scale(1)`);
-            // Re-raise product nodes after mouseout
-            g.selectAll(".node").each(function(d) {
-                if (d.product) {
-                    d3.select(this).raise();
-                }
-            });
+let dragging = false; // global flag to prevent hover while dragging
+
+const node = g.append("g")
+    .selectAll("g")
+    .data(nodes)
+    .join("g")
+    .attr("class", "node")
+    .attr("transform", d => `translate(${d.x},${d.y})`)
+    .each(function(d) { if (d.product) d3.select(this).raise(); })
+    .on("click", highlightLineage)
+    .on("mouseover", function(event, d) {
+        if (dragging) return; // prevent hover expansion while dragging
+        highlightHoverLineage(event, d);
+        d3.select(this).raise()
+            .transition()
+            .attr("transform", `translate(${d.x},${d.y}) scale(1.7, 1.7)`);
+    })
+    .on("mouseout", function(event, d) {
+        if (dragging) return;
+        removeHighlightHoverLineage();
+        d3.select(this).transition()
+            .attr("transform", `translate(${d.x},${d.y}) scale(1)`);
+        g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
+    });
+
+// --- DRAGGING with long press on mobile + shift key for desktop ---
+node.call(d3.drag()
+    .on("start", function(event, d) {
+        // Mobile: skip immediate drag, use long press
+        if (event.sourceEvent.type.startsWith("touch")) {
+            d.longPressTimer = setTimeout(() => {
+                startDrag(event, d, this);
+            }, 400); // 400ms long press
+        } else {
+            // Desktop: only start drag if Shift is held
+            if (!event.sourceEvent.shiftKey) return;
+            startDrag(event, d, this);
+        }
+    })
+    .on("drag", function(event, d) {
+        if (!d.dragging) return; // Only drag if long press (mobile) or Shift (desktop) activated
+        dragNode(event, d, this);
+    })
+    .on("end", function(event, d) {
+        if (d.longPressTimer) {
+            clearTimeout(d.longPressTimer);
+            d.longPressTimer = null;
+        }
+        if (!d.dragging) return;
+        d.dragging = false;
+        dragging = false;
+    })
+);
+
+
+
+// --- Helper functions ---
+function startDrag(event, d, nodeElement) {
+    dragging = true;
+    d.dragging = true;
+    d3.select(nodeElement).raise();
+
+    // store offsets for variants
+    d.variantOffsets = nodes.filter(n => n.variant === d.name)
+        .map(v => ({ id: v.id, offsetY: v.y - d.y }));
+}
+
+function dragNode(event, d, nodeElement) {
+    d.y = event.y;
+    d3.select(nodeElement).attr("transform", `translate(${d.x},${d.y})`);
+
+    // move variants with stored offsets
+    if (d.variantOffsets) {
+        d.variantOffsets.forEach(vo => {
+            const variantNode = nodes.find(n => n.id === vo.id);
+            variantNode.y = d.y + vo.offsetY;
+            g.selectAll(".node")
+                .filter(n => n.id === variantNode.id)
+                .attr("transform", `translate(${variantNode.x},${variantNode.y})`);
         });
+    }
+
+    // move pct pills along with nodes
+    g.selectAll('.pct-pill')
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+        .attr("transform", p => {
+            const nodeRef = nodes.find(n => n.id === p.nodeId);
+            return `translate(${nodeRef.x},${nodeRef.y})`;
+        });
+
+    g.selectAll('.pct-pill-text')
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+        .attr("transform", p => {
+            const nodeRef = nodes.find(n => n.id === p.nodeId);
+            return `translate(${nodeRef.x},${nodeRef.y})`;
+        });
+
+    // update links
+    g.selectAll(".link").attr("d", l => {
+        const sourceNode = nodes.find(n => n.id === l.source);
+        const targetNode = nodes.find(n => n.id === l.target);
+        const sourcePillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const targetPillWidth = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const sourceX = sourceNode.x + sourcePillWidth / 2;
+        const targetX = targetNode.x - targetPillWidth / 2;
+        const midX = (sourceX + targetX) / 2;
+        return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
+    });
+}
+
+
 
     // First append the rect background
     node.append("rect")
@@ -542,7 +817,7 @@ const createLineageChart = () => {
     // Finally append the product icon on top
     node.filter(d => d.product)
         .append("use")
-        .attr("href", "#nzIcon")
+        .attr("xhref", "#nzIcon")
         .attr("width", 30)
         .attr("height", 30)
         .attr("x", function(d) {
@@ -551,55 +826,162 @@ const createLineageChart = () => {
         })
         .attr("y", -14);
 
+
+    
     function highlightLineage(event, d) {
-        if (focusedNode === d) {
-            node.classed("dimmed", false);
-            node.classed("clicked", false);
-            link.classed("dimmed", false)
-                .attr("stroke-width", lineWidth + 1);
-            focusedNode = null;
-            resetZoom();
-        } else {
-            const lineage = new Set();
-            const getAncestors = (node) => {
-                lineage.add(node.id);
-                if (node.variant) {
-                    const parentNode = nodes.find(n => n.name === node.variant);
-                    if (parentNode) {
-                        lineage.add(parentNode.id);
-                        getAncestors(parentNode);
-                    }
-                } else {
-                    node.parents.forEach(parentId => {
-                        const parent = nodes.find(n => n.id === parentId);
-                        if (parent) {
-                            lineage.add(parentId);
-                            getAncestors(parent);
-                        }
-                    });
-                }
-            };
-            const getDescendants = (nodeId) => {
-                lineage.add(nodeId);
-                const children = nodes.filter(n => n.parents.includes(nodeId) || (n.variant === nodes.find(node => node.id === nodeId).name));
-                children.forEach(child => {
-                    lineage.add(child.id);
-                    getDescendants(child.id);
-                });
-            };
-            getAncestors(d);
-            getDescendants(d.id);
-            node.classed("dimmed", n => !lineage.has(n.id));
-            node.classed("clicked", n => n.id === d.id);
-            link.classed("dimmed", l => !lineage.has(l.source) || !lineage.has(l.target))
-                .attr("stroke-width", l => 
-                    (lineage.has(l.source) && lineage.has(l.target)) ? lineWidth + 2 : lineWidth + 1
-                );
-            focusedNode = d;
-            zoomToLineage(lineage);
-        }
-        d3.select(this).select('.highlight-arrow').remove();
+
+    // Remove old percentage pills
+    g.selectAll('.pct-pill').remove();
+    g.selectAll('.pct-pill-text').remove();
+
+   if (focusedNode === d) {
+
+    g.selectAll('.pct-pill').remove();
+    g.selectAll('.pct-pill-text').remove();
+
+    node.classed("dimmed", false);
+    node.classed("clicked", false);
+    link.classed("dimmed", false)
+        .attr("stroke-width", lineWidth + 1);
+
+    focusedNode = null;
+    resetZoom();
+    return;
+}
+
+      
+
+    // ---- lineage isolation (UNCHANGED variant logic) ----
+    const lineage = new Set();
+
+    const getAncestors = (node) => {
+    lineage.add(node.id);
+
+    // If variant, climb through base strain
+if (node.variant) {
+    const base = nodes.find(n => n.name === node.variant);
+    if (base) {
+        lineage.add(base.id);
+        getAncestors(base);
     }
+    return;
+}
+
+
+    node.parents.forEach(parentId => {
+        const parent = nodes.find(n => n.id === parentId);
+        if (parent) {
+            lineage.add(parent.id);
+            getAncestors(parent);
+        }
+    });
+};
+
+
+ const getDescendants = (nodeId) => {
+    lineage.add(nodeId);
+    
+    // Include normal children
+    const children = nodes.filter(n => n.parents.includes(nodeId));
+    
+    // Include variant children
+    const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
+    
+    const allChildren = [...children, ...variantChildren];
+    
+    allChildren.forEach(child => {
+        if (!lineage.has(child.id)) {  // prevent infinite recursion
+            lineage.add(child.id);
+            getDescendants(child.id);
+        }
+    });
+};
+
+
+    getAncestors(d);
+    getDescendants(d.id);
+
+    node.classed("dimmed", n => !lineage.has(n.id));
+    node.classed("clicked", n => n.id === d.id);
+    link.classed("dimmed", l => !lineage.has(l.source) || !lineage.has(l.target))
+        .attr("stroke-width", l =>
+            (lineage.has(l.source) && lineage.has(l.target))
+                ? lineWidth + 2
+                : lineWidth + 1
+        );
+
+    focusedNode = d;
+    zoomToLineage(lineage);
+        
+const contributionStartNode = d;
+
+const ancestorContrib = calculateUpwardChildTotals(
+    contributionStartNode,
+    nodes
+);
+
+const descendantContrib = calculateDownwardDescendantTotals(
+    contributionStartNode,
+    nodes
+);
+
+const contributions = new Map();
+
+// merge ancestor + descendant maps
+ancestorContrib.forEach((v, k) => {
+    contributions.set(k, v);
+});
+
+descendantContrib.forEach((v, k) => {
+    contributions.set(k, (contributions.get(k) || 0) + v);
+});
+
+// focused strain is always 100 (but not rendered)
+contributions.set(contributionStartNode.id, 100);
+
+
+g.selectAll('.node')
+  .filter(n => contributions.has(n.id) && n.id !== contributionStartNode.id)
+  .each(function(n) {
+
+    const pct = contributions.get(n.id);
+    const label = formatPercentage(pct);
+
+    const group = d3.select(this);
+
+    const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
+    const pillHeight = nodePillHeight;
+    const pillPaddingX = 10;
+    const pillWidth = 80;
+    const pillX = nodeWidth / 2;
+
+    // **Append rect directly to node group**
+    group.insert('rect', ':first-child') // insert behind everything in this node
+      .attr('class', 'pct-pill')
+      .attr('x', pillX - pillPaddingX *2 - 4 )
+      .attr('y', -pillHeight / 2)
+      .attr('rx', pillHeight / 2)
+      .attr('ry', pillHeight / 2)
+      .attr('width', pillWidth)
+      .attr('height', pillHeight)
+      .attr('fill', 'white')
+      .attr('stroke', nodeStrokeColor)
+      .attr('stroke-width', nodeStrokeWidth);
+
+    // **Append text on top of everything**
+    group.append('text')
+      .attr('class', 'pct-pill-text')
+      .attr('x', nodeWidth / 2 + pillPaddingX)  
+      .attr('y', 1)
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'middle')
+      .text(label)
+      .style('fill', 'white')
+      .style('pointer-events', 'none');
+  });
+
+}
+
 
     function highlightHoverLineage(event, d) {
         const lineage = new Set();
@@ -702,8 +1084,73 @@ const createLineageChart = () => {
 
     // Populate the strain list here
     populateStrainList();
+
+// Auto-focus URL strain (case & spacing insensitive)
+(function autoFocusFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let focusStrain = urlParams.get('focus');
+    if (!focusStrain) return;
+
+    // Normalize: replace underscores with spaces, collapse multiple spaces, trim
+    focusStrain = focusStrain.replace(/_/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+    requestAnimationFrame(() => {
+        const targetNode = nodes.find(n => {
+            const nodeName = n.name.replace(/\s+/g, ' ').trim().toLowerCase();
+            return nodeName === focusStrain;
+        });
+        if (!targetNode) return;
+
+        console.log("Focusing on strain:", targetNode.name);
+
+        // Highlight lineage
+        highlightLineage(null, targetNode);
+
+        // Compute bounding box of the lineage
+        const lineageNodes = getLineageNodes(targetNode); // all highlighted nodes
+        const xValues = lineageNodes.map(n => n.x);
+        const yValues = lineageNodes.map(n => n.y);
+
+        const minX = Math.min(...xValues);
+        const maxX = Math.max(...xValues);
+        const minY = Math.min(...yValues);
+        const maxY = Math.max(...yValues);
+
+        const chartWidth = document.querySelector('.chart-container').clientWidth;
+        const chartHeight = document.querySelector('.chart-container').clientHeight;
+
+        const padding = 50; // space around the lineage
+        const scaleX = (chartWidth - padding) / (maxX - minX || 1);
+        const scaleY = (chartHeight - padding) / (maxY - minY || 1);
+        let scale = Math.min(scaleX, scaleY);
+
+        // Clamp zoom
+        const minScale = 0.8;
+        const maxScale = 2.5;
+        scale = Math.max(minScale, Math.min(maxScale, scale));
+
+        // Center the lineage
+        const translateX = chartWidth / 2 - ((minX + maxX) / 2) * scale;
+        const translateY = chartHeight / 2 - ((minY + maxY) / 2) * scale;
+
+        svg.transition()
+            .duration(600)
+            .call(
+                zoom.transform,
+                d3.zoomIdentity
+                    .translate(translateX, translateY)
+                    .scale(scale)
+            );
+    });
+})();
+
 };
 
+
+
+
+
+    
 const getColorByDominance = (dominance) => {
     switch(dominance.toLowerCase()) {
         case 'sativa dominant': return '#ffea8a';
@@ -805,19 +1252,22 @@ function setupStrainSearch() {
             .call(d3.zoom().transform, d3.zoomIdentity.translate(x, y).scale(scale));
     }
 }
-window.onload = function() {
-    fetchData();
-
-    // Add event listeners for popups
-    document.getElementById('btn3').addEventListener('click', () => {
-        document.getElementById('popup3').style.display = 'block';
-        document.querySelector('.popup-overlay').style.display = 'block';
-    });
-
-    // Show About popup on initial load
-    document.getElementById('popup3').style.display = 'block';
-    document.querySelector('.popup-overlay').style.display = 'block';
-};
+// --- FIX: remove undefined fetchData() call and ensure About popup opens ---
+window.addEventListener('load', function() {
+    // Add event listeners for About popup
+    const aboutBtn = document.getElementById('btn3');
+    const popup3 = document.getElementById('popup3');
+    const overlay = document.querySelector('.popup-overlay');
+    if (aboutBtn && popup3 && overlay) {
+        aboutBtn.addEventListener('click', () => {
+            popup3.style.display = 'block';
+            overlay.style.display = 'block';
+        });
+        // Show About popup on initial load
+        popup3.style.display = 'block';
+        overlay.style.display = 'block';
+    }
+});
 
 document.querySelectorAll('.close-button').forEach(button => {
     button.addEventListener('click', function() {
@@ -860,16 +1310,23 @@ document.getElementById('zoomOutButton').addEventListener('click', () => {
 
 document.getElementById('deselectButton').addEventListener('click', () => {
     if (focusedNode) {
-        // Reset node styling
-        g.selectAll(".node").classed("dimmed", false);
-        g.selectAll(".node").classed("clicked", false);
-        g.selectAll("path.link").classed("dimmed", false)
+
+        g.selectAll('.pct-pill').remove();
+        g.selectAll('.pct-pill-text').remove();
+
+        g.selectAll(".node")
+            .classed("dimmed", false)
+            .classed("clicked", false);
+
+        g.selectAll("path.link")
+            .classed("dimmed", false)
             .attr("stroke-width", lineWidth + 1);
-        
-        // Clear focused node
+
         focusedNode = null;
+        resetZoom();
     }
 });
+
 
 function toggleFullScreen() {
     if (!document.fullscreenElement) {
@@ -943,6 +1400,12 @@ document.querySelector('.popup-overlay').addEventListener('click', function() {
 document.querySelectorAll('.popup').forEach(popup => 
     popup.addEventListener('click', event => event.stopPropagation())
 );
+
+
+
+    
 </script>
 </body>
 </html>
+
+
