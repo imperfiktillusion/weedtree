@@ -176,6 +176,44 @@ const nodeStrokeWidth = 3;
 const nodeStrokeColor = '#000';
 const nodeTextYOffset = 1;
 
+// --- Global constants for sorting ---
+const dominanceOrder = {
+    'indica dominant': 0,
+    'ruderalis dominant': 1,
+    'balanced hybrid': 2,
+    'unknown': 3,
+    'sativa dominant': 4
+};
+
+const indicaOrder = [
+    'Afghan/Pakistan Indica Landraces',
+    'Purple Afghan Indica Landraces',
+    'Hindu Kush Landraces',
+    'Nepalese Indica Landraces',
+    'North American Indica Landraces'
+];
+
+const sativaOrder = [
+    'South India Sativa Landraces',
+    'Burmese Sativa Landraces',
+    'Cambodia Sativa Landraces',
+    'Thai Sativa Landraces',
+    'Chocolate Thai Sativa Landraces',
+    'Purple Thai Sativa Landraces',
+    'Indonesia Sativa Landraces',
+    'North African Sativa Landraces',
+    'East African Sativa landraces',
+    'South African Sativa Landraces',
+    'Jamaican Sativa Landraces',
+    'California Sativa Landraces',
+    'Mexico Sativa Landraces',
+    'Panama Sativa Landraces',
+    'Colombian Sativa Landraces',
+    'Brazil Sativa Landraces',
+    'Hawaiian Sativa Landraces'
+];
+
+
 // --- Error handling ---
 const showError = (message) => {
     document.getElementById('loading-message').style.display = 'none';
@@ -242,42 +280,6 @@ function populateStrainList() {
 
 // --- Custom sorting functions ---
 function customSortColumn2(a, b) {
-    const dominanceOrder = {
-        'indica dominant': 0,
-        'ruderalis dominant': 1,
-        'balanced hybrid': 2,
-        'unknown': 3,
-        'sativa dominant': 4
-    };
-
-    const indicaOrder = [
-        'Afghan/Pakistan Indica Landraces',
-        'Purple Afghan Indica Landraces',
-        'Hindu Kush Landraces',
-        'Nepalese Indica Landraces',
-        'North American Indica Landraces'
-    ];
-
-    const sativaOrder = [
-        'South India Sativa Landraces',
-        'Burmese Sativa Landraces',
-        'Cambodia Sativa Landraces',
-        'Thai Sativa Landraces',
-        'Chocolate Thai Sativa Landraces',
-        'Purple Thai Sativa Landraces',
-        'Indonesia Sativa Landraces',
-        'North African Sativa Landraces',
-        'East African Sativa landraces',
-        'South African Sativa Landraces',
-        'Jamaican Sativa Landraces',
-        'California Sativa Landraces',
-        'Mexico Sativa Landraces',
-        'Panama Sativa Landraces',
-        'Colombian Sativa Landraces',
-        'Brazil Sativa Landraces',
-        'Hawaiian Sativa Landraces'
-    ];
-
     const aDom = a.dominance.toLowerCase();
     const bDom = b.dominance.toLowerCase();
 
@@ -301,6 +303,7 @@ function customSortColumn2(a, b) {
 
     return a.name.localeCompare(b.name);
 }
+
 
 function customSortColumn3Plus(a, b) {
     const dominanceOrder = {
