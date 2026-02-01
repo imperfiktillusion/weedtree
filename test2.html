@@ -391,16 +391,15 @@ function calculateDownwardDescendantTotals(startNode, nodes) {
     return contributions;
 }
 
+
 const createLineageChart = () => {
-    // --- Setup SVG & zoom ---
     const chartContainer = document.querySelector('.chart-container');
     const width = chartContainer.clientWidth;
     const height = chartContainer.clientHeight;
 
+    // Clear previous chart
     d3.select("#lineageChart").selectAll("*").remove();
-
-    svg = d3.select("#lineageChart")
-        .append("svg")
+    svg = d3.select("#lineageChart").append("svg")
         .attr("width", width)
         .attr("height", height);
 
@@ -412,7 +411,7 @@ const createLineageChart = () => {
 
     svg.call(zoom);
 
-    // --- Prepare nodes ---
+    // --- Node setup ---
     nodes = strainData.map(strain => ({
         id: strain.Strain,
         name: strain.Strain,
@@ -427,7 +426,7 @@ const createLineageChart = () => {
     }));
 
     const hasChildren = new Set(nodes.flatMap(node => node.parents));
-    nodes = nodes.filter(node =>
+    nodes = nodes.filter(node => 
         hasChildren.has(node.name) || node.parents.length > 0 || node.special || node.variant
     );
 
@@ -437,10 +436,14 @@ const createLineageChart = () => {
         }
     });
 
-    // --- Initial sort: products first ---
-    nodes.sort((a, b) => (a.product && !b.product) ? 1 : (!a.product && b.product ? -1 : 0));
+    // Prioritize products in initial rendering
+    nodes.sort((a, b) => {
+        if (a.product && !b.product) return 1;
+        if (!a.product && b.product) return -1;
+        return 0;
+    });
 
-    // --- Prepare links ---
+    // --- Link setup ---
     const links = [];
     nodes.forEach(node => {
         if (node.variant) {
@@ -448,7 +451,9 @@ const createLineageChart = () => {
             if (parentNode) links.push({ source: parentNode.id, target: node.id });
         } else {
             node.parents.forEach(parent => {
-                if (parent && nodes.some(n => n.id === parent)) links.push({ source: parent, target: node.id });
+                if (parent && nodes.some(n => n.id === parent)) {
+                    links.push({ source: parent, target: node.id });
+                }
             });
         }
     });
@@ -459,47 +464,64 @@ const createLineageChart = () => {
         while (changed) {
             changed = false;
             nodes.forEach(node => {
-                const nameLower = node.name.toLowerCase();
-                const specialLower = node.special?.toLowerCase();
-
-                if (nameLower.includes('unknown lineages') && node.generation !== 2) {
-                    node.generation = 2; changed = true;
-                } else if (specialLower === 'origin' && node.generation !== 0) {
-                    node.generation = 0; changed = true;
-                } else if (specialLower === 'landrace' && node.generation !== 1) {
-                    node.generation = 1; changed = true;
+                if (node.name.toLowerCase().includes('unknown lineages')) {
+                    if (node.generation !== 2) {
+                        node.generation = 2;
+                        changed = true;
+                    }
+                } else if (node.special && node.special.toLowerCase() === 'origin') {
+                    if (node.generation !== 0) {
+                        node.generation = 0;
+                        changed = true;
+                    }
+                } else if (node.special && node.special.toLowerCase() === 'landrace') {
+                    if (node.generation !== 1) {
+                        node.generation = 1;
+                        changed = true;
+                    }
                 } else if (node.variant) {
                     const parentNode = nodes.find(n => n.name === node.variant);
                     if (parentNode && node.generation !== parentNode.generation) {
-                        node.generation = parentNode.generation; changed = true;
+                        node.generation = parentNode.generation;
+                        changed = true;
                     }
-                } else if (nameLower.includes('unknown') && !nameLower.includes('unknown lineages') && node.generation < 2) {
-                    node.generation = 2; changed = true;
                 } else {
-                    const parentGens = node.parents
-                        .map(pid => nodes.find(n => n.id === pid)?.generation)
-                        .filter(gen => gen != null);
-                    if (parentGens.length > 0) {
-                        const maxParentGen = Math.max(...parentGens);
-                        if (node.generation !== maxParentGen + 1) {
-                            node.generation = maxParentGen + 1; changed = true;
+                    if (node.name.toLowerCase().includes('unknown') && !node.name.toLowerCase().includes('unknown lineages')) {
+                        if (node.generation < 2) {
+                            node.generation = 2;
+                            changed = true;
+                        }
+                    } else {
+                        const parentGens = node.parents.map(pid => {
+                            const parent = nodes.find(n => n.id === pid);
+                            return parent ? parent.generation : -1;
+                        }).filter(gen => gen !== -1);
+
+                        if (parentGens.length > 0) {
+                            const maxParentGen = Math.max(...parentGens);
+                            if (node.generation !== maxParentGen + 1) {
+                                node.generation = maxParentGen + 1;
+                                changed = true;
+                            }
                         }
                     }
                 }
             });
         }
 
-        // Special cases: unknown lineage parents
         let specialCaseChanged = true;
         while (specialCaseChanged) {
             specialCaseChanged = false;
             nodes.forEach(node => {
-                const nameLower = node.name.toLowerCase();
-                if (!nameLower.includes('unknown lineages') && 
-                    (nameLower.includes('unknown') || 
-                     (node.parents.length && node.parents.every(pid => nodes.find(n => n.id === pid)?.name.toLowerCase().includes('unknown'))))) {
+                if (!node.name.toLowerCase().includes('unknown lineages') &&
+                    (node.name.toLowerCase().includes('unknown') ||
+                     (node.parents.length > 0 && node.parents.every(pid => {
+                        const parent = nodes.find(n => n.id === pid);
+                        return parent && parent.name.toLowerCase().includes('unknown');
+                     })))) {
+
                     const children = nodes.filter(n => n.parents.includes(node.id));
-                    if (children.length) {
+                    if (children.length > 0) {
                         const minChildGen = Math.min(...children.map(c => c.generation));
                         const newGen = Math.max(2, minChildGen - 1);
                         if (node.generation !== newGen) {
@@ -513,32 +535,30 @@ const createLineageChart = () => {
     };
     assignGenerations();
 
-    // --- Layout constants ---
+    // --- Layout calculations ---
     const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
     const standardPillWidth = Math.max(maxWidth, 150);
     const pillHeight = 30;
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
-    // --- Column 2 special sorting ---
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
     column2Nodes.sort(customSortColumn2);
 
-    // --- Assign positions per generation ---
     for (let gen = 0; gen <= maxGeneration + 1; gen++) {
-        let genNodes = nodes.filter(n =>
-            n.generation === gen || (gen === 1 && n.special?.toLowerCase() === 'landrace')
-        );
+        let genNodes = nodes.filter(n => (n.generation === gen) || 
+            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace'));
+
         if (gen === 1) {
             genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
         } else if (gen >= 2) {
             genNodes.sort(customSortColumn3Plus);
         }
 
+        let yOffset = 0;
         const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
                             genNodes.filter(n => n.variant).length * (pillHeight + 2);
         const startY = (height - totalHeight) / 2;
-        let yOffset = 0;
 
         genNodes.forEach(node => {
             node.x = gen * columnWidth;
@@ -546,14 +566,16 @@ const createLineageChart = () => {
                 if (gen !== 0 || node.y === undefined) node.y = startY + yOffset;
                 yOffset += pillHeight + 16;
 
-                // Position variants
-                const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
-                variants.forEach((v, i) => { v.x = node.x; v.y = node.y + (i + 1) * (pillHeight + 2); });
+                const variants = nodes.filter(n => n.variant === node.name)
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                variants.forEach((variant, vIndex) => {
+                    variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                    variant.x = node.x;
+                });
                 yOffset += variants.length * (pillHeight + 2);
             }
         });
 
-        // --- Barycentric reorder for gen >= 2 ---
         if (gen >= 2) {
             genNodes = barycentricSort(genNodes, nodes, 'parents');
             yOffset = 0;
@@ -561,8 +583,12 @@ const createLineageChart = () => {
                 if (!node.variant) {
                     node.y = startY + yOffset;
                     yOffset += pillHeight + 16;
-                    const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
-                    variants.forEach((v, i) => { v.y = node.y + (i + 1) * (pillHeight + 2); });
+
+                    const variants = nodes.filter(n => n.variant === node.name)
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                    variants.forEach((variant, vIndex) => {
+                        variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                    });
                     yOffset += variants.length * (pillHeight + 2);
                 }
             });
@@ -571,7 +597,7 @@ const createLineageChart = () => {
 
     calculateColumn1Positions();
 
-    // --- Draw links ---
+    // --- Links rendering ---
     const link = g.append("g")
         .selectAll("path")
         .data(links)
@@ -584,16 +610,18 @@ const createLineageChart = () => {
         .attr("d", d => {
             const sourceNode = nodes.find(n => n.id === d.source);
             const targetNode = nodes.find(n => n.id === d.target);
-            const sourceW = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const targetW = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const midX = (sourceNode.x + sourceW / 2 + targetNode.x - targetW / 2) / 2;
-            return `M${sourceNode.x + sourceW / 2},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetNode.x - targetW / 2},${targetNode.y}`;
+            const sourcePillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            const targetPillWidth = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            const sourceX = sourceNode.x + sourcePillWidth / 2;
+            const targetX = targetNode.x - targetPillWidth / 2;
+            const midX = (sourceX + targetX) / 2;
+            return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
         });
 
-    // --- Node groups ---
+    // --- Nodes rendering ---
     let dragging = false;
 
-    const nodeGroup = g.append("g")
+    const node = g.append("g")
         .selectAll("g")
         .data(nodes)
         .join("g")
@@ -606,38 +634,113 @@ const createLineageChart = () => {
             highlightHoverLineage(event, d);
             d3.select(this).raise()
                 .transition()
-                .attr("transform", `translate(${d.x},${d.y}) scale(1.7,1.7)`);
+                .attr("transform", `translate(${d.x},${d.y}) scale(1.7, 1.7)`);
         })
         .on("mouseout", function(event, d) {
             if (dragging) return;
             removeHighlightHoverLineage();
-            d3.select(this).transition().attr("transform", `translate(${d.x},${d.y}) scale(1)`);
+            d3.select(this).transition()
+                .attr("transform", `translate(${d.x},${d.y}) scale(1)`);
             g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
         });
 
-    // --- Drag behavior ---
-    nodeGroup.call(d3.drag()
+    // --- Dragging logic ---
+    node.call(d3.drag()
         .on("start", function(event, d) {
             if (event.sourceEvent.type.startsWith("touch")) {
                 d.longPressTimer = setTimeout(() => startDrag(event, d, this), 400);
-            } else if (event.sourceEvent.shiftKey) startDrag(event, d, this);
+            } else {
+                if (!event.sourceEvent.shiftKey) return;
+                startDrag(event, d, this);
+            }
         })
-        .on("drag", function(event, d) { if (d.dragging) dragNode(event, d, this); })
+        .on("drag", function(event, d) {
+            if (!d.dragging) return;
+            dragNode(event, d, this);
+        })
         .on("end", function(event, d) {
             if (d.longPressTimer) { clearTimeout(d.longPressTimer); d.longPressTimer = null; }
-            if (d.dragging) { d.dragging = false; dragging = false; }
+            if (!d.dragging) return;
+            d.dragging = false;
+            dragging = false;
         })
     );
 
-    // --- Append node rects & text ---
-    appendNodeElements(nodeGroup);
+    // --- Node elements: rect, text, product, icon ---
+    node.append("rect")
+        .attr("rx", pillHeight / 2)
+        .attr("ry", pillHeight / 2)
+        .attr("width", d => d.variant ? standardPillWidth * 0.85 : standardPillWidth)
+        .attr("height", pillHeight)
+        .attr("fill", d => {
+            if (d.variant) {
+                const parentNode = nodes.find(n => n.name === d.variant);
+                if (parentNode) return blendToWhite(getColorByDominance(parentNode.dominance), 0.5);
+            }
+            return getColorByDominance(d.dominance);
+        })
+        .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 : -standardPillWidth / 2)
+        .attr("y", -pillHeight / 2)
+        .attr("stroke", d => d.product ? "black" : getColorByDominance(d.dominance))
+        .attr("stroke-width", 3);
 
-    // --- Highlight lineage ---
-    function highlightLineage(event, d) {
-        handleLineageHighlight(event, d, nodeGroup, link);
-    }
+    node.append("text")
+        .attr("class", "strain-name")
+        .text(d => d.displayName)
+        .attr("x", d => d.variant ? -(standardPillWidth * 0.85)/2 + 12 : -standardPillWidth/2 + 12)
+        .attr("y", 1)
+        .attr("dominant-baseline", "middle")
+        .attr("fill", "black")
+        .style("font-size", "15px")
+        .style("font-family", "'Roboto', Arial, sans-serif")
+        .style("font-weight", "bold")
+        .each(function(d) {
+            const textWidth = this.getComputedTextLength();
+            const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            const availableWidth = nodeWidth - 24;
+            if (textWidth > availableWidth) {
+                d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
+            }
+        });
+
+    // Product text
+    node.append("text")
+        .filter(d => d.product)
+        .text(d => d.product)
+        .attr("class", "product")
+        .attr("x", function(d) {
+            const strainNameWidth = this.parentNode.querySelector('.strain-name').getComputedTextLength();
+            const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            return -nodeWidth/2 + 5 + strainNameWidth + 10;
+        })
+        .attr("y", 1.6)
+        .attr("dominant-baseline", "middle")
+        .attr("fill", "black")
+        .style("font-size", "10px")
+        .style("font-family", "'Roboto', Arial, sans-serif")
+        .style("font-weight", "normal")
+        .each(function(d) {
+            const strainNameWidth = this.parentNode.querySelector('.strain-name').getComputedTextLength();
+            const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            const remainingWidth = nodeWidth - strainNameWidth - 40;
+            if (this.getComputedTextLength() > remainingWidth) {
+                d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
+                d3.select(this.parentNode).select('.strain-name')
+                    .style("font-family", "'Roboto Condensed', Arial, sans-serif");
+                const newStrainWidth = this.parentNode.querySelector('.strain-name').getComputedTextLength();
+                d3.select(this).attr("x", -nodeWidth/2 + 5 + newStrainWidth + 10);
+            }
+        });
+
+    // Product icon
+    node.filter(d => d.product)
+        .append("use")
+        .attr("xhref", "#nzIcon")
+        .attr("width", 30)
+        .attr("height", 30)
+        .attr("x", d => (d.variant ? standardPillWidth*0.85 : standardPillWidth)/2 - 20)
+        .attr("y", -14);
 };
-
 
 
 
