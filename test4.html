@@ -530,68 +530,64 @@ const createLineageChart = () => {
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
     column2Nodes.sort(customSortColumn2);
 
-    for (let gen = 0; gen <= maxGeneration + 1; gen++) {
-        let genNodes = nodes.filter(n => 
-            (n.generation === gen) || 
-            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
-        );
+   for (let gen = 0; gen <= maxGeneration + 1; gen++) {
+    // 1️⃣ Filter nodes for this generation
+    let genNodes = nodes.filter(n =>
+        (n.generation === gen) ||
+        (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
+    );
 
-        if (gen === 1) {
-            genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-   } else if (gen >= 2) {
+    // 2️⃣ Handle column 2 (generation 1) landrace prioritization
+    if (gen === 1) {
+        genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
+    }
 
-    // 1️⃣ Initial stable order (dominance + name)
-    genNodes.sort(sortByDominanceThenName);
+    // 3️⃣ Set X positions
+    genNodes.forEach(node => node.x = gen * columnWidth);
 
-}
+    // 4️⃣ Apply sorting
+    if (gen >= 2) {
+        // Group nodes by dominance
+        const dominanceGroups = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
 
+        // Sort within each dominance group
+        const sortedGroups = dominanceGroups.map(([dominance, groupNodes]) => {
+            // 1. Barycentric sort within group
+            const barySorted = barycentricSort(groupNodes, nodes, 'parents');
 
-
-        let yOffset = 0;
-        const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
-                            genNodes.filter(n => n.variant).length * (pillHeight + 2);
-        const startY = (height - totalHeight) / 2;
-
-        genNodes.forEach((node, index) => {
-            node.x = gen * columnWidth; // Set x position based on generation
-            if (!node.variant) {
-                if (gen !== 0 || node.y === undefined) {
-                    node.y = startY + yOffset;
-                }
-                yOffset += pillHeight + 16; // min gap between standard nodes
-
-                const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
-                variants.forEach((variant, vIndex) => {
-                    variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                    variant.x = node.x;
-                });
-
-                yOffset += variants.length * (pillHeight + 2);
-            }
+            // 2. Tie-breaker within group: dominance + landrace + name
+            return barySorted.sort(sortByDominanceAndLandrace);
         });
-        // 🔁 Second pass: barycentric reorder now that Y exists
-if (gen >= 2) {
-    genNodes = barycentricSort(genNodes, nodes, 'parents');
 
-    // Re-assign Y positions after barycentric sort
-    yOffset = 0;
+        // Flatten back into single array for this generation
+        genNodes = sortedGroups.flat();
+    }
+
+    // 5️⃣ Assign Y positions
+    let yOffset = 0;
+    const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
+                        genNodes.filter(n => n.variant).length * (pillHeight + 2);
+    const startY = (height - totalHeight) / 2;
+
     genNodes.forEach(node => {
         if (!node.variant) {
             node.y = startY + yOffset;
             yOffset += pillHeight + 16;
 
+            // Position variants below parent
             const variants = nodes.filter(n => n.variant === node.name)
                 .sort((a, b) => a.name.localeCompare(b.name));
 
             variants.forEach((variant, vIndex) => {
                 variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                variant.x = node.x;
             });
 
             yOffset += variants.length * (pillHeight + 2);
         }
     });
 }
-    }
+
 
 
     calculateColumn1Positions();
