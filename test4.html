@@ -176,15 +176,6 @@ const nodeStrokeWidth = 3;
 const nodeStrokeColor = '#000';
 const nodeTextYOffset = 1;
 
-// ----------------- GLOBAL DOMINANCE ORDER -----------------
-const dominanceOrder = {
-    'indica dominant': 0,
-    'ruderalis dominant': 1,
-    'balanced hybrid': 2,
-    'unknown': 3,
-    'sativa dominant': 4
-};
-
 // --- Error handling ---
 const showError = (message) => {
     document.getElementById('loading-message').style.display = 'none';
@@ -251,7 +242,14 @@ function populateStrainList() {
 
 // --- Custom sorting functions ---
 function customSortColumn2(a, b) {
-    // Column 2 (gen 1) uses full logic: dominance + landrace + alphabetical
+    const dominanceOrder = {
+        'indica dominant': 0,
+        'ruderalis dominant': 1,
+        'balanced hybrid': 2,
+        'unknown': 3,
+        'sativa dominant': 4
+    };
+
     const indicaOrder = [
         'Afghan/Pakistan Indica Landraces',
         'Purple Afghan Indica Landraces',
@@ -280,10 +278,10 @@ function customSortColumn2(a, b) {
         'Hawaiian Sativa Landraces'
     ];
 
-    const aDom = a.dominance?.toLowerCase();
-    const bDom = b.dominance?.toLowerCase();
+    const aDom = a.dominance.toLowerCase();
+    const bDom = b.dominance.toLowerCase();
 
-    if (aDom !== bDom) return (dominanceOrder[aDom] ?? 99) - (dominanceOrder[bDom] ?? 99);
+    if (aDom !== bDom) return dominanceOrder[aDom] - dominanceOrder[bDom];
 
     if (aDom === 'indica dominant') {
         const aIndex = indicaOrder.indexOf(a.name);
@@ -304,8 +302,13 @@ function customSortColumn2(a, b) {
     return a.name.localeCompare(b.name);
 }
 
-// --- Remove customSortColumn3Plus entirely ---
-// Column 2+ (gen >=2) uses only global dominanceOrder
+
+
+    const aDom = a.dominance.toLowerCase();
+    const bDom = b.dominance.toLowerCase();
+    if (aDom !== bDom) return dominanceOrder[aDom] - dominanceOrder[bDom];
+    return a.name.localeCompare(b.name);
+}
 
 // --- Barycentric sorting ---
 function barycentricSort(genNodes, nodes, direction = 'parents') {
@@ -364,9 +367,230 @@ function calculateDownwardDescendantTotals(startNode, nodes) {
 
     function walk(node, amount) {
         if (node.id !== startNode.id) {
+            contributions.set(node.id, (contributions.get(node.id) || 0) + amount);
+        }
+
+        const children = nodes.filter(n =>
+            (n.parents && n.parents.includes(node.id)) || n.variant === node.name
+        );
+
+        children.forEach(child => {
+            let parentCount = (child.parents?.length || 0) + (child.variant ? 1 : 0);
+            if (!parentCount) return;
+            walk(child, amount / parentCount);
+        });
+    }
+
+    walk(startNode, 100);
+    return contributions;
+}
 
 
+
+const createLineageChart = () => {
+    const chartContainer = document.querySelector('.chart-container');
+    const width = chartContainer.clientWidth, height = chartContainer.clientHeight;
+    d3.select("#lineageChart").selectAll("*").remove();
+    svg = d3.select("#lineageChart").append("svg").attr("width", width).attr("height", height);
+    g = svg.append("g");
+    zoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", (event) => g.attr("transform", event.transform));
+    svg.call(zoom);
     
+    nodes = strainData.map(strain => ({
+        id: strain.Strain,
+        name: strain.Strain,
+        displayName: strain.Strain,
+        dominance: strain.Dominance,
+        parents: [strain.Parent1, strain.Parent2, strain.Parent3, strain.Parent4].filter(p => p),
+        generation: 0,
+        special: strain.Special,
+        product: strain.Product,
+        variant: strain.Variant,
+        alsoKnownAs: strain['Also Known As']
+    }));
+
+    const hasChildren = new Set(nodes.flatMap(node => node.parents));
+    nodes = nodes.filter(node => 
+        hasChildren.has(node.name) || node.parents.length > 0 || node.special || node.variant
+    );
+
+    nodes.forEach(node => {
+        if (node.name.toLowerCase().includes('unknown')) {
+            node.displayName = node.name.replace(/\d+/g, '');
+        }
+    });
+
+    // Sort the nodes array to prioritize products in the initial rendering
+    nodes.sort((a, b) => {
+        if (a.product && !b.product) return 1;
+        if (!a.product && b.product) return -1;
+        return 0;
+    });
+
+    const links = [];
+    nodes.forEach(node => {
+        if (node.variant) {
+            const parentNode = nodes.find(n => n.name === node.variant);
+            if (parentNode) links.push({ source: parentNode.id, target: node.id });
+        } else {
+            node.parents.forEach(parent => {
+                if (parent && nodes.some(n => n.id === parent)) links.push({ source: parent, target: node.id });
+            });
+        }
+    });
+
+    const assignGenerations = () => {
+        let changed = true;
+        while (changed) {
+            changed = false;
+            nodes.forEach(node => {
+                // Force "unknown lineages" to be in column 3
+                if (node.name.toLowerCase().includes('unknown lineages')) {
+                    if (node.generation !== 2) {  // Column 3 is generation 2 (0-based indexing)
+                        node.generation = 2;
+                        changed = true;
+                    }
+                } else if (node.special && node.special.toLowerCase() === 'origin') {
+                    if (node.generation !== 0) {
+                        node.generation = 0;
+                        changed = true;
+                    }
+                } else if (node.special && node.special.toLowerCase() === 'landrace') {
+                    if (node.generation !== 1) {
+                        node.generation = 1;
+                        changed = true;
+                    }
+                } else if (node.variant) {
+                    const parentNode = nodes.find(n => n.name === node.variant);
+                    if (parentNode && node.generation !== parentNode.generation) {
+                        node.generation = parentNode.generation;
+                        changed = true;
+                    }
+                } else {
+                    // Check if name contains "unknown" (but not "unknown lineages")
+                    if (node.name.toLowerCase().includes('unknown') && !node.name.toLowerCase().includes('unknown lineages')) {
+                        if (node.generation < 2) {  // Ensure minimum generation is 2
+                            node.generation = 2;
+                            changed = true;
+                        }
+                    } else {
+                        const parentGens = node.parents.map(parentId => {
+                            const parent = nodes.find(n => n.id === parentId);
+                            return parent ? parent.generation : -1;
+                        }).filter(gen => gen !== -1);
+                        if (parentGens.length > 0) {
+                            const maxParentGen = Math.max(...parentGens);
+                            if (node.generation !== maxParentGen + 1) {
+                                node.generation = maxParentGen + 1;
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        let specialCaseChanged = true;
+        while (specialCaseChanged) {
+            specialCaseChanged = false;
+            nodes.forEach(node => {
+                // Skip "unknown lineages" in this adjustment
+                if (!node.name.toLowerCase().includes('unknown lineages') &&
+                    (node.name.toLowerCase().includes('unknown') || 
+                    (node.parents.length > 0 && node.parents.every(parentId => {
+                        const parent = nodes.find(n => n.id === parentId);
+                        return parent && parent.name.toLowerCase().includes('unknown');
+                    })))) {
+                    const children = nodes.filter(n => n.parents.includes(node.id));
+                    if (children.length > 0) {
+                        const minChildGen = Math.min(...children.map(c => c.generation));
+                        const newGen = Math.max(2, minChildGen - 1); // Ensure minimum generation is 2
+                        if (node.generation !== newGen) {
+                            node.generation = newGen;
+                            specialCaseChanged = true;
+                        }
+                    }
+                }
+            });
+        }
+    };
+    assignGenerations();
+
+    const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
+    const standardPillWidth = Math.max(maxWidth, 150);
+    const pillHeight = 30; 
+    const maxGeneration = Math.max(...nodes.map(n => n.generation));
+    const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
+
+    const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
+    column2Nodes.sort(customSortColumn2);
+
+    for (let gen = 0; gen <= maxGeneration + 1; gen++) {
+        let genNodes = nodes.filter(n => 
+            (n.generation === gen) || 
+            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
+        );
+
+        if (gen === 1) {
+            genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
+   } else if (gen >= 2) {
+
+    // 1️⃣ Initial stable order (dominance + name)
+    genNodes.sort(customSortColumn3Plus);
+
+}
+
+
+
+        let yOffset = 0;
+        const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
+                            genNodes.filter(n => n.variant).length * (pillHeight + 2);
+        const startY = (height - totalHeight) / 2;
+
+        genNodes.forEach((node, index) => {
+            node.x = gen * columnWidth; // Set x position based on generation
+            if (!node.variant) {
+                if (gen !== 0 || node.y === undefined) {
+                    node.y = startY + yOffset;
+                }
+                yOffset += pillHeight + 16; // min gap between standard nodes
+
+                const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
+                variants.forEach((variant, vIndex) => {
+                    variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                    variant.x = node.x;
+                });
+
+                yOffset += variants.length * (pillHeight + 2);
+            }
+        });
+        // 🔁 Second pass: barycentric reorder now that Y exists
+if (gen >= 2) {
+    genNodes = barycentricSort(genNodes, nodes, 'parents');
+
+    // Re-assign Y positions after barycentric sort
+    yOffset = 0;
+    genNodes.forEach(node => {
+        if (!node.variant) {
+            node.y = startY + yOffset;
+            yOffset += pillHeight + 16;
+
+            const variants = nodes.filter(n => n.variant === node.name)
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            variants.forEach((variant, vIndex) => {
+                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+            });
+
+            yOffset += variants.length * (pillHeight + 2);
+        }
+    });
+}
+    }
+
+
+    calculateColumn1Positions();
+
     const link = g.append("g")
         .selectAll("path")
         .data(links)
