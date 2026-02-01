@@ -528,71 +528,48 @@ const createLineageChart = () => {
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
-    const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
-    column2Nodes.sort(customSortColumn2);
+    // --- COLUMN 2 (and above) VERTICAL POSITIONING: weighted by children ---
+for (let gen = 1; gen <= maxGeneration; gen++) {
+    let genNodes = nodes.filter(n => n.generation === gen && !n.variant);
 
-    for (let gen = 0; gen <= maxGeneration + 1; gen++) {
-        let genNodes = nodes.filter(n => 
-            (n.generation === gen) || 
-            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
-        );
-
-        if (gen === 1) {
-            genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-   } else if (gen >= 2) {
-
-    // 1️⃣ Initial stable order (dominance + name)
-    genNodes.sort(customSortColumn3Plus);
-
-}
-
-
-
-        let yOffset = 0;
-        const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
-                            genNodes.filter(n => n.variant).length * (pillHeight + 2);
-        const startY = (height - totalHeight) / 2;
-
-        genNodes.forEach((node, index) => {
-            node.x = gen * columnWidth; // Set x position based on generation
-            if (!node.variant) {
-                if (gen !== 0 || node.y === undefined) {
-                    node.y = startY + yOffset;
-                }
-                yOffset += pillHeight + 16; // min gap between standard nodes
-
-                const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
-                variants.forEach((variant, vIndex) => {
-                    variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                    variant.x = node.x;
-                });
-
-                yOffset += variants.length * (pillHeight + 2);
+    // Compute initial y based on children averages (for generations > 1)
+    if (gen > 1) {
+        genNodes.forEach(node => {
+            const children = nodes.filter(c => c.parents.includes(node.id));
+            if (children.length > 0) {
+                node.y = d3.mean(children, d => d.y);
             }
         });
-        // 🔁 Second pass: barycentric reorder now that Y exists
-if (gen >= 2) {
-    genNodes = barycentricSort(genNodes, nodes, 'parents');
+    }
 
-    // Re-assign Y positions after barycentric sort
-    yOffset = 0;
+    // fallback alphabetical sort for nodes without children
+    genNodes.sort((a, b) => {
+        if (a.y !== undefined && b.y !== undefined) return a.y - b.y;
+        if (a.y !== undefined) return -1;
+        if (b.y !== undefined) return 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    // Assign y positions with spacing
+    const ySpacing = pillHeight + 16;
+    const startY = (height - (genNodes.length * ySpacing)) / 2;
+    let yOffset = 0;
+
     genNodes.forEach(node => {
-        if (!node.variant) {
-            node.y = startY + yOffset;
-            yOffset += pillHeight + 16;
+        node.y = startY + yOffset;
+        yOffset += ySpacing;
 
-            const variants = nodes.filter(n => n.variant === node.name)
-                .sort((a, b) => a.name.localeCompare(b.name));
-
-            variants.forEach((variant, vIndex) => {
-                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-            });
-
-            yOffset += variants.length * (pillHeight + 2);
-        }
+        // Position variants below parent
+        const variants = nodes.filter(n => n.variant === node.name)
+            .sort((a, b) => a.name.localeCompare(b.name));
+        variants.forEach((variant, vIndex) => {
+            variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+            variant.x = node.x;
+        });
+        yOffset += variants.length * (pillHeight + 2);
     });
 }
-    }
+
 
 
     calculateColumn1Positions();
