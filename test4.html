@@ -550,14 +550,18 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         genNodes.sort(sortByDominanceAndLandrace);
     } else if (gen >= 2) {
         // Columns 3+: preserve dominance order across the column
-        const dominanceGroups = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
+        // 1. Group by dominance
+const groupedByDom = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
 
-        // Apply barycentric sorting within each dominance group
-        const sortedGroups = dominanceGroups.map(([dominance, groupNodes]) => {
-            return barycentricSort(groupNodes, nodes, 'parents');
-        });
+// 2. Sort the groups according to dominanceOrder
+groupedByDom.sort(([aDom], [bDom]) => (dominanceOrder[aDom] ?? 99) - (dominanceOrder[bDom] ?? 99));
 
-        genNodes = sortedGroups.flat();
+// 3. Apply barycentric within each group
+const sortedGroups = groupedByDom.map(([dominance, groupNodes]) => barycentricSort(groupNodes, nodes, 'parents'));
+
+// 4. Flatten back
+genNodes = sortedGroups.flat();
+
     }
 
     // 4️⃣ Assign Y positions
