@@ -528,47 +528,55 @@ const createLineageChart = () => {
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
-    // --- COLUMN 2 (and above) VERTICAL POSITIONING: weighted by children ---
-for (let gen = 1; gen <= maxGeneration; gen++) {
+// --- COLUMN 2+ VERTICAL POSITIONING: bottom-up ---
+for (let gen = maxGeneration; gen >= 1; gen--) {
     let genNodes = nodes.filter(n => n.generation === gen && !n.variant);
 
-    // Compute initial y based on children averages (for generations > 1)
-    if (gen > 1) {
+    // Assign y positions for leaf nodes
+    if (gen === maxGeneration) {
+        const ySpacing = pillHeight + 16;
+        const startY = (height - (genNodes.length * ySpacing)) / 2;
+        let yOffset = 0;
+        genNodes.forEach(node => {
+            node.y = startY + yOffset;
+            yOffset += ySpacing;
+        });
+    }
+
+    // For parent nodes, compute y as mean of children
+    else {
         genNodes.forEach(node => {
             const children = nodes.filter(c => c.parents.includes(node.id));
             if (children.length > 0) {
                 node.y = d3.mean(children, d => d.y);
             }
         });
+
+        // fallback alphabetical sort for nodes without children
+        const orphans = genNodes.filter(n => n.y === undefined)
+            .sort((a, b) => a.name.localeCompare(b.name));
+        if (orphans.length > 0) {
+            const ySpacing = pillHeight + 16;
+            const startY = (height - (orphans.length * ySpacing)) / 2;
+            let yOffset = 0;
+            orphans.forEach(node => {
+                node.y = startY + yOffset;
+                yOffset += ySpacing;
+            });
+        }
     }
 
-    // fallback alphabetical sort for nodes without children
-    genNodes.sort((a, b) => {
-        if (a.y !== undefined && b.y !== undefined) return a.y - b.y;
-        if (a.y !== undefined) return -1;
-        if (b.y !== undefined) return 1;
-        return a.name.localeCompare(b.name);
-    });
-
-    // Assign y positions with spacing
-    const ySpacing = pillHeight + 16;
-    const startY = (height - (genNodes.length * ySpacing)) / 2;
-    let yOffset = 0;
-
+    // Position variants below parent
     genNodes.forEach(node => {
-        node.y = startY + yOffset;
-        yOffset += ySpacing;
-
-        // Position variants below parent
         const variants = nodes.filter(n => n.variant === node.name)
             .sort((a, b) => a.name.localeCompare(b.name));
         variants.forEach((variant, vIndex) => {
             variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
             variant.x = node.x;
         });
-        yOffset += variants.length * (pillHeight + 2);
     });
 }
+
 
 
 
