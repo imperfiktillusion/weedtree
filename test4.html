@@ -533,20 +533,28 @@ const createLineageChart = () => {
 
 
     
-// --- STEP 1: ASSIGN X POSITIONS FOR ALL COLUMNS ---
+// --- PREP ---
+assignGenerations();
+const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
+const standardPillWidth = Math.max(maxWidth, 150);
+const pillHeight = 30;
+const maxGeneration = Math.max(...nodes.map(n => n.generation));
+const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
+
+// --- STEP 1: ASSIGN X POSITIONS FOR ALL NODES ---
 nodes.forEach(n => {
-    n.x = n.generation * columnWidth - columnWidth / 2; // center of the column
+    n.x = (n.generation - 1) * columnWidth + columnWidth / 2; // center each column
 });
 
-// --- STEP 2: VERTICAL ORDERING FOR COLUMNS 2+ (bottom-up) ---
-for (let gen = maxGeneration; gen >= 2; gen--) {  // only columns 2+
+// --- STEP 2: VERTICAL ORDERING FOR COLUMNS 2+ ---
+for (let gen = 2; gen <= maxGeneration; gen++) { // only column 2+
     const genNodes = nodes.filter(n => n.generation === gen && !n.variant);
 
-    // Leaf nodes (no children) get evenly spaced positions
+    // 2a) Leaves (no children)
     const leaves = genNodes.filter(n => !nodes.some(c => c.parents.includes(n.id)));
     if (leaves.length > 0) {
         const ySpacing = pillHeight + 16;
-        const startY = (height - (leaves.length * ySpacing)) / 2;
+        const startY = (height - leaves.length * ySpacing) / 2;
         let yOffset = 0;
         leaves.forEach(node => {
             node.y = startY + yOffset;
@@ -554,19 +562,19 @@ for (let gen = maxGeneration; gen >= 2; gen--) {  // only columns 2+
         });
     }
 
-    // Other nodes: mean of children
+    // 2b) Parents (mean of children)
     const parents = genNodes.filter(n => n.y === undefined);
     parents.forEach(node => {
-        const children = nodes.filter(c => c.parents.includes(node.id));
+        const children = nodes.filter(c => c.parents.includes(node.id) && c.y !== undefined);
         if (children.length > 0) node.y = d3.mean(children, d => d.y);
     });
 
-    // Remaining nodes: alphabetical fallback
+    // 2c) Orphans (fallback)
     const orphans = genNodes.filter(n => n.y === undefined)
         .sort((a, b) => a.name.localeCompare(b.name));
     if (orphans.length > 0) {
         const ySpacing = pillHeight + 16;
-        const startY = (height - (orphans.length * ySpacing)) / 2;
+        const startY = (height - orphans.length * ySpacing) / 2;
         let yOffset = 0;
         orphans.forEach(node => {
             node.y = startY + yOffset;
@@ -574,7 +582,7 @@ for (let gen = maxGeneration; gen >= 2; gen--) {  // only columns 2+
         });
     }
 
-    // Variants below parent
+    // 2d) Variants
     genNodes.forEach(node => {
         const variants = nodes.filter(n => n.variant === node.name)
             .sort((a, b) => a.name.localeCompare(b.name));
@@ -585,9 +593,9 @@ for (let gen = maxGeneration; gen >= 2; gen--) {  // only columns 2+
     });
 }
 
+// Column 1
+calculateColumn1Positions();
 
-
-    calculateColumn1Positions();
 
     const link = g.append("g")
         .selectAll("path")
