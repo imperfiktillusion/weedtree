@@ -528,8 +528,14 @@ const createLineageChart = () => {
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
-    const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
-    column2Nodes.sort(customSortColumn2);
+//column2+ sort
+
+const dominanceOrder = {
+    'indica dominant': 1,
+    'hybrid': 2,
+    'unknown': 3,
+    'sativa dominant': 4
+};
 
 for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     let genNodes = nodes.filter(n => 
@@ -538,43 +544,37 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     );
 
     if (gen === 1) {
+        // Column 2 nodes: sort by dominance first, then existing custom sort
+        const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
+        column2Nodes.sort((a, b) => {
+            const da = dominanceOrder[a.dominance?.toLowerCase()] || 99;
+            const db = dominanceOrder[b.dominance?.toLowerCase()] || 99;
+            return da - db || customSortColumn2(a, b);
+        });
+
         genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-    }
 
-    // --- Clever vertical ordering for columns 2+ ---
-    if (gen >= 2) {
-        // Assign a parent-centered y-value for sorting
-        genNodes.forEach(node => {
-            const parentYs = node.parents
-                .map(pid => nodes.find(n => n.id === pid))
-                .filter(Boolean)
-                .map(p => p.y);
-            
-            if (parentYs.length > 0) {
-                node._parentY = d3.mean(parentYs);
-            } else {
-                // If no parents, fall back to existing y or 0
-                node._parentY = node.y || 0;
-            }
-        });
-
-        // Sort by the parent-centered y, then alphabetically for ties
+    } else if (gen >= 2) {
+        // Gen 2+ nodes: dominance first, then existing custom sort
         genNodes.sort((a, b) => {
-            if (a._parentY !== b._parentY) return a._parentY - b._parentY;
-            return a.name.localeCompare(b.name);
+            const da = dominanceOrder[a.dominance?.toLowerCase()] || 99;
+            const db = dominanceOrder[b.dominance?.toLowerCase()] || 99;
+            return da - db || customSortColumn3Plus(a, b);
         });
     }
 
-    // --- Position nodes vertically ---
+    // Assign X/Y positions
     let yOffset = 0;
     const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
                         genNodes.filter(n => n.variant).length * (pillHeight + 2);
     const startY = (height - totalHeight) / 2;
 
-    genNodes.forEach(node => {
+    genNodes.forEach((node, index) => {
         node.x = gen * columnWidth;
         if (!node.variant) {
-            node.y = startY + yOffset;
+            if (gen !== 0 || node.y === undefined) {
+                node.y = startY + yOffset;
+            }
             yOffset += pillHeight + 16;
 
             const variants = nodes.filter(n => n.variant === node.name)
@@ -587,10 +587,29 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
             yOffset += variants.length * (pillHeight + 2);
         }
     });
+
+    // Second pass: barycentric reorder for gen 2+
+    if (gen >= 2) {
+        genNodes = barycentricSort(genNodes, nodes, 'parents');
+
+        // Re-assign Y positions after barycentric sort
+        yOffset = 0;
+        genNodes.forEach(node => {
+            if (!node.variant) {
+                node.y = startY + yOffset;
+                yOffset += pillHeight + 16;
+
+                const variants = nodes.filter(n => n.variant === node.name)
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                variants.forEach((variant, vIndex) => {
+                    variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                });
+
+                yOffset += variants.length * (pillHeight + 2);
+            }
+        });
+    }
 }
-
-
-    
 
 
 
