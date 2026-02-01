@@ -302,7 +302,13 @@ function customSortColumn2(a, b) {
     return a.name.localeCompare(b.name);
 }
 
-
+function customSortColumn3Plus(a, b) {
+    const dominanceOrder = {
+        'indica dominant': 0,
+        'balanced hybrid': 1,
+        'unknown': 2,
+        'sativa dominant': 3
+    };
 
     const aDom = a.dominance.toLowerCase();
     const bDom = b.dominance.toLowerCase();
