@@ -392,26 +392,17 @@ function calculateDownwardDescendantTotals(startNode, nodes) {
 }
 
 
+
+
 const createLineageChart = () => {
     const chartContainer = document.querySelector('.chart-container');
-    const width = chartContainer.clientWidth;
-    const height = chartContainer.clientHeight;
-
-    // Clear previous chart
+    const width = chartContainer.clientWidth, height = chartContainer.clientHeight;
     d3.select("#lineageChart").selectAll("*").remove();
-    svg = d3.select("#lineageChart").append("svg")
-        .attr("width", width)
-        .attr("height", height);
-
+    svg = d3.select("#lineageChart").append("svg").attr("width", width).attr("height", height);
     g = svg.append("g");
-
-    zoom = d3.zoom()
-        .scaleExtent([0.1, 4])
-        .on("zoom", (event) => g.attr("transform", event.transform));
-
+    zoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", (event) => g.attr("transform", event.transform));
     svg.call(zoom);
-
-    // --- Node setup ---
+    
     nodes = strainData.map(strain => ({
         id: strain.Strain,
         name: strain.Strain,
@@ -436,14 +427,13 @@ const createLineageChart = () => {
         }
     });
 
-    // Prioritize products in initial rendering
+    // Sort the nodes array to prioritize products in the initial rendering
     nodes.sort((a, b) => {
         if (a.product && !b.product) return 1;
         if (!a.product && b.product) return -1;
         return 0;
     });
 
-    // --- Link setup ---
     const links = [];
     nodes.forEach(node => {
         if (node.variant) {
@@ -451,21 +441,19 @@ const createLineageChart = () => {
             if (parentNode) links.push({ source: parentNode.id, target: node.id });
         } else {
             node.parents.forEach(parent => {
-                if (parent && nodes.some(n => n.id === parent)) {
-                    links.push({ source: parent, target: node.id });
-                }
+                if (parent && nodes.some(n => n.id === parent)) links.push({ source: parent, target: node.id });
             });
         }
     });
 
-    // --- Assign generations ---
     const assignGenerations = () => {
         let changed = true;
         while (changed) {
             changed = false;
             nodes.forEach(node => {
+                // Force "unknown lineages" to be in column 3
                 if (node.name.toLowerCase().includes('unknown lineages')) {
-                    if (node.generation !== 2) {
+                    if (node.generation !== 2) {  // Column 3 is generation 2 (0-based indexing)
                         node.generation = 2;
                         changed = true;
                     }
@@ -486,17 +474,17 @@ const createLineageChart = () => {
                         changed = true;
                     }
                 } else {
+                    // Check if name contains "unknown" (but not "unknown lineages")
                     if (node.name.toLowerCase().includes('unknown') && !node.name.toLowerCase().includes('unknown lineages')) {
-                        if (node.generation < 2) {
+                        if (node.generation < 2) {  // Ensure minimum generation is 2
                             node.generation = 2;
                             changed = true;
                         }
                     } else {
-                        const parentGens = node.parents.map(pid => {
-                            const parent = nodes.find(n => n.id === pid);
+                        const parentGens = node.parents.map(parentId => {
+                            const parent = nodes.find(n => n.id === parentId);
                             return parent ? parent.generation : -1;
                         }).filter(gen => gen !== -1);
-
                         if (parentGens.length > 0) {
                             const maxParentGen = Math.max(...parentGens);
                             if (node.generation !== maxParentGen + 1) {
@@ -513,17 +501,17 @@ const createLineageChart = () => {
         while (specialCaseChanged) {
             specialCaseChanged = false;
             nodes.forEach(node => {
+                // Skip "unknown lineages" in this adjustment
                 if (!node.name.toLowerCase().includes('unknown lineages') &&
-                    (node.name.toLowerCase().includes('unknown') ||
-                     (node.parents.length > 0 && node.parents.every(pid => {
-                        const parent = nodes.find(n => n.id === pid);
+                    (node.name.toLowerCase().includes('unknown') || 
+                    (node.parents.length > 0 && node.parents.every(parentId => {
+                        const parent = nodes.find(n => n.id === parentId);
                         return parent && parent.name.toLowerCase().includes('unknown');
-                     })))) {
-
+                    })))) {
                     const children = nodes.filter(n => n.parents.includes(node.id));
                     if (children.length > 0) {
                         const minChildGen = Math.min(...children.map(c => c.generation));
-                        const newGen = Math.max(2, minChildGen - 1);
+                        const newGen = Math.max(2, minChildGen - 1); // Ensure minimum generation is 2
                         if (node.generation !== newGen) {
                             node.generation = newGen;
                             specialCaseChanged = true;
@@ -535,10 +523,9 @@ const createLineageChart = () => {
     };
     assignGenerations();
 
-    // --- Layout calculations ---
     const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
     const standardPillWidth = Math.max(maxWidth, 150);
-    const pillHeight = 30;
+    const pillHeight = 30; 
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
@@ -546,66 +533,79 @@ const createLineageChart = () => {
     column2Nodes.sort(customSortColumn2);
 
     for (let gen = 0; gen <= maxGeneration + 1; gen++) {
-        let genNodes = nodes.filter(n => (n.generation === gen) || 
-            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace'));
+        let genNodes = nodes.filter(n => 
+            (n.generation === gen) || 
+            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
+        );
 
         if (gen === 1) {
             genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-        } else if (gen >= 2) {
-            genNodes.sort(customSortColumn3Plus);
-        }
+   } else if (gen >= 2) {
+
+    // 1️⃣ Initial stable order (dominance + name)
+    genNodes.sort(customSortColumn3Plus);
+
+}
+
+
 
         let yOffset = 0;
         const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
                             genNodes.filter(n => n.variant).length * (pillHeight + 2);
         const startY = (height - totalHeight) / 2;
 
-        genNodes.forEach(node => {
-            node.x = gen * columnWidth;
+        genNodes.forEach((node, index) => {
+            node.x = gen * columnWidth; // Set x position based on generation
             if (!node.variant) {
-                if (gen !== 0 || node.y === undefined) node.y = startY + yOffset;
-                yOffset += pillHeight + 16;
+                if (gen !== 0 || node.y === undefined) {
+                    node.y = startY + yOffset;
+                }
+                yOffset += pillHeight + 16; // min gap between standard nodes
 
-                const variants = nodes.filter(n => n.variant === node.name)
-                    .sort((a, b) => a.name.localeCompare(b.name));
+                const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
                 variants.forEach((variant, vIndex) => {
                     variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
                     variant.x = node.x;
                 });
+
                 yOffset += variants.length * (pillHeight + 2);
             }
         });
+        // 🔁 Second pass: barycentric reorder now that Y exists
+if (gen >= 2) {
+    genNodes = barycentricSort(genNodes, nodes, 'parents');
 
-        if (gen >= 2) {
-            genNodes = barycentricSort(genNodes, nodes, 'parents');
-            yOffset = 0;
-            genNodes.forEach(node => {
-                if (!node.variant) {
-                    node.y = startY + yOffset;
-                    yOffset += pillHeight + 16;
+    // Re-assign Y positions after barycentric sort
+    yOffset = 0;
+    genNodes.forEach(node => {
+        if (!node.variant) {
+            node.y = startY + yOffset;
+            yOffset += pillHeight + 16;
 
-                    const variants = nodes.filter(n => n.variant === node.name)
-                        .sort((a, b) => a.name.localeCompare(b.name));
-                    variants.forEach((variant, vIndex) => {
-                        variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                    });
-                    yOffset += variants.length * (pillHeight + 2);
-                }
+            const variants = nodes.filter(n => n.variant === node.name)
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            variants.forEach((variant, vIndex) => {
+                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
             });
+
+            yOffset += variants.length * (pillHeight + 2);
         }
+    });
+}
     }
+
 
     calculateColumn1Positions();
 
-    // --- Links rendering ---
     const link = g.append("g")
         .selectAll("path")
         .data(links)
         .join("path")
         .attr("class", "link")
-        .attr("stroke", d => darkenColor(getColorByDominance(nodes.find(n => n.id === d.source).dominance), 2))
+        .attr("stroke", d => darkenColor(getColorByDominance(nodes.find(n => n.id === d.source).dominance), 2)) // Changed from 0 to 2 for 20% darker
         .attr("stroke-opacity", 1)
-        .attr("stroke-width", lineWidth + 1)
+        .attr("stroke-width", lineWidth + 1) 
         .attr("fill", "none")
         .attr("d", d => {
             const sourceNode = nodes.find(n => n.id === d.source);
@@ -618,55 +618,119 @@ const createLineageChart = () => {
             return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
         });
 
-    // --- Nodes rendering ---
-    let dragging = false;
+let dragging = false; // global flag to prevent hover while dragging
 
-    const node = g.append("g")
-        .selectAll("g")
-        .data(nodes)
-        .join("g")
-        .attr("class", "node")
-        .attr("transform", d => `translate(${d.x},${d.y})`)
-        .each(function(d) { if (d.product) d3.select(this).raise(); })
-        .on("click", highlightLineage)
-        .on("mouseover", function(event, d) {
-            if (dragging) return;
-            highlightHoverLineage(event, d);
-            d3.select(this).raise()
-                .transition()
-                .attr("transform", `translate(${d.x},${d.y}) scale(1.7, 1.7)`);
-        })
-        .on("mouseout", function(event, d) {
-            if (dragging) return;
-            removeHighlightHoverLineage();
-            d3.select(this).transition()
-                .attr("transform", `translate(${d.x},${d.y}) scale(1)`);
-            g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
+const node = g.append("g")
+    .selectAll("g")
+    .data(nodes)
+    .join("g")
+    .attr("class", "node")
+    .attr("transform", d => `translate(${d.x},${d.y})`)
+    .each(function(d) { if (d.product) d3.select(this).raise(); })
+    .on("click", highlightLineage)
+    .on("mouseover", function(event, d) {
+        if (dragging) return; // prevent hover expansion while dragging
+        highlightHoverLineage(event, d);
+        d3.select(this).raise()
+            .transition()
+            .attr("transform", `translate(${d.x},${d.y}) scale(1.7, 1.7)`);
+    })
+    .on("mouseout", function(event, d) {
+        if (dragging) return;
+        removeHighlightHoverLineage();
+        d3.select(this).transition()
+            .attr("transform", `translate(${d.x},${d.y}) scale(1)`);
+        g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
+    });
+
+// --- DRAGGING with long press on mobile + shift key for desktop ---
+node.call(d3.drag()
+    .on("start", function(event, d) {
+        // Mobile: skip immediate drag, use long press
+        if (event.sourceEvent.type.startsWith("touch")) {
+            d.longPressTimer = setTimeout(() => {
+                startDrag(event, d, this);
+            }, 400); // 400ms long press
+        } else {
+            // Desktop: only start drag if Shift is held
+            if (!event.sourceEvent.shiftKey) return;
+            startDrag(event, d, this);
+        }
+    })
+    .on("drag", function(event, d) {
+        if (!d.dragging) return; // Only drag if long press (mobile) or Shift (desktop) activated
+        dragNode(event, d, this);
+    })
+    .on("end", function(event, d) {
+        if (d.longPressTimer) {
+            clearTimeout(d.longPressTimer);
+            d.longPressTimer = null;
+        }
+        if (!d.dragging) return;
+        d.dragging = false;
+        dragging = false;
+    })
+);
+
+
+
+// --- Helper functions ---
+function startDrag(event, d, nodeElement) {
+    dragging = true;
+    d.dragging = true;
+    d3.select(nodeElement).raise();
+
+    // store offsets for variants
+    d.variantOffsets = nodes.filter(n => n.variant === d.name)
+        .map(v => ({ id: v.id, offsetY: v.y - d.y }));
+}
+
+function dragNode(event, d, nodeElement) {
+    d.y = event.y;
+    d3.select(nodeElement).attr("transform", `translate(${d.x},${d.y})`);
+
+    // move variants with stored offsets
+    if (d.variantOffsets) {
+        d.variantOffsets.forEach(vo => {
+            const variantNode = nodes.find(n => n.id === vo.id);
+            variantNode.y = d.y + vo.offsetY;
+            g.selectAll(".node")
+                .filter(n => n.id === variantNode.id)
+                .attr("transform", `translate(${variantNode.x},${variantNode.y})`);
+        });
+    }
+
+    // move pct pills along with nodes
+    g.selectAll('.pct-pill')
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+        .attr("transform", p => {
+            const nodeRef = nodes.find(n => n.id === p.nodeId);
+            return `translate(${nodeRef.x},${nodeRef.y})`;
         });
 
-    // --- Dragging logic ---
-    node.call(d3.drag()
-        .on("start", function(event, d) {
-            if (event.sourceEvent.type.startsWith("touch")) {
-                d.longPressTimer = setTimeout(() => startDrag(event, d, this), 400);
-            } else {
-                if (!event.sourceEvent.shiftKey) return;
-                startDrag(event, d, this);
-            }
-        })
-        .on("drag", function(event, d) {
-            if (!d.dragging) return;
-            dragNode(event, d, this);
-        })
-        .on("end", function(event, d) {
-            if (d.longPressTimer) { clearTimeout(d.longPressTimer); d.longPressTimer = null; }
-            if (!d.dragging) return;
-            d.dragging = false;
-            dragging = false;
-        })
-    );
+    g.selectAll('.pct-pill-text')
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+        .attr("transform", p => {
+            const nodeRef = nodes.find(n => n.id === p.nodeId);
+            return `translate(${nodeRef.x},${nodeRef.y})`;
+        });
 
-    // --- Node elements: rect, text, product, icon ---
+    // update links
+    g.selectAll(".link").attr("d", l => {
+        const sourceNode = nodes.find(n => n.id === l.source);
+        const targetNode = nodes.find(n => n.id === l.target);
+        const sourcePillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const targetPillWidth = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const sourceX = sourceNode.x + sourcePillWidth / 2;
+        const targetX = targetNode.x - targetPillWidth / 2;
+        const midX = (sourceX + targetX) / 2;
+        return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
+    });
+}
+
+
+
+    // First append the rect background
     node.append("rect")
         .attr("rx", pillHeight / 2)
         .attr("ry", pillHeight / 2)
@@ -674,20 +738,26 @@ const createLineageChart = () => {
         .attr("height", pillHeight)
         .attr("fill", d => {
             if (d.variant) {
+                // Find parent node
                 const parentNode = nodes.find(n => n.name === d.variant);
-                if (parentNode) return blendToWhite(getColorByDominance(parentNode.dominance), 0.5);
+                if (parentNode) {
+                    // Get parent's color and blend it towards white
+                    const parentColor = getColorByDominance(parentNode.dominance);
+                    return blendToWhite(parentColor, 0.5); // Using 0.2 for 20% blend to white
+                }
             }
             return getColorByDominance(d.dominance);
         })
         .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 : -standardPillWidth / 2)
         .attr("y", -pillHeight / 2)
         .attr("stroke", d => d.product ? "black" : getColorByDominance(d.dominance))
-        .attr("stroke-width", 3);
+        .attr("stroke-width", d => d.product ? 3 : 3);
 
+    // Then append text
     node.append("text")
         .attr("class", "strain-name")
         .text(d => d.displayName)
-        .attr("x", d => d.variant ? -(standardPillWidth * 0.85)/2 + 12 : -standardPillWidth/2 + 12)
+        .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 + 12 : -standardPillWidth / 2 + 12) 
         .attr("y", 1)
         .attr("dominant-baseline", "middle")
         .attr("fill", "black")
@@ -695,23 +765,34 @@ const createLineageChart = () => {
         .style("font-family", "'Roboto', Arial, sans-serif")
         .style("font-weight", "bold")
         .each(function(d) {
+            // Get the actual width of the strain name and node
             const textWidth = this.getComputedTextLength();
             const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const availableWidth = nodeWidth - 24;
+            const availableWidth = nodeWidth - 24; // Account for padding
+            
+            // If text is too long, switch to condensed font
             if (textWidth > availableWidth) {
-                d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
+                d3.select(this)
+                    .style("font-family", "'Roboto Condensed', Arial, sans-serif");
+                
+                // Check if it's still too long with condensed font
+                const condensedWidth = this.getComputedTextLength();
+                if (condensedWidth > availableWidth) {
+                    // Could add additional handling here if needed
+                }
             }
         });
 
-    // Product text
+    // Updated product text append code to work with condensed strain names
     node.append("text")
         .filter(d => d.product)
         .text(d => d.product)
         .attr("class", "product")
         .attr("x", function(d) {
-            const strainNameWidth = this.parentNode.querySelector('.strain-name').getComputedTextLength();
+            const strainNameText = this.parentNode.querySelector('.strain-name');
+            const strainNameWidth = strainNameText.getComputedTextLength();
             const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            return -nodeWidth/2 + 5 + strainNameWidth + 10;
+            return -nodeWidth / 2 + 5 + strainNameWidth + 10;
         })
         .attr("y", 1.6)
         .attr("dominant-baseline", "middle")
@@ -720,27 +801,197 @@ const createLineageChart = () => {
         .style("font-family", "'Roboto', Arial, sans-serif")
         .style("font-weight", "normal")
         .each(function(d) {
-            const strainNameWidth = this.parentNode.querySelector('.strain-name').getComputedTextLength();
+            const textWidth = this.getComputedTextLength();
             const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const remainingWidth = nodeWidth - strainNameWidth - 40;
-            if (this.getComputedTextLength() > remainingWidth) {
+            const strainNameText = this.parentNode.querySelector('.strain-name');
+            const remainingWidth = nodeWidth - strainNameText.getComputedTextLength() - 40;
+            
+            if (textWidth > remainingWidth) {
+                // Apply condensed font to product text
                 d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
+                
+                // Apply condensed font to strain name if not already condensed
                 d3.select(this.parentNode).select('.strain-name')
                     .style("font-family", "'Roboto Condensed', Arial, sans-serif");
-                const newStrainWidth = this.parentNode.querySelector('.strain-name').getComputedTextLength();
-                d3.select(this).attr("x", -nodeWidth/2 + 5 + newStrainWidth + 10);
+                
+                // Reposition product text based on new strain name width
+                const newStrainNameWidth = strainNameText.getComputedTextLength();
+                d3.select(this).attr("x", -nodeWidth / 2 + 5 + newStrainNameWidth + 10);
             }
         });
 
-    // Product icon
+    // Finally append the product icon on top
     node.filter(d => d.product)
         .append("use")
         .attr("xhref", "#nzIcon")
         .attr("width", 30)
         .attr("height", 30)
-        .attr("x", d => (d.variant ? standardPillWidth*0.85 : standardPillWidth)/2 - 20)
+        .attr("x", function(d) {
+            const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            return nodeWidth / 2 - 20; 
+        })
         .attr("y", -14);
+
+
+    
+    function highlightLineage(event, d) {
+
+    // Remove old percentage pills
+    g.selectAll('.pct-pill').remove();
+    g.selectAll('.pct-pill-text').remove();
+
+   if (focusedNode === d) {
+
+    g.selectAll('.pct-pill').remove();
+    g.selectAll('.pct-pill-text').remove();
+
+    node.classed("dimmed", false);
+    node.classed("clicked", false);
+    link.classed("dimmed", false)
+        .attr("stroke-width", lineWidth + 1);
+
+    focusedNode = null;
+    resetZoom();
+    return;
+}
+
+      
+
+    // ---- lineage isolation (UNCHANGED variant logic) ----
+    const lineage = new Set();
+
+    const getAncestors = (node) => {
+    lineage.add(node.id);
+
+    // If variant, climb through base strain
+if (node.variant) {
+    const base = nodes.find(n => n.name === node.variant);
+    if (base) {
+        lineage.add(base.id);
+        getAncestors(base);
+    }
+    return;
+}
+
+
+    node.parents.forEach(parentId => {
+        const parent = nodes.find(n => n.id === parentId);
+        if (parent) {
+            lineage.add(parent.id);
+            getAncestors(parent);
+        }
+    });
 };
+
+
+ const getDescendants = (nodeId) => {
+    lineage.add(nodeId);
+    
+    // Include normal children
+    const children = nodes.filter(n => n.parents.includes(nodeId));
+    
+    // Include variant children
+    const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
+    
+    const allChildren = [...children, ...variantChildren];
+    
+    allChildren.forEach(child => {
+        if (!lineage.has(child.id)) {  // prevent infinite recursion
+            lineage.add(child.id);
+            getDescendants(child.id);
+        }
+    });
+};
+
+
+    getAncestors(d);
+    getDescendants(d.id);
+
+    node.classed("dimmed", n => !lineage.has(n.id));
+    node.classed("clicked", n => n.id === d.id);
+    link.classed("dimmed", l => !lineage.has(l.source) || !lineage.has(l.target))
+        .attr("stroke-width", l =>
+            (lineage.has(l.source) && lineage.has(l.target))
+                ? lineWidth + 2
+                : lineWidth + 1
+        );
+
+    focusedNode = d;
+    zoomToLineage(lineage);
+        
+const contributionStartNode = d;
+
+const ancestorContrib = calculateUpwardChildTotals(
+    contributionStartNode,
+    nodes
+);
+
+const descendantContrib = calculateDownwardDescendantTotals(
+    contributionStartNode,
+    nodes
+);
+
+const contributions = new Map();
+
+// merge ancestor + descendant maps
+ancestorContrib.forEach((v, k) => {
+    contributions.set(k, v);
+});
+
+descendantContrib.forEach((v, k) => {
+    contributions.set(k, (contributions.get(k) || 0) + v);
+});
+
+// focused strain is always 100 (but not rendered)
+contributions.set(contributionStartNode.id, 100);
+
+
+
+
+
+g.selectAll('.node')
+  .filter(n => contributions.has(n.id) && n.id !== contributionStartNode.id)
+  .each(function(n) {
+
+    const pct = contributions.get(n.id);
+    const label = formatPercentage(pct);
+
+    const group = d3.select(this);
+
+    const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
+    const pillHeight = nodePillHeight;
+    const pillPaddingX = 10;
+    const pillWidth = 80;
+    const pillX = nodeWidth / 2;
+
+    // **Append rect directly to node group**
+    group.insert('rect', ':first-child') // insert behind everything in this node
+      .attr('class', 'pct-pill')
+      .attr('x', pillX - pillPaddingX *2 - 4 )
+      .attr('y', -pillHeight / 2)
+      .attr('rx', pillHeight / 2)
+      .attr('ry', pillHeight / 2)
+      .attr('width', pillWidth)
+      .attr('height', pillHeight)
+      .attr('fill', 'white')
+      .attr('stroke', nodeStrokeColor)
+      .attr('stroke-width', nodeStrokeWidth);
+
+    // **Append text on top of everything**
+    group.append('text')
+      .attr('class', 'pct-pill-text')
+      .attr('x', nodeWidth / 2 + pillPaddingX)  
+      .attr('y', 1)
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'middle')
+      .text(label)
+      .style('fill', 'white')
+      .style('pointer-events', 'none');
+  });
+
+
+
+}
 
 
 
@@ -1172,6 +1423,7 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
+
 
 
 
