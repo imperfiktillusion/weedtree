@@ -523,15 +523,16 @@ const createLineageChart = () => {
 
 
     
-  assignGenerations();
+assignGenerations();
 
+// pill & column setup
 const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
 const standardPillWidth = Math.max(maxWidth, 150);
 const pillHeight = 30; 
 const maxGeneration = Math.max(...nodes.map(n => n.generation));
 const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
-// Define dominance order once at the top
+// dominance order (once at top)
 const dominanceOrder = {
     'indica dominant': 0,
     'ruderalis dominant': 1,
@@ -540,18 +541,17 @@ const dominanceOrder = {
     'sativa dominant': 4
 };
 
-// ===== MAIN GENERATION LOOP =====
+// ========== MAIN GENERATION LOOP ==========
 for (let gen = 0; gen <= maxGeneration + 1; gen++) {
 
-    // Filter nodes for this generation
+    // 1️⃣ Filter nodes for this generation
     let genNodes = nodes.filter(n => 
         (n.generation === gen) || 
         (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
     );
 
-    // ----- COLUMN 2+ SORT WITH DOMINANCE -----
+    // 2️⃣ Sort nodes
     if (gen === 1) {
-        // Column 2 nodes: dominance first, then existing custom sort
         const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
         column2Nodes.sort((a, b) => {
             const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
@@ -562,7 +562,6 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
 
     } else if (gen >= 2) {
-        // Gen 2+ nodes: dominance first, then existing custom sort
         genNodes.sort((a, b) => {
             const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
             const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
@@ -570,7 +569,7 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         });
     }
 
-    // ----- ASSIGN X/Y POSITIONS -----
+    // 3️⃣ Assign X/Y positions
     let yOffset = 0;
     const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
                         genNodes.filter(n => n.variant).length * (pillHeight + 2);
@@ -579,9 +578,7 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     genNodes.forEach((node) => {
         node.x = gen * columnWidth;
         if (!node.variant) {
-            if (gen !== 0 || node.y === undefined) {
-                node.y = startY + yOffset;
-            }
+            if (gen !== 0 || node.y === undefined) node.y = startY + yOffset;
             yOffset += pillHeight + 16;
 
             const variants = nodes.filter(n => n.variant === node.name)
@@ -595,11 +592,10 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         }
     });
 
-    // ----- SECOND PASS: BARYCENTRIC FOR GEN 2+ -----
+    // 4️⃣ Barycentric reorder for gen 2+
     if (gen >= 2) {
         genNodes = barycentricSort(genNodes, nodes, 'parents');
 
-        // Re-assign Y positions after barycentric sort
         yOffset = 0;
         genNodes.forEach(node => {
             if (!node.variant) {
@@ -617,10 +613,11 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         });
     }
 }
-// ===== END MAIN GENERATION LOOP =====
+// ========== END GENERATION LOOP ==========
 
 calculateColumn1Positions();
 
+// render links
 const link = g.append("g")
     .selectAll("path")
     .data(links)
@@ -630,6 +627,7 @@ const link = g.append("g")
     .attr("stroke-opacity", 1)
     .attr("stroke-width", lineWidth + 1) 
     .attr("fill", "none");
+
 
         .attr("d", d => {
             const sourceNode = nodes.find(n => n.id === d.source);
