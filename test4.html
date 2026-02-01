@@ -523,99 +523,87 @@ const createLineageChart = () => {
 
 
     
-assignGenerations();
+    assignGenerations();
 
-// pill & column setup
-const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
-const standardPillWidth = Math.max(maxWidth, 150);
-const pillHeight = 30; 
-const maxGeneration = Math.max(...nodes.map(n => n.generation));
-const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
+    const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
+    const standardPillWidth = Math.max(maxWidth, 150);
+    const pillHeight = 30; 
+    const maxGeneration = Math.max(...nodes.map(n => n.generation));
+    const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
-// dominance order (once at top)
-const dominanceOrder = {
-    'indica dominant': 0,
-    'ruderalis dominant': 1,
-    'balanced hybrid': 2,
-    'unknown': 3,
-    'sativa dominant': 4
-};
+    const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
+    column2Nodes.sort((a, b) => {
+    const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
+    const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
+    return da - db || customSortColumn2(a, b);
+});
 
-// ========== MAIN GENERATION LOOP ==========
-for (let gen = 0; gen <= maxGeneration + 1; gen++) {
+    for (let gen = 0; gen <= maxGeneration + 1; gen++) {
+        let genNodes = nodes.filter(n => 
+            (n.generation === gen) || 
+            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
+        );
 
-    // 1️⃣ Filter nodes for this generation
-    let genNodes = nodes.filter(n => 
-        (n.generation === gen) || 
-        (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
-    );
+        if (gen === 1) {
+            genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
+   } else if (gen >= 2) {
 
-    // 2️⃣ Sort nodes
-    if (gen === 1) {
-        const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
-        column2Nodes.sort((a, b) => {
-            const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
-            const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
-            return da - db || customSortColumn2(a, b);
-        });
+    // 1️⃣ Initial stable order (dominance + name)
+    genNodes.sort(customSortColumn3Plus);
 
-        genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
+}
 
-    } else if (gen >= 2) {
-        genNodes.sort((a, b) => {
-            const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
-            const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
-            return da - db || customSortColumn3Plus(a, b);
-        });
-    }
 
-    // 3️⃣ Assign X/Y positions
-    let yOffset = 0;
-    const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
-                        genNodes.filter(n => n.variant).length * (pillHeight + 2);
-    const startY = (height - totalHeight) / 2;
 
-    genNodes.forEach((node) => {
-        node.x = gen * columnWidth;
-        if (!node.variant) {
-            if (gen !== 0 || node.y === undefined) node.y = startY + yOffset;
-            yOffset += pillHeight + 16;
+        let yOffset = 0;
+        const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
+                            genNodes.filter(n => n.variant).length * (pillHeight + 2);
+        const startY = (height - totalHeight) / 2;
 
-            const variants = nodes.filter(n => n.variant === node.name)
-                .sort((a, b) => a.name.localeCompare(b.name));
-            variants.forEach((variant, vIndex) => {
-                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                variant.x = node.x;
-            });
-
-            yOffset += variants.length * (pillHeight + 2);
-        }
-    });
-
-    // 4️⃣ Barycentric reorder for gen 2+
-    if (gen >= 2) {
-        genNodes = barycentricSort(genNodes, nodes, 'parents');
-
-        yOffset = 0;
-        genNodes.forEach(node => {
+        genNodes.forEach((node, index) => {
+            node.x = gen * columnWidth; // Set x position based on generation
             if (!node.variant) {
-                node.y = startY + yOffset;
-                yOffset += pillHeight + 16;
+                if (gen !== 0 || node.y === undefined) {
+                    node.y = startY + yOffset;
+                }
+                yOffset += pillHeight + 16; // min gap between standard nodes
 
-                const variants = nodes.filter(n => n.variant === node.name)
-                    .sort((a, b) => a.name.localeCompare(b.name));
+                const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
                 variants.forEach((variant, vIndex) => {
                     variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                    variant.x = node.x;
                 });
 
                 yOffset += variants.length * (pillHeight + 2);
             }
         });
-    }
-}
-// ========== END GENERATION LOOP ==========
+        // 🔁 Second pass: barycentric reorder now that Y exists
+if (gen >= 2) {
+    genNodes = barycentricSort(genNodes, nodes, 'parents');
 
-calculateColumn1Positions();
+    // Re-assign Y positions after barycentric sort
+    yOffset = 0;
+    genNodes.forEach(node => {
+        if (!node.variant) {
+            node.y = startY + yOffset;
+            yOffset += pillHeight + 16;
+
+            const variants = nodes.filter(n => n.variant === node.name)
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            variants.forEach((variant, vIndex) => {
+                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+            });
+
+            yOffset += variants.length * (pillHeight + 2);
+        }
+    });
+}
+    }
+
+
+    calculateColumn1Positions();
+
 
 // render links
 const link = g.append("g")
