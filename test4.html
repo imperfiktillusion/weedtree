@@ -627,9 +627,7 @@ const link = g.append("g")
     .attr("stroke-opacity", 1)
     .attr("stroke-width", lineWidth + 1) 
     .attr("fill", "none");
-
-
-        .attr("d", d => {
+    .attr("d", d => {
             const sourceNode = nodes.find(n => n.id === d.source);
             const targetNode = nodes.find(n => n.id === d.target);
             const sourcePillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
