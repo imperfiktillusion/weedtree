@@ -528,9 +528,23 @@ const createLineageChart = () => {
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
+
+
+
+    
+// Define dominance order before using it
+const dominanceOrder = {
+    'indica dominant': 0,
+    'ruderalis dominant': 1,
+    'balanced hybrid': 2,
+    'unknown': 3,
+    'sativa dominant': 4
+};
+
+// Keep your column2Nodes declaration as before
 const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
 
-// dominance-aware sort (replace only the sort line)
+// Replace the sort line with this robust dominance-aware version
 column2Nodes.sort((a, b) => {
     const da = (a.dominance && typeof a.dominance === 'string') 
         ? (dominanceOrder[a.dominance.toLowerCase()] ?? 99) 
@@ -565,6 +579,10 @@ column2Nodes.sort((a, b) => {
 }
 
 
+
+
+
+        
 
         let yOffset = 0;
         const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
