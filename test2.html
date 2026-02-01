@@ -71,56 +71,84 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 
 </head>
 <body>
+
+<!-- Header -->
 <div class="header-ribbon">
-    <h1>WeedTree.fyi Strain Lineage Chart <span class="subhead">Work in progress, errors probable</span></h1>
+    <h1>
+        WeedTree.fyi Strain Lineage Chart
+        <span class="subhead">Work in progress, errors probable</span>
+    </h1>
     <div class="header-buttons">
+        <!-- Search -->
         <div class="search-container">
             <input type="text" id="strainSearch" placeholder="Locate strain">
             <div id="strainDropdown"></div>
         </div>
-        
+        <!-- About Button -->
         <button id="btn3" class="btn">About</button>
     </div>
 </div>
+
+<!-- Fullscreen & Zoom Controls -->
 <div class="fullscreen-button-container">
     <button id="fullscreenToggle" class="btn">Toggle Full Screen</button>
+    
     <div class="zoom-button-container">
         <button id="zoomInButton" class="btn">+</button>
         <button id="zoomOutButton" class="btn">-</button>
     </div>
+    
     <button id="deselectButton" class="btn">De-select</button>
 </div>
+
+<!-- Chart Container -->
 <div class="container">
     <div class="chart-container">
         <div id="lineageChart"></div>
     </div>
 </div>
+
+<!-- Popups -->
 <div class="popup-overlay"></div>
+
+<!-- Strain List Popup -->
 <div id="popup1" class="popup">
     <div id="strainList" class="strain-list"></div>
 </div>
-<div id="popup2" class="popup"><h5>Record and rate your strains - coming soon</h5></div>
+
+<!-- Coming Soon Popup -->
+<div id="popup2" class="popup">
+    <h5>Record and rate your strains - coming soon</h5>
+</div>
+
+<!-- About / Welcome Popup -->
 <div id="popup3" class="popup">
     <button class="close-button">×</button>
     
-<h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
+    <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
     
-<p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself. </p>
+    <p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself.</p>
     
-<p>I don't claim that the chart is completely accurate, it is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously it is far from complete.</p>
+    <p>I don't claim that the chart is completely accurate. It is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously, it is far from complete.</p>
     
-<p></br>Push F11 to toggle full screen.
-</br>Use the mouse or controls to zoom in and out.
-</br> Nodes are draggable within their column (press shift / long press on mobile).
-</br> Click on a strain to isolate its lineage.</p>
+    <p>
+        Push F11 to toggle full screen.<br>
+        Use the mouse or controls to zoom in and out.<br>
+        Nodes are draggable within their column (press shift / long press on mobile).<br>
+        Click on a strain to isolate its lineage.
+    </p>
     
-<p>Isolation mode shows rough percentage of contribution based on lineage, but will be inaccurate as it does not account for the realities and nuances of selective breeding.</p>
-
-<p>Sorry it's a bit hard to use on mobile, best on a large screen. Strain search isn't working on mobile at the moment either.</p>
+    <p>Isolation mode shows rough percentage of contribution based on lineage, but will be inaccurate as it does not account for the realities and nuances of selective breeding.</p>
     
+    <p>Sorry it's a bit hard to use on mobile; best on a large screen. Strain search isn't working on mobile at the moment either.</p>
 </div>
+
+<!-- Loading Message -->
 <div id="loading-message">Loading strain data, please wait...</div>
+
+<!-- Center Line for Chart -->
 <div id="centerLine"></div>
+
     
 <svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
   <symbol id="nzIcon">
