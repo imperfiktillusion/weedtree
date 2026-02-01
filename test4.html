@@ -278,13 +278,15 @@ function populateStrainList() {
     });
 }
 
-// --- Custom sorting functions ---
-function customSortColumn2(a, b) {
-    const aDom = a.dominance.toLowerCase();
-    const bDom = b.dominance.toLowerCase();
+// --- Global dominance + landrace sort ---
+function sortByDominanceAndLandrace(a, b) {
+    const aDom = a.dominance?.toLowerCase() || 'unknown';
+    const bDom = b.dominance?.toLowerCase() || 'unknown';
 
+    // Step 1: dominance order
     if (aDom !== bDom) return dominanceOrder[aDom] - dominanceOrder[bDom];
 
+    // Step 2: within indica, respect landrace order
     if (aDom === 'indica dominant') {
         const aIndex = indicaOrder.indexOf(a.name);
         const bIndex = indicaOrder.indexOf(b.name);
@@ -293,6 +295,7 @@ function customSortColumn2(a, b) {
         if (bIndex !== -1) return 1;
     }
 
+    // Step 3: within sativa, respect landrace order
     if (aDom === 'sativa dominant') {
         const aIndex = sativaOrder.indexOf(a.name);
         const bIndex = sativaOrder.indexOf(b.name);
@@ -301,6 +304,7 @@ function customSortColumn2(a, b) {
         if (bIndex !== -1) return 1;
     }
 
+    // Step 4: default alphabetical
     return a.name.localeCompare(b.name);
 }
 
