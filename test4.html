@@ -305,19 +305,15 @@ function customSortColumn2(a, b) {
 }
 
 
-function customSortColumn3Plus(a, b) {
-    const dominanceOrder = {
-        'indica dominant': 0,
-        'balanced hybrid': 1,
-        'unknown': 2,
-        'sativa dominant': 3
-    };
+function sortByDominanceThenName(a, b) {
+    const aDom = a.dominance?.toLowerCase() || 'unknown';
+    const bDom = b.dominance?.toLowerCase() || 'unknown';
 
-    const aDom = a.dominance.toLowerCase();
-    const bDom = b.dominance.toLowerCase();
     if (aDom !== bDom) return dominanceOrder[aDom] - dominanceOrder[bDom];
+
     return a.name.localeCompare(b.name);
 }
+
 
 // --- Barycentric sorting ---
 function barycentricSort(genNodes, nodes, direction = 'parents') {
@@ -545,7 +541,7 @@ const createLineageChart = () => {
    } else if (gen >= 2) {
 
     // 1️⃣ Initial stable order (dominance + name)
-    genNodes.sort(customSortColumn3Plus);
+    genNodes.sort(sortByDominanceThenName);
 
 }
 
