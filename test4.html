@@ -532,7 +532,7 @@ const createLineageChart = () => {
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
-    column2Nodes.sort(customSortColumn2);
+    column2Nodes.sort(sortByDominanceAndLandrace);
 
 for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     // 1️⃣ Filter nodes for this generation
