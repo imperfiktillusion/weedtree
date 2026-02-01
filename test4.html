@@ -520,44 +520,63 @@ const createLineageChart = () => {
             });
         }
     };
-    assignGenerations();
-
-    const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
-    const standardPillWidth = Math.max(maxWidth, 150);
-    const pillHeight = 30; 
-    const maxGeneration = Math.max(...nodes.map(n => n.generation));
-    const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
-
-//column2+ sort
-
-if (gen === 1) {
-    // Column 2 nodes: dominance first, then existing custom sort
-    const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
-    column2Nodes.sort((a, b) => {
-        const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
-        const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
-        return da - db || customSortColumn2(a, b);
-    });
-
-    genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-
-} else if (gen >= 2) {
-    // Gen 2+ nodes: dominance first, then existing custom sort
-    genNodes.sort((a, b) => {
-        const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
-        const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
-        return da - db || customSortColumn3Plus(a, b);
-    });
-}
 
 
-    // Assign X/Y positions
+    
+  assignGenerations();
+
+const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
+const standardPillWidth = Math.max(maxWidth, 150);
+const pillHeight = 30; 
+const maxGeneration = Math.max(...nodes.map(n => n.generation));
+const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
+
+// Define dominance order once at the top
+const dominanceOrder = {
+    'indica dominant': 0,
+    'ruderalis dominant': 1,
+    'balanced hybrid': 2,
+    'unknown': 3,
+    'sativa dominant': 4
+};
+
+// ===== MAIN GENERATION LOOP =====
+for (let gen = 0; gen <= maxGeneration + 1; gen++) {
+
+    // Filter nodes for this generation
+    let genNodes = nodes.filter(n => 
+        (n.generation === gen) || 
+        (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
+    );
+
+    // ----- COLUMN 2+ SORT WITH DOMINANCE -----
+    if (gen === 1) {
+        // Column 2 nodes: dominance first, then existing custom sort
+        const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
+        column2Nodes.sort((a, b) => {
+            const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
+            const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
+            return da - db || customSortColumn2(a, b);
+        });
+
+        genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
+
+    } else if (gen >= 2) {
+        // Gen 2+ nodes: dominance first, then existing custom sort
+        genNodes.sort((a, b) => {
+            const da = dominanceOrder[a.dominance?.toLowerCase()] ?? 99;
+            const db = dominanceOrder[b.dominance?.toLowerCase()] ?? 99;
+            return da - db || customSortColumn3Plus(a, b);
+        });
+    }
+
+    // ----- ASSIGN X/Y POSITIONS -----
     let yOffset = 0;
     const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
                         genNodes.filter(n => n.variant).length * (pillHeight + 2);
     const startY = (height - totalHeight) / 2;
 
-    genNodes.forEach((node, index) => {
+    genNodes.forEach((node) => {
         node.x = gen * columnWidth;
         if (!node.variant) {
             if (gen !== 0 || node.y === undefined) {
@@ -576,7 +595,7 @@ if (gen === 1) {
         }
     });
 
-    // Second pass: barycentric reorder for gen 2+
+    // ----- SECOND PASS: BARYCENTRIC FOR GEN 2+ -----
     if (gen >= 2) {
         genNodes = barycentricSort(genNodes, nodes, 'parents');
 
@@ -598,20 +617,20 @@ if (gen === 1) {
         });
     }
 }
+// ===== END MAIN GENERATION LOOP =====
 
+calculateColumn1Positions();
 
+const link = g.append("g")
+    .selectAll("path")
+    .data(links)
+    .join("path")
+    .attr("class", "link")
+    .attr("stroke", d => darkenColor(getColorByDominance(nodes.find(n => n.id === d.source).dominance), 2)) 
+    .attr("stroke-opacity", 1)
+    .attr("stroke-width", lineWidth + 1) 
+    .attr("fill", "none");
 
-    calculateColumn1Positions();
-
-    const link = g.append("g")
-        .selectAll("path")
-        .data(links)
-        .join("path")
-        .attr("class", "link")
-        .attr("stroke", d => darkenColor(getColorByDominance(nodes.find(n => n.id === d.source).dominance), 2)) // Changed from 0 to 2 for 20% darker
-        .attr("stroke-opacity", 1)
-        .attr("stroke-width", lineWidth + 1) 
-        .attr("fill", "none")
         .attr("d", d => {
             const sourceNode = nodes.find(n => n.id === d.source);
             const targetNode = nodes.find(n => n.id === d.target);
