@@ -528,74 +528,73 @@ const createLineageChart = () => {
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
+    const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
+    column2Nodes.sort(customSortColumn2);
 
+for (let gen = 0; gen <= maxGeneration + 1; gen++) {
+    let genNodes = nodes.filter(n => 
+        (n.generation === gen) || 
+        (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
+    );
 
+    if (gen === 1) {
+        genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
+    }
 
+    // --- Clever vertical ordering for columns 2+ ---
+    if (gen >= 2) {
+        // Assign a parent-centered y-value for sorting
+        genNodes.forEach(node => {
+            const parentYs = node.parents
+                .map(pid => nodes.find(n => n.id === pid))
+                .filter(Boolean)
+                .map(p => p.y);
+            
+            if (parentYs.length > 0) {
+                node._parentY = d3.mean(parentYs);
+            } else {
+                // If no parents, fall back to existing y or 0
+                node._parentY = node.y || 0;
+            }
+        });
 
-    
-// --- PREP ---
-assignGenerations();
-const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
-const standardPillWidth = Math.max(maxWidth, 150);
-const pillHeight = 30;
-const maxGeneration = Math.max(...nodes.map(n => n.generation));
-const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
-
-// --- STEP 1: ASSIGN X POSITIONS FOR ALL NODES ---
-nodes.forEach(n => {
-    n.x = (n.generation - 1) * columnWidth + columnWidth / 2; // center each column
-});
-
-// --- STEP 2: VERTICAL ORDERING FOR COLUMNS 2+ ---
-for (let gen = 2; gen <= maxGeneration; gen++) { // only column 2+
-    const genNodes = nodes.filter(n => n.generation === gen && !n.variant);
-
-    // 2a) Leaves (no children)
-    const leaves = genNodes.filter(n => !nodes.some(c => c.parents.includes(n.id)));
-    if (leaves.length > 0) {
-        const ySpacing = pillHeight + 16;
-        const startY = (height - leaves.length * ySpacing) / 2;
-        let yOffset = 0;
-        leaves.forEach(node => {
-            node.y = startY + yOffset;
-            yOffset += ySpacing;
+        // Sort by the parent-centered y, then alphabetically for ties
+        genNodes.sort((a, b) => {
+            if (a._parentY !== b._parentY) return a._parentY - b._parentY;
+            return a.name.localeCompare(b.name);
         });
     }
 
-    // 2b) Parents (mean of children)
-    const parents = genNodes.filter(n => n.y === undefined);
-    parents.forEach(node => {
-        const children = nodes.filter(c => c.parents.includes(node.id) && c.y !== undefined);
-        if (children.length > 0) node.y = d3.mean(children, d => d.y);
-    });
+    // --- Position nodes vertically ---
+    let yOffset = 0;
+    const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
+                        genNodes.filter(n => n.variant).length * (pillHeight + 2);
+    const startY = (height - totalHeight) / 2;
 
-    // 2c) Orphans (fallback)
-    const orphans = genNodes.filter(n => n.y === undefined)
-        .sort((a, b) => a.name.localeCompare(b.name));
-    if (orphans.length > 0) {
-        const ySpacing = pillHeight + 16;
-        const startY = (height - orphans.length * ySpacing) / 2;
-        let yOffset = 0;
-        orphans.forEach(node => {
-            node.y = startY + yOffset;
-            yOffset += ySpacing;
-        });
-    }
-
-    // 2d) Variants
     genNodes.forEach(node => {
-        const variants = nodes.filter(n => n.variant === node.name)
-            .sort((a, b) => a.name.localeCompare(b.name));
-        variants.forEach((variant, vIndex) => {
-            variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-            variant.x = node.x; // align variant with parent column
-        });
+        node.x = gen * columnWidth;
+        if (!node.variant) {
+            node.y = startY + yOffset;
+            yOffset += pillHeight + 16;
+
+            const variants = nodes.filter(n => n.variant === node.name)
+                .sort((a, b) => a.name.localeCompare(b.name));
+            variants.forEach((variant, vIndex) => {
+                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                variant.x = node.x;
+            });
+
+            yOffset += variants.length * (pillHeight + 2);
+        }
     });
 }
 
-// Column 1
-calculateColumn1Positions();
 
+    
+}
+
+
+    calculateColumn1Positions();
 
     const link = g.append("g")
         .selectAll("path")
@@ -1422,3 +1421,4 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
+
