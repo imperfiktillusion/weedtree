@@ -528,7 +528,10 @@ const createLineageChart = () => {
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
-    column2Nodes.sort((a, b) => {
+const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
+
+// dominance-aware sort (replace only the sort line)
+column2Nodes.sort((a, b) => {
     const da = (a.dominance && typeof a.dominance === 'string') 
         ? (dominanceOrder[a.dominance.toLowerCase()] ?? 99) 
         : 99;
@@ -543,6 +546,7 @@ const createLineageChart = () => {
     const fallback = customSortColumn2(a, b);
     return typeof fallback === 'number' ? fallback : 0;
 });
+
 
 
     for (let gen = 0; gen <= maxGeneration + 1; gen++) {
