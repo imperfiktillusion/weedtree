@@ -1,4 +1,4 @@
-<!DOCTYPE html> //1
+<!DOCTYPE html> //2
 <html>
 <head>
 <base href="https://www.weedtree.fyi">
@@ -393,23 +393,24 @@ function calculateDownwardDescendantTotals(startNode, nodes) {
 
 const createLineageChart = () => {
     const chartContainer = document.querySelector('.chart-container');
-    const width = chartContainer.clientWidth,
-        height = chartContainer.clientHeight;
+    const width = chartContainer.clientWidth, height = chartContainer.clientHeight;
 
+    // Clear previous chart
     d3.select("#lineageChart").selectAll("*").remove();
+
+    // Setup SVG and group
     svg = d3.select("#lineageChart").append("svg")
         .attr("width", width)
         .attr("height", height);
-
     g = svg.append("g");
 
+    // Zoom setup
     zoom = d3.zoom()
         .scaleExtent([0.1, 4])
         .on("zoom", (event) => g.attr("transform", event.transform));
-
     svg.call(zoom);
 
-    // --- Prepare nodes ---
+    // Prepare nodes from strainData
     nodes = strainData.map(strain => ({
         id: strain.Strain,
         name: strain.Strain,
@@ -423,25 +424,27 @@ const createLineageChart = () => {
         alsoKnownAs: strain['Also Known As']
     }));
 
+    // Filter nodes with children or special attributes
     const hasChildren = new Set(nodes.flatMap(node => node.parents));
-    nodes = nodes.filter(node =>
+    nodes = nodes.filter(node => 
         hasChildren.has(node.name) || node.parents.length > 0 || node.special || node.variant
     );
 
+    // Adjust displayName for "unknown"
     nodes.forEach(node => {
         if (node.name.toLowerCase().includes('unknown')) {
             node.displayName = node.name.replace(/\d+/g, '');
         }
     });
 
-    // Sort to prioritize products initially
+    // Prioritize products in rendering
     nodes.sort((a, b) => {
         if (a.product && !b.product) return 1;
         if (!a.product && b.product) return -1;
         return 0;
     });
 
-    // --- Build links ---
+    // Build links array
     const links = [];
     nodes.forEach(node => {
         if (node.variant) {
@@ -449,13 +452,14 @@ const createLineageChart = () => {
             if (parentNode) links.push({ source: parentNode.id, target: node.id });
         } else {
             node.parents.forEach(parent => {
-                if (parent && nodes.some(n => n.id === parent))
+                if (parent && nodes.some(n => n.id === parent)) {
                     links.push({ source: parent, target: node.id });
+                }
             });
         }
     });
 
-    // --- Assign generations ---
+    // Assign generations
     const assignGenerations = () => {
         let changed = true;
         while (changed) {
@@ -469,39 +473,32 @@ const createLineageChart = () => {
                     if (node.generation !== 1) { node.generation = 1; changed = true; }
                 } else if (node.variant) {
                     const parentNode = nodes.find(n => n.name === node.variant);
-                    if (parentNode && node.generation !== parentNode.generation) {
-                        node.generation = parentNode.generation;
-                        changed = true;
-                    }
+                    if (parentNode && node.generation !== parentNode.generation) { node.generation = parentNode.generation; changed = true; }
                 } else if (node.name.toLowerCase().includes('unknown')) {
                     if (node.generation < 2) { node.generation = 2; changed = true; }
                 } else {
-                    const parentGens = node.parents.map(pid => {
-                        const parent = nodes.find(n => n.id === pid);
+                    const parentGens = node.parents.map(parentId => {
+                        const parent = nodes.find(n => n.id === parentId);
                         return parent ? parent.generation : -1;
                     }).filter(gen => gen !== -1);
                     if (parentGens.length > 0) {
                         const maxParentGen = Math.max(...parentGens);
-                        if (node.generation !== maxParentGen + 1) {
-                            node.generation = maxParentGen + 1;
-                            changed = true;
-                        }
+                        if (node.generation !== maxParentGen + 1) { node.generation = maxParentGen + 1; changed = true; }
                     }
                 }
             });
         }
 
-        // Special case: unknown ancestors
         let specialCaseChanged = true;
         while (specialCaseChanged) {
             specialCaseChanged = false;
             nodes.forEach(node => {
                 if (!node.name.toLowerCase().includes('unknown lineages') &&
-                    (node.name.toLowerCase().includes('unknown') ||
-                        (node.parents.length > 0 && node.parents.every(pid => {
-                            const parent = nodes.find(n => n.id === pid);
-                            return parent && parent.name.toLowerCase().includes('unknown');
-                        })))) {
+                    (node.name.toLowerCase().includes('unknown') || 
+                    (node.parents.length > 0 && node.parents.every(parentId => {
+                        const parent = nodes.find(n => n.id === parentId);
+                        return parent && parent.name.toLowerCase().includes('unknown');
+                    })))) {
                     const children = nodes.filter(n => n.parents.includes(node.id));
                     if (children.length > 0) {
                         const minChildGen = Math.min(...children.map(c => c.generation));
@@ -514,21 +511,20 @@ const createLineageChart = () => {
     };
     assignGenerations();
 
-    // --- Layout calculations ---
+    // Layout calculations
     const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
     const standardPillWidth = Math.max(maxWidth, 150);
     const pillHeight = 30;
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
+    // Sort column 2 nodes
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
     column2Nodes.sort(customSortColumn2);
 
+    // Position nodes by generation
     for (let gen = 0; gen <= maxGeneration + 1; gen++) {
-        let genNodes = nodes.filter(n =>
-            (n.generation === gen) ||
-            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
-        );
+        let genNodes = nodes.filter(n => (n.generation === gen) || (gen === 1 && n.special && n.special.toLowerCase() === 'landrace'));
 
         if (gen === 1) {
             genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
@@ -538,7 +534,7 @@ const createLineageChart = () => {
 
         let yOffset = 0;
         const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
-            genNodes.filter(n => n.variant).length * (pillHeight + 2);
+                            genNodes.filter(n => n.variant).length * (pillHeight + 2);
         const startY = (height - totalHeight) / 2;
 
         genNodes.forEach(node => {
@@ -547,8 +543,7 @@ const createLineageChart = () => {
                 if (gen !== 0 || node.y === undefined) node.y = startY + yOffset;
                 yOffset += pillHeight + 16;
 
-                const variants = nodes.filter(n => n.variant === node.name)
-                    .sort((a, b) => a.name.localeCompare(b.name));
+                const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
                 variants.forEach((variant, vIndex) => {
                     variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
                     variant.x = node.x;
@@ -564,11 +559,9 @@ const createLineageChart = () => {
                 if (!node.variant) {
                     node.y = startY + yOffset;
                     yOffset += pillHeight + 16;
-                    const variants = nodes.filter(n => n.variant === node.name)
-                        .sort((a, b) => a.name.localeCompare(b.name));
-                    variants.forEach((variant, vIndex) => {
-                        variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                    });
+
+                    const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
+                    variants.forEach((variant, vIndex) => { variant.y = node.y + (vIndex + 1) * (pillHeight + 2); });
                     yOffset += variants.length * (pillHeight + 2);
                 }
             });
@@ -577,9 +570,8 @@ const createLineageChart = () => {
 
     calculateColumn1Positions();
 
-    // --- Links ---
-    const link = g.append("g")
-        .selectAll("path")
+    // Draw links
+    const link = g.append("g").selectAll("path")
         .data(links)
         .join("path")
         .attr("class", "link")
@@ -598,96 +590,30 @@ const createLineageChart = () => {
             return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
         });
 
-    // --- Nodes ---
     let dragging = false;
-    const node = g.append("g")
-        .selectAll("g")
+
+    const node = g.append("g").selectAll("g")
         .data(nodes)
         .join("g")
         .attr("class", "node")
         .attr("transform", d => `translate(${d.x},${d.y})`)
-        .each(d => { if (d.product) d3.select(this).raise(); })
+        .each(function(d) { if (d.product) d3.select(this).raise(); })
         .on("click", highlightLineage)
-        .on("mouseover", function (event, d) {
+        .on("mouseover", function(event, d) {
             if (dragging) return;
             highlightHoverLineage(event, d);
-            d3.select(this).raise()
-                .transition()
-                .attr("transform", `translate(${d.x},${d.y}) scale(1.7, 1.7)`);
+            d3.select(this).raise().transition().attr("transform", `translate(${d.x},${d.y}) scale(1.7,1.7)`);
         })
-        .on("mouseout", function (event, d) {
+        .on("mouseout", function(event, d) {
             if (dragging) return;
             removeHighlightHoverLineage();
-            d3.select(this).transition()
-                .attr("transform", `translate(${d.x},${d.y}) scale(1)`);
-            g.selectAll(".node").each(d => { if (d.product) d3.select(this).raise(); });
+            d3.select(this).transition().attr("transform", `translate(${d.x},${d.y}) scale(1)`);
+            g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
         });
 
-    // --- Dragging (long press for mobile + Shift for desktop) ---
+    // Dragging with long press
     node.call(d3.drag()
-        .on("start", function (event, d) {
-            if (event.sourceEvent.type.startsWith("touch")) {
-                d.longPressTimer = setTimeout(() => startDrag(event, d, this), 400);
-            } else if (!event.sourceEvent.shiftKey) return;
-            else startDrag(event, d, this);
-        })
-        .on("drag", function (event, d) {
-            if (!d.dragging) return;
-            dragNode(event, d, this);
-        })
-        .on("end", function (event, d) {
-            if (d.longPressTimer) { clearTimeout(d.longPressTimer); d.longPressTimer = null; }
-            if (!d.dragging) return;
-            d.dragging = false; dragging = false;
-        })
-    );
-
-    // --- Node visuals (rect + text + product icon) ---
-    // ...keeping your rect, text, product, and product icon code exactly as-is
-
-    // --- Lineage highlighting functions ---
-    // highlightLineage, highlightHoverLineage, removeHighlightHoverLineage, zoomToLineage, resetZoom, calculateInitialTransform
-    // ...all preserved exactly as in your original
-
-    // --- Initial zoom ---
-    const initialTransform = calculateInitialTransform();
-    svg.call(zoom.transform, initialTransform);
-
-    // --- Populate strain list ---
-    populateStrainList();
-
-    // --- Auto-focus URL strain ---
-    (function autoFocusFromURL() {
-        const urlParams = new URLSearchParams(window.location.search);
-        let focusStrain = urlParams.get('focus');
-        if (!focusStrain) return;
-        focusStrain = focusStrain.replace(/_/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-        requestAnimationFrame(() => {
-            const targetNode = nodes.find(n => n.name.replace(/\s+/g, ' ').trim().toLowerCase() === focusStrain);
-            if (!targetNode) return;
-            console.log("Focusing on strain:", targetNode.name);
-            highlightLineage(null, targetNode);
-            const lineageNodes = getLineageNodes(targetNode);
-            const xValues = lineageNodes.map(n => n.x);
-            const yValues = lineageNodes.map(n => n.y);
-            const minX = Math.min(...xValues);
-            const maxX = Math.max(...xValues);
-            const minY = Math.min(...yValues);
-            const maxY = Math.max(...yValues);
-            const chartWidth = chartContainer.clientWidth;
-            const chartHeight = chartContainer.clientHeight;
-            const padding = 50;
-            let scale = Math.min((chartWidth - padding) / (maxX - minX || 1), (chartHeight - padding) / (maxY - minY || 1));
-            scale = Math.max(0.8, Math.min(2.5, scale));
-            const translateX = chartWidth / 2 - ((minX + maxX) / 2) * scale;
-            const translateY = chartHeight / 2 - ((minY + maxY) / 2) * scale;
-            svg.transition().duration(600).call(
-                zoom.transform,
-                d3.zoomIdentity.translate(translateX, translateY).scale(scale)
-            );
-        });
-    })();
-};
+        .on("start", fu
 
 
 
