@@ -16,7 +16,6 @@
 
 <style>
 body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; margin:0; padding:0; font-size:14px; height:100%; overflow:hidden; }
-#centerLine { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
 .header-ribbon { background-color:#434343; color:#fff; padding:10px; display:flex; justify-content:space-between; align-items:center; }
 .header-ribbon h1 { margin:0; font-size:1.8em; color:#fff; margin-left:6px; }
 .header-buttons { display:flex; gap:10px; align-items:center; }
@@ -131,24 +130,34 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     
     <p>I don't claim that the chart is completely accurate. It is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously, it is far from complete.</p>
     
+    <p>Sorry it's a bit hard to use on mobile; best on a large screen. </p>
+    
     <p>
+        <b>Controls</b><br>
+        Search for strains in the top right hand corner.<br>
+        Click on a strain on the chart to isolate its lineage.<br><br>
+        
         Push F11 to toggle full screen.<br>
         Use the mouse or controls to zoom in and out.<br>
         Nodes are draggable within their column (press shift / long press on mobile).<br>
-        Click on a strain to isolate its lineage.
+       
     </p>
     
-    <p>Isolation mode shows rough percentage of contribution based on lineage, but will be inaccurate as it does not account for the realities and nuances of selective breeding.</p>
+    <p>
+       <b>Strain Lineage Isoltaion Mode</b><br>
+       Isolation mode shows rough percentage of contribution based on lineage and is intended as a guide only. <br>
+       Percentage contributions will be inaccurate as the chart does not account for the nuances and realities of selective breeding.<br>
+       Isolated strains can also be accessed and shared from the url using the format - https://weedtree.fyi?focus=strain_name</p>
+
+    <p>
+        Strain search isn't currently working on mobile at the moment.
+    </p>
     
-    <p>Sorry it's a bit hard to use on mobile; best on a large screen. Strain search isn't working on mobile at the moment either.</p>
+
 </div>
 
 <!-- Loading Message -->
 <div id="loading-message">Loading strain data, please wait...</div>
-
-<!-- Center Line for Chart -->
-<div id="centerLine"></div>
-
     
 <svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
   <symbol id="nzIcon">
@@ -175,6 +184,44 @@ const nodePillHeight = 30;
 const nodeStrokeWidth = 3;
 const nodeStrokeColor = '#000';
 const nodeTextYOffset = 1;
+
+// --- Global constants for sorting ---
+const dominanceOrder = {
+    'indica dominant': 0,
+    'ruderalis dominant': 1,
+    'balanced hybrid': 2,
+    'unknown': 3,
+    'sativa dominant': 4
+};
+
+const indicaOrder = [
+    'Afghan/Pakistan Indica Landraces',
+    'Purple Afghan Indica Landraces',
+    'Hindu Kush Landraces',
+    'Nepalese Indica Landraces',
+    'North American Indica Landraces'
+];
+
+const sativaOrder = [
+    'South India Sativa Landraces',
+    'Burmese Sativa Landraces',
+    'Cambodia Sativa Landraces',
+    'Thai Sativa Landraces',
+    'Chocolate Thai Sativa Landraces',
+    'Purple Thai Sativa Landraces',
+    'Indonesia Sativa Landraces',
+    'North African Sativa Landraces',
+    'East African Sativa landraces',
+    'South African Sativa Landraces',
+    'Jamaican Sativa Landraces',
+    'California Sativa Landraces',
+    'Mexico Sativa Landraces',
+    'Panama Sativa Landraces',
+    'Colombian Sativa Landraces',
+    'Brazil Sativa Landraces',
+    'Hawaiian Sativa Landraces'
+];
+
 
 // --- Error handling ---
 const showError = (message) => {
@@ -240,49 +287,15 @@ function populateStrainList() {
     });
 }
 
-// --- Custom sorting functions ---
-function customSortColumn2(a, b) {
-    const dominanceOrder = {
-        'indica dominant': 0,
-        'ruderalis dominant': 1,
-        'balanced hybrid': 2,
-        'unknown': 3,
-        'sativa dominant': 4
-    };
+// --- Global dominance + landrace sort ---
+function sortByDominanceAndLandrace(a, b) {
+    const aDom = a.dominance?.toLowerCase() || 'unknown';
+    const bDom = b.dominance?.toLowerCase() || 'unknown';
 
-    const indicaOrder = [
-        'Afghan/Pakistan Indica Landraces',
-        'Purple Afghan Indica Landraces',
-        'Hindu Kush Landraces',
-        'Nepalese Indica Landraces',
-        'North American Indica Landraces'
-    ];
-
-    const sativaOrder = [
-        'South India Sativa Landraces',
-        'Burmese Sativa Landraces',
-        'Cambodia Sativa Landraces',
-        'Thai Sativa Landraces',
-        'Chocolate Thai Sativa Landraces',
-        'Purple Thai Sativa Landraces',
-        'Indonesia Sativa Landraces',
-        'North African Sativa Landraces',
-        'East African Sativa landraces',
-        'South African Sativa Landraces',
-        'Jamaican Sativa Landraces',
-        'California Sativa Landraces',
-        'Mexico Sativa Landraces',
-        'Panama Sativa Landraces',
-        'Colombian Sativa Landraces',
-        'Brazil Sativa Landraces',
-        'Hawaiian Sativa Landraces'
-    ];
-
-    const aDom = a.dominance.toLowerCase();
-    const bDom = b.dominance.toLowerCase();
-
+    // Step 1: dominance order
     if (aDom !== bDom) return dominanceOrder[aDom] - dominanceOrder[bDom];
 
+    // Step 2: within indica, respect landrace order
     if (aDom === 'indica dominant') {
         const aIndex = indicaOrder.indexOf(a.name);
         const bIndex = indicaOrder.indexOf(b.name);
@@ -291,6 +304,7 @@ function customSortColumn2(a, b) {
         if (bIndex !== -1) return 1;
     }
 
+    // Step 3: within sativa, respect landrace order
     if (aDom === 'sativa dominant') {
         const aIndex = sativaOrder.indexOf(a.name);
         const bIndex = sativaOrder.indexOf(b.name);
@@ -299,22 +313,20 @@ function customSortColumn2(a, b) {
         if (bIndex !== -1) return 1;
     }
 
+    // Step 4: default alphabetical
     return a.name.localeCompare(b.name);
 }
 
-function customSortColumn3Plus(a, b) {
-    const dominanceOrder = {
-        'indica dominant': 0,
-        'balanced hybrid': 1,
-        'unknown': 2,
-        'sativa dominant': 3
-    };
 
-    const aDom = a.dominance.toLowerCase();
-    const bDom = b.dominance.toLowerCase();
+function sortByDominanceThenName(a, b) {
+    const aDom = a.dominance?.toLowerCase() || 'unknown';
+    const bDom = b.dominance?.toLowerCase() || 'unknown';
+
     if (aDom !== bDom) return dominanceOrder[aDom] - dominanceOrder[bDom];
+
     return a.name.localeCompare(b.name);
 }
+
 
 // --- Barycentric sorting ---
 function barycentricSort(genNodes, nodes, direction = 'parents') {
@@ -529,70 +541,64 @@ const createLineageChart = () => {
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
 
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
-    column2Nodes.sort(customSortColumn2);
+    column2Nodes.sort(sortByDominanceAndLandrace);
 
-    for (let gen = 0; gen <= maxGeneration + 1; gen++) {
-        let genNodes = nodes.filter(n => 
-            (n.generation === gen) || 
-            (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
-        );
+for (let gen = 0; gen <= maxGeneration + 1; gen++) {
+    // 1️⃣ Filter nodes for this generation
+    let genNodes = nodes.filter(n =>
+        n.generation === gen ||
+        (gen === 1 && n.special && n.special.toLowerCase() === 'landrace')
+    );
 
-        if (gen === 1) {
-            genNodes = column2Nodes.concat(genNodes.filter(n => !column2Nodes.includes(n)));
-   } else if (gen >= 2) {
+    // 2️⃣ Set X positions based on generation
+    genNodes.forEach(node => node.x = gen * columnWidth);
 
-    // 1️⃣ Initial stable order (dominance + name)
-    genNodes.sort(customSortColumn3Plus);
+    // 3️⃣ Sorting
+    if (gen === 1) {
+        // Column 2: landraces — dominance + landrace + alphabetical
+        genNodes.sort(sortByDominanceAndLandrace);
+    } else if (gen >= 2) {
+        // Columns 3+: preserve dominance order across the column
+        // 1. Group by dominance
+const groupedByDom = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
 
-}
+// 2. Sort the groups according to dominanceOrder
+groupedByDom.sort(([aDom], [bDom]) => (dominanceOrder[aDom] ?? 99) - (dominanceOrder[bDom] ?? 99));
 
+// 3. Apply barycentric within each group
+const sortedGroups = groupedByDom.map(([dominance, groupNodes]) => barycentricSort(groupNodes, nodes, 'parents'));
 
+// 4. Flatten back
+genNodes = sortedGroups.flat();
 
-        let yOffset = 0;
-        const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
-                            genNodes.filter(n => n.variant).length * (pillHeight + 2);
-        const startY = (height - totalHeight) / 2;
+    }
 
-        genNodes.forEach((node, index) => {
-            node.x = gen * columnWidth; // Set x position based on generation
-            if (!node.variant) {
-                if (gen !== 0 || node.y === undefined) {
-                    node.y = startY + yOffset;
-                }
-                yOffset += pillHeight + 16; // min gap between standard nodes
+    // 4️⃣ Assign Y positions
+    let yOffset = 0;
+    const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
+                        genNodes.filter(n => n.variant).length * (pillHeight + 2);
+    const startY = (height - totalHeight) / 2;
 
-                const variants = nodes.filter(n => n.variant === node.name).sort((a, b) => a.name.localeCompare(b.name));
-                variants.forEach((variant, vIndex) => {
-                    variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                    variant.x = node.x;
-                });
-
-                yOffset += variants.length * (pillHeight + 2);
-            }
-        });
-        // 🔁 Second pass: barycentric reorder now that Y exists
-if (gen >= 2) {
-    genNodes = barycentricSort(genNodes, nodes, 'parents');
-
-    // Re-assign Y positions after barycentric sort
-    yOffset = 0;
     genNodes.forEach(node => {
         if (!node.variant) {
             node.y = startY + yOffset;
             yOffset += pillHeight + 16;
 
+            // 5️⃣ Position variants under parent
             const variants = nodes.filter(n => n.variant === node.name)
                 .sort((a, b) => a.name.localeCompare(b.name));
 
             variants.forEach((variant, vIndex) => {
                 variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                variant.x = node.x;
             });
 
             yOffset += variants.length * (pillHeight + 2);
         }
     });
 }
-    }
+
+
 
 
     calculateColumn1Positions();
@@ -1422,3 +1428,4 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
+
