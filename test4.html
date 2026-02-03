@@ -25,7 +25,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 .popup-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,.5); z-index:999; display:none; }
 .popup { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:20px; border-radius:10px; max-width:80%; max-height:80%; overflow-y:auto; z-index:1000; display:none; }
 #popup1 { padding:0; }
-#popup2, #popup3 { padding:20px;  max-width: 1200px; }
+#popup2, #popup3 { padding:20px; }
 .search-container { position:relative; }   
 #strainSearch { background-color:transparent; color:#fff; padding:5px 15px; border:2px solid #fff; border-radius:18px; font-size:.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; width:180px; }
 #strainSearch::placeholder { color:rgba(255,255,255,0.7); }
@@ -82,11 +82,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
         <div class="search-container">
             <input type="text" id="strainSearch" placeholder="Locate strain">
             <div id="strainDropdown"></div>
-       </div>
-        <!-- About Go to Strain -->
-        <button id="btn2" class="btn">Go to Strain</button>
-    </div>
-    </div>
+        </div>
         <!-- About Button -->
         <button id="btn3" class="btn">About</button>
     </div>
@@ -119,9 +115,9 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     <div id="strainList" class="strain-list"></div>
 </div>
 
-<!-- Go to Strain Popup -->
+<!-- Coming Soon Popup -->
 <div id="popup2" class="popup">
-    <h5>xxxxxxx</h5>
+    <h5>Record and rate your strains - coming soon</h5>
 </div>
 
 <!-- About / Welcome Popup -->
@@ -134,35 +130,21 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     
     <p>I don't claim that the chart is completely accurate. It is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously, it is far from complete.</p>
     
-    <p>Sorry it's a bit hard to use on mobile; best on a large screen. </p>
-    
     <p>
-        <b>Controls</b><br>
-        Search for strains in the top right hand corner.<br>
-        Click on a strain on the chart to isolate its lineage.<br><br>
-        
         Push F11 to toggle full screen.<br>
         Use the mouse or controls to zoom in and out.<br>
         Nodes are draggable within their column (press shift / long press on mobile).<br>
-       
+        Click on a strain to isolate its lineage.
     </p>
     
-    <p>
-       <b>Strain Lineage Isoltaion Mode</b><br>
-       Isolation mode shows rough percentage of contribution based on lineage and is intended as a guide only. <br>
-       Percentage contributions will be inaccurate as the chart does not account for the nuances and realities of selective breeding.<br>
-       Isolated strains can also be accessed and shared from the url using the format - https://weedtree.fyi?focus=strain_name</p>
-
-    <p>
-        Strain search isn't currently working on mobile at the moment.
-    </p>
+    <p>Isolation mode shows rough percentage of contribution based on lineage, but will be inaccurate as it does not account for the realities and nuances of selective breeding.</p>
     
-
+    <p>Sorry it's a bit hard to use on mobile; best on a large screen. Strain search isn't working on mobile at the moment either.</p>
 </div>
 
 <!-- Loading Message -->
 <div id="loading-message">Loading strain data, please wait...</div>
-    
+  
 <svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
   <symbol id="nzIcon">
     <circle cx="14" cy="14" r="12.5" fill="white" stroke="black" stroke-width="3"/>
@@ -603,8 +585,6 @@ genNodes = sortedGroups.flat();
 }
 
 
-
-
     calculateColumn1Positions();
 
     const link = g.append("g")
@@ -955,9 +935,6 @@ descendantContrib.forEach((v, k) => {
 contributions.set(contributionStartNode.id, 100);
 
 
-
-
-
 g.selectAll('.node')
   .filter(n => contributions.has(n.id) && n.id !== contributionStartNode.id)
   .each(function(n) {
@@ -998,10 +975,7 @@ g.selectAll('.node')
       .style('pointer-events', 'none');
   });
 
-
-
 }
-
 
 
     function highlightHoverLineage(event, d) {
@@ -1165,10 +1139,6 @@ g.selectAll('.node')
     });
 })();
 
-
-
-
-    //end of createlineagechart
 };
 
 
@@ -1280,18 +1250,6 @@ function setupStrainSearch() {
 // --- FIX: remove undefined fetchData() call and ensure About popup opens ---
 window.addEventListener('load', function() {
     // Add event listeners for About popup
-    const gotostrainBtn = document.getElementById('btn2');
-    const popup2 = document.getElementById('popup2');
-    const overlay = document.querySelector('.popup-overlay');
-    if (gotostrainBtn && popup2 && overlay) {
-        gotostrainBtn.addEventListener('click', () => {
-            popup2.style.display = 'block';
-            overlay.style.display = 'block';
-        });
-        // Show About popup on initial load
-        popup2.style.display = 'block';
-        overlay.style.display = 'block';
-    }
     const aboutBtn = document.getElementById('btn3');
     const popup3 = document.getElementById('popup3');
     const overlay = document.querySelector('.popup-overlay');
@@ -1305,9 +1263,6 @@ window.addEventListener('load', function() {
         overlay.style.display = 'block';
     }
 });
-
-
-
 
 document.querySelectorAll('.close-button').forEach(button => {
     button.addEventListener('click', function() {
@@ -1447,4 +1402,5 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
+
 
