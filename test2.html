@@ -26,28 +26,22 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 .popup-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,.5); z-index:999; display:none; }
 .popup { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:20px; border-radius:10px; max-width:80%; max-height:80%; overflow-y:auto; z-index:1000; display:none; }
 #popup1 { padding:20px; } 
-#popup2 { padding:20px; width: 40%; height: 30%; z-index: 1001; display: flex; flex-direction: column; align-items: center; /* horizontal centering */ justify-content: center;  /* vertical centering */} 
+#popup2 { padding:20px; width: 480px; height: 100px; z-index: 1001; display: flex; flex-direction: column; align-items: center; /* horizontal centering */ justify-content: center;  /* vertical centering */} 
 #popup2 .popup2-center {height: 100%; display: flex; flex-direction: column; align-items: center; /* horizontal */ justify-content: center;  /* vertical */gap: 12px;}
 #popup3 { padding:20px; z-index: 1002}
 .search-container { position:relative; }   
-#strainSearch { background-color:transparent; color:#fff; padding:5px 15px; border:2px solid #434343; border-radius:18px; font-size:.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; width:180px; }
+#strainSearch { background-color:transparent; color:#fff; padding:5px 15px; border:4px solid #434343; border-radius:40px; font-size:.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; width:400px; }
 #strainSearch::placeholder { color:#434343; }
 #strainSearch:focus { outline:none; background-color:rgba(255,255,255,0.1); }
 #strainDropdown { position:absolute; background-color:#fff; border:1px solid #434343; max-height:400px; overflow-y:auto; display:none; z-index:1000; width:210px; box-shadow:1 4px 8px rgba(0,0,0,0.1); border-radius:0 0 4px 4px; }
 #strainDropdown div { padding:5px 10px; cursor:pointer; transition:background-color 0.2s; color:#434343; font-size:8pt; line-height:1.2; }
 #strainDropdown div:hover { background-color:##f0f0f0; }
-.strain-list { column-width:228px; column-gap:5px; padding:10px; max-height:96%; overflow-x:auto; white-space:nowrap; }
-.strain-item { display:flex; align-items:center; margin-bottom:0px; break-inside:avoid-column; }
-.strain-checkbox { appearance:none; -webkit-appearance:none; width:16px; height:16px; border:2px solid #434343; border-radius:50%; margin-right:5px; cursor:pointer; position:relative; }
-.strain-checkbox:checked::after { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:10px; height:10px; background-color:#434343; border-radius:50%; }
-.strain-checkbox:hover { background-color:#f0f0f0; }
-.strain-label { font-size:8pt; cursor:pointer; }    
 #popup2 .search-container {margin-bottom: 10px;}
-#popup2 #strainSearch {width: 320px; max-width: 80%;}
+#popup2 #strainSearch {width: 500px; max-width: 80%;}
 #popup2 #strainSearch {background-color: #fff; color: #434343; border-color: #434343;}
 #popup2 #strainSearch::placeholder {color: #777;}
 #popup2 #strainSearch:focus {background-color: #f8f8f8;}
-#popup2 #strainDropdown {width: 320px; max-width: 80%; max-height: 300px; z-index: 1002;}
+#popup2 #strainDropdown {width: 320px; max-width: 80%; max-height: 300px; z-index: 1003;}
 #loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
 .container { height:calc(100vh - 50px); display:flex; flex-direction:column; }
 .close-button { position:absolute; top:10px; right:10px; width:30px; height:30px; border:none; background:#434343; color:white; border-radius:50%; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color 0.3s; }
@@ -123,14 +117,11 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     <button class="close-button">×</button>
 
     <div class="popup2-center">
-        <h2>Go To Strain</h2>
-
         <div class="search-container">
             <input type="text" id="strainSearch" placeholder="Go to Strain...">
             <div id="strainDropdown"></div>
         </div>
     </div>
-    //! other content //
 </div>
 
 
