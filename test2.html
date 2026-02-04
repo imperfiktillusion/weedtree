@@ -28,8 +28,8 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 #popup2 { padding:20px; width: 60%; height: 40%; z-index: 1001;} 
 #popup3 { padding:20px; z-index: 1002}
 .search-container { position:relative; }   
-#strainSearch { background-color:transparent; color:#fff; padding:5px 15px; border:2px solid #fff; border-radius:18px; font-size:.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; width:180px; }
-#strainSearch::placeholder { color:rgba(255,255,255,0.7); }
+#strainSearch { background-color:transparent; color:#fff; padding:5px 15px; border:2px solid #434343; border-radius:18px; font-size:.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; width:180px; }
+#strainSearch::placeholder { color:#434343; }
 #strainSearch:focus { outline:none; background-color:rgba(255,255,255,0.1); }
 #strainDropdown { position:absolute; background-color:#fff; border:1px solid #ccc; max-height:400px; overflow-y:auto; display:none; z-index:1000; width:210px; box-shadow:1 4px 8px rgba(0,0,0,0.1); border-radius:0 0 4px 4px; }
 #strainDropdown div { padding:5px 10px; cursor:pointer; transition:background-color 0.2s; color:#434343; font-size:8pt; line-height:1.2; }
@@ -120,7 +120,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     <h2>Go To Strain</h2>
 
     <div class="search-container">
-        <input type="text" id="strainSearch" placeholder="Locate strain">
+        <input type="text" id="strainSearch" placeholder="Go to Strain...">
         <div id="strainDropdown"></div>
     </div>
 
