@@ -130,35 +130,21 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     
     <p>I don't claim that the chart is completely accurate. It is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously, it is far from complete.</p>
     
-    <p>Sorry it's a bit hard to use on mobile; best on a large screen. </p>
-    
     <p>
-        <b>Controls</b><br>
-        Search for strains in the top right hand corner.<br>
-        Click on a strain on the chart to isolate its lineage.<br><br>
-        
         Push F11 to toggle full screen.<br>
         Use the mouse or controls to zoom in and out.<br>
         Nodes are draggable within their column (press shift / long press on mobile).<br>
-       
+        Click on a strain to isolate its lineage.
     </p>
     
-    <p>
-       <b>Strain Lineage Isoltaion Mode</b><br>
-       Isolation mode shows rough percentage of contribution based on lineage and is intended as a guide only. <br>
-       Percentage contributions will be inaccurate as the chart does not account for the nuances and realities of selective breeding.<br>
-       Isolated strains can also be accessed and shared from the url using the format - https://weedtree.fyi?focus=strain_name</p>
-
-    <p>
-        Strain search isn't currently working on mobile at the moment.
-    </p>
+    <p>Isolation mode shows rough percentage of contribution based on lineage, but will be inaccurate as it does not account for the realities and nuances of selective breeding.</p>
     
-
+    <p>Sorry it's a bit hard to use on mobile; best on a large screen. Strain search isn't working on mobile at the moment either.</p>
 </div>
 
 <!-- Loading Message -->
 <div id="loading-message">Loading strain data, please wait...</div>
-    
+  
 <svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
   <symbol id="nzIcon">
     <circle cx="14" cy="14" r="12.5" fill="white" stroke="black" stroke-width="3"/>
@@ -599,8 +585,6 @@ genNodes = sortedGroups.flat();
 }
 
 
-
-
     calculateColumn1Positions();
 
     const link = g.append("g")
@@ -951,9 +935,6 @@ descendantContrib.forEach((v, k) => {
 contributions.set(contributionStartNode.id, 100);
 
 
-
-
-
 g.selectAll('.node')
   .filter(n => contributions.has(n.id) && n.id !== contributionStartNode.id)
   .each(function(n) {
@@ -994,10 +975,7 @@ g.selectAll('.node')
       .style('pointer-events', 'none');
   });
 
-
-
 }
-
 
 
     function highlightHoverLineage(event, d) {
@@ -1161,10 +1139,6 @@ g.selectAll('.node')
     });
 })();
 
-
-
-
-    //end of createlineagechart
 };
 
 
@@ -1428,4 +1402,5 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
+
 
