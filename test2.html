@@ -22,16 +22,17 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 .subhead { font-size:.4em; font-weight:400; margin-left:3px; }
 .btn { background-color:transparent; color:#fff; padding:5px 15px; border:2px solid #fff; border-radius:18px; cursor:pointer; font-size:0.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .btn:hover { background-color:rgba(255,255,255,.1); }
+.header-buttons .btn {font-size: 0.9em; padding: 5px 15px; min-width: max-content;}
 .popup-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,.5); z-index:999; display:none; }
 .popup { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:20px; border-radius:10px; max-width:80%; max-height:80%; overflow-y:auto; z-index:1000; display:none; }
 #popup1 { padding:20px; } 
-#popup2 { padding:20px; width: 60%; height: 40%; z-index: 1001;} 
+#popup2 { padding:20px; width: 40%; height: 30%; z-index: 1001; display: flex; flex-direction: column; align-items: center; /* horizontal centering */ justify-content: center;  /* vertical centering */} 
 #popup3 { padding:20px; z-index: 1002}
 .search-container { position:relative; }   
 #strainSearch { background-color:transparent; color:#fff; padding:5px 15px; border:2px solid #434343; border-radius:18px; font-size:.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; width:180px; }
 #strainSearch::placeholder { color:#434343; }
 #strainSearch:focus { outline:none; background-color:rgba(255,255,255,0.1); }
-#strainDropdown { position:absolute; background-color:#fff; border:1px solid #ccc; max-height:400px; overflow-y:auto; display:none; z-index:1000; width:210px; box-shadow:1 4px 8px rgba(0,0,0,0.1); border-radius:0 0 4px 4px; }
+#strainDropdown { position:absolute; background-color:#fff; border:1px solid #434343; max-height:400px; overflow-y:auto; display:none; z-index:1000; width:210px; box-shadow:1 4px 8px rgba(0,0,0,0.1); border-radius:0 0 4px 4px; }
 #strainDropdown div { padding:5px 10px; cursor:pointer; transition:background-color 0.2s; color:#434343; font-size:8pt; line-height:1.2; }
 #strainDropdown div:hover { background-color:#f0f0f; }
 .strain-list { column-width:228px; column-gap:5px; padding:10px; max-height:96%; overflow-x:auto; white-space:nowrap; }
@@ -41,8 +42,11 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 .strain-checkbox:hover { background-color:#f0f0f0; }
 .strain-label { font-size:8pt; cursor:pointer; }    
 #popup2 .search-container {margin-bottom: 10px;}
-#popup2 #strainSearch {width: 100%;}
-#popup2 #strainDropdown {width: 100%; max-height: 300px; z-index: 1002;}
+#popup2 #strainSearch {width: 320px; max-width: 80%;}
+#popup2 #strainSearch {background-color: #fff; color: #434343; border-color: #434343;}
+#popup2 #strainSearch::placeholder {color: #777;}
+#popup2 #strainSearch:focus {background-color: #f8f8f8;}
+#popup2 #strainDropdown {width: 320px; max-width: 80%; max-height: 300px; z-index: 1002;}
 #loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
 .container { height:calc(100vh - 50px); display:flex; flex-direction:column; }
 .close-button { position:absolute; top:10px; right:10px; width:30px; height:30px; border:none; background:#434343; color:white; border-radius:50%; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color 0.3s; }
