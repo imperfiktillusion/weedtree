@@ -1,4 +1,3 @@
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -29,14 +28,10 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 #popup1 { padding:20px; } 
 /* Popup2 */
 #popup2 {
-    top: 25%; 
-    left: 50%; 
-    transform: translateX(-50%); /* only horizontal centering */
     padding: 20px;
     width: 75vw;                  /* 60% of viewport width */
-    /*min-width: 400px;             /* optional minimum width */
+    *min-width: 400px;             /* optional minimum width */
     /*max-width: 800px;             /* optional maximum width */
-    height: 200px
     z-index: 1001;
     display: flex;
     flex-direction: column;
@@ -1257,7 +1252,7 @@ function setupStrainSearch() {
     function updateDropdownPosition() {
         const rect = searchInput.getBoundingClientRect();
         dropdown.style.top = `${rect.bottom + 5}px`;       // 5px below input
-        dropdown.style.left = `${rect.left + rect.width/2 - dropdown.offsetWidth/2}px`;
+        dropdown.style.left = `${rect.left}px`;
         dropdown.style.width = `${rect.width * 0.9}px`;    // slightly narrower
     }
 
@@ -1294,11 +1289,9 @@ function setupStrainSearch() {
             dropdown.appendChild(div);
         });
 
-        function updateDropdownPosition() {
-    const rect = searchInput.getBoundingClientRect();
-    dropdown.style.top = `${rect.bottom + 5}px`;  // 5px below input
-    dropdown.style.left = `${rect.left + rect.width/2 - dropdown.offsetWidth/2}px`; // center under input
-}
+        updateDropdownPosition();
+        dropdown.style.display = matches.length > 0 ? 'block' : 'none';
+    });
 
     document.addEventListener('click', e => {
         if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
