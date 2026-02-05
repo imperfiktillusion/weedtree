@@ -1,6 +1,3 @@
-
-
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1364,6 +1361,13 @@ window.addEventListener('load', function() {
         hidePopup(popup3);
         showPopup(popup2);
     });
+    // --- Close popup2 ---
+    const popup2Close = popup2.querySelector('.close-button');
+        if (popup2Close) {
+           popup2Close.addEventListener('click', () => {
+           hidePopup(popup2);
+      });
+    }
 
     // --- Overlay click ---
     overlay.addEventListener('click', (e) => {
