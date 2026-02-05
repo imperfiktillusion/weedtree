@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -97,39 +95,45 @@ body, html {
     top: 25vh;
     left: 50%;
     transform: translateX(-50%);
-    background-color: rgba(255,255,255,0); /* fully transparent */
+    background-color: rgba(255,255,255,0); /* transparent */
     z-index: 1001;
 }
 
 /* Center contents */
 #popup2 .popup2-center {
-    display:block;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
-/* Search container */
+/* Search container - flex ensures input fills width */
 #popup2 .search-container {
     position: relative;
     width: 80%;
-    margin: 0 auto;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
 }
 
-/* Input box */
+/* Search input */
 #popup2 #strainSearch {
-    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
     padding: 0.3em 0.81em;
     border: 4px solid #434343;
     border-radius: 70px;
     font-size: 3em;
     font-family: 'Roboto', monospace;
-    color: transparent;         /* hide real text */
-    caret-color: transparent;    /* hide real caret */
-    background-color: #fff;      /* solid input box */
+    color: transparent;          /* hide typed text */
+    caret-color: transparent;     /* hide real caret */
+    background-color: #fff;
     box-sizing: border-box;
-    position: relative;
     z-index: 1;
+    position: relative;
 }
 
-/* Fake terminal cursor */
+/* Fake cursor */
 #popup2 #fakeCursor {
     position: absolute;
     top: 50%;
@@ -137,12 +141,36 @@ body, html {
     transform: translateY(-50%);
     font-family: 'Roboto', monospace;
     font-size: 3em;
-    color: #777;       /* placeholder color */
+    color: #777; /* placeholder color */
     pointer-events: none;
-    white-space: pre;   /* preserve spacing */
+    white-space: pre;
     animation: blink 1s step-start infinite;
     z-index: 2;
 }
+
+/* Dropdown */
+#popup2 #strainDropdown {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    background: #fff;
+    border: 2px solid #ccc;
+    z-index: 1003;
+    display: none;
+}
+#popup2 #strainDropdown div {
+    padding: 10px 15px;
+    cursor: pointer;
+    color: #434343;
+    font-family: 'Roboto', Arial, sans-serif;
+    font-size: 2.5em;
+    line-height: 1em;
+}
+#popup2 #strainDropdown div:hover { background-color: #f0f0f0; }
+
 
 /* Blinking animation */
 @keyframes blink {
