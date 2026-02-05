@@ -1,3 +1,4 @@
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -88,52 +89,36 @@ body, html {
 }
 
 /* Popup2 specifics */
-#popup2 {
-    padding: 20px;
-    width: 75vw;
-    min-width: 400px;
-    top: 25vh;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(255,255,255,0); /* transparent */
-    z-index: 1001;
-}
-
-/* Center contents */
 #popup2 .popup2-center {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;  /* make child containers fill width */
 }
 
-/* Search container - flex ensures input fills width */
 #popup2 .search-container {
     position: relative;
-    width: 80%;
+    width: 100%;          /* fill the popup width */
+    max-width: 700px;     /* optional max width */
+    margin: 0 auto;
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
 }
 
-/* Search input */
 #popup2 #strainSearch {
-    flex: 1 1 auto;
+    flex: 1;
     min-width: 0;
     padding: 0.3em 0.81em;
     border: 4px solid #434343;
     border-radius: 70px;
     font-size: 3em;
     font-family: 'Roboto', monospace;
-    color: transparent;          /* hide typed text */
-    caret-color: transparent;     /* hide real caret */
+    color: transparent;
+    caret-color: transparent;
     background-color: #fff;
     box-sizing: border-box;
     z-index: 1;
     position: relative;
 }
 
-/* Fake cursor */
 #popup2 #fakeCursor {
     position: absolute;
     top: 50%;
@@ -141,14 +126,13 @@ body, html {
     transform: translateY(-50%);
     font-family: 'Roboto', monospace;
     font-size: 3em;
-    color: #777; /* placeholder color */
+    color: #777;
     pointer-events: none;
     white-space: pre;
     animation: blink 1s step-start infinite;
     z-index: 2;
 }
 
-/* Dropdown */
 #popup2 #strainDropdown {
     position: absolute;
     top: calc(100% + 5px);
@@ -161,6 +145,7 @@ body, html {
     z-index: 1003;
     display: none;
 }
+
 #popup2 #strainDropdown div {
     padding: 10px 15px;
     cursor: pointer;
@@ -1356,41 +1341,62 @@ const blendToWhite = (color, amount) => {
 
 
 function setupStrainSearch() {
-    const input = document.getElementById('strainSearch');
-    const cursor = document.getElementById('fakeCursor');
+    const searchInput = document.getElementById('strainSearch');
+    const fakeCursor = document.getElementById('fakeCursor');
     const dropdown = document.getElementById('strainDropdown');
+    const popup2 = document.getElementById('popup2');
 
+    // Update fake cursor text and color
     function updateCursor() {
-        // Combine current text + underscore
-        const text = input.value || "Go to Strain";  // placeholder text if empty
-        cursor.textContent = text + "_";
-
-        // Measure text width to align cursor
-        const span = document.createElement('span');
-        span.style.visibility = 'hidden';
-        span.style.position = 'absolute';
-        span.style.font = window.getComputedStyle(input).font;
-        span.textContent = text;
-        document.body.appendChild(span);
-        const textWidth = span.offsetWidth;
-        document.body.removeChild(span);
-
-        cursor.style.left = input.offsetLeft + textWidth + 5 + "px";
+        const text = searchInput.value;
+        if (text.length === 0) {
+            fakeCursor.textContent = searchInput.placeholder + '_';
+            fakeCursor.style.color = '#777'; // placeholder gray
+        } else {
+            fakeCursor.textContent = text + '_';
+            fakeCursor.style.color = '#000'; // typed text black
+        }
     }
 
-    function updateDropdown() {
-        const rect = input.getBoundingClientRect();
-        dropdown.style.width = rect.width + "px";
-        dropdown.style.top = rect.bottom + 5 + "px";
-        dropdown.style.left = rect.left + "px";
+    // Show dropdown below input
+    function updateDropdown(matches) {
+        dropdown.innerHTML = '';
+        if (!matches || matches.length === 0) {
+            dropdown.style.display = 'none';
+            return;
+        }
+
+        matches.sort((a, b) => a.name.localeCompare(b.name)).forEach(strain => {
+            const div = document.createElement('div');
+            div.innerHTML = strain.name +
+                (strain.product ? `<br>(${strain.product})` : '') +
+                (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
+            
+            div.addEventListener('click', () => {
+                const node = g.selectAll('.node').filter(d => d.id === strain.id);
+                if (!node.empty()) node.dispatch('click');
+
+                dropdown.style.display = 'none';
+                searchInput.value = '';
+                updateCursor();
+                popup2.style.display = 'none';
+                document.querySelector('.popup-overlay').style.display = 'none';
+            });
+
+            dropdown.appendChild(div);
+        });
+
+        dropdown.style.display = 'block';
     }
 
-    input.addEventListener('input', () => {
-        updateCursor();
-        updateDropdown();
-
-        const searchText = input.value.toLowerCase();
-        if (!searchText) { dropdown.style.display = 'none'; return; }
+    // Filter nodes based on input
+    function filterNodes() {
+        const searchText = searchInput.value.toLowerCase();
+        if (!searchText) {
+            updateDropdown([]);
+            updateCursor();
+            return;
+        }
 
         const matches = nodes.filter(n =>
             !n.name.toLowerCase().includes('unknown') &&
@@ -1399,35 +1405,39 @@ function setupStrainSearch() {
              (n.alsoKnownAs && n.alsoKnownAs.toLowerCase().includes(searchText)))
         );
 
-        dropdown.innerHTML = '';
-        matches.sort((a,b)=>a.name.localeCompare(b.name)).forEach(s => {
-            const div = document.createElement('div');
-            div.innerHTML = s.name + (s.product?`<br>(${s.product})`:'') + (s.alsoKnownAs?` [${s.alsoKnownAs}]`:'');
-            div.addEventListener('click', ()=>{
-                const node = g.selectAll('.node').filter(d=>d.id===s.id);
-                if(!node.empty()) node.dispatch('click');
-                dropdown.style.display='none';
-                input.value='';
-                cursor.textContent='';
-                document.getElementById('popup2').style.display='none';
-                document.querySelector('.popup-overlay').style.display='none';
-            });
-            dropdown.appendChild(div);
-        });
-        dropdown.style.display = matches.length ? 'block' : 'none';
+        updateDropdown(matches);
+        updateCursor();
+    }
+
+    // Input events
+    searchInput.addEventListener('input', filterNodes);
+    searchInput.addEventListener('focus', () => {
+        updateCursor();
+        filterNodes();
     });
 
-    ['keydown','keyup','focus'].forEach(ev=>input.addEventListener(ev, updateCursor));
-    input.addEventListener('blur', ()=>{ cursor.textContent = ''; });
+    // Keep fake cursor updating while typing
+    ['keydown', 'keyup'].forEach(ev => searchInput.addEventListener(ev, updateCursor));
 
-    document.addEventListener('click', e=>{
-        if(!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.style.display='none';
+    searchInput.addEventListener('blur', () => {
+        fakeCursor.textContent = '';
+        dropdown.style.display = 'none';
     });
 
+    // Hide dropdown if clicking outside
+    document.addEventListener('click', e => {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    // Initial render
     updateCursor();
 }
 
+// Initialize
 setupStrainSearch();
+
 
 
 
