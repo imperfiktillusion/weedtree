@@ -30,92 +30,71 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 /* Popup2 */
 #popup2 {
     padding: 20px;
-    width: 75vw;                  /* 60% of viewport width */
-    *min-width: 400px;             /* optional minimum width */
-    /*max-width: 800px;             /* optional maximum width */
+    width: 60%;
+    max-width: 800px;
+    min-width: 400px;
+    height: auto;
     z-index: 1001;
     display: flex;
     flex-direction: column;
-    align-items: center;          /* horizontal centering */
-    justify-content: center;      /* vertical centering */
-}
-
-/* Inner container to help centering contents vertically/horizontally */
-#popup2 .popup2-center {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 20px;
 }
 
-/* Search container */
 #popup2 .search-container {
-    position: relative;
-    width: 80%;                   /* container width relative to popup */
-    /*max-width: 700px;             /* optional max width */
+    width: 80%;
     display: flex;
     justify-content: center;
-    align-items: center;
-    margin: 0 auto;
+    position: relative;
 }
 
-/* Search input */
 #popup2 #strainSearch {
-    width: 100%;                  /* 80% of popup via container */
-    padding: 0.2em 0.4em;           /* inner padding for placeholder & text */
+    width: 100%;
+    padding: 0.5em 1em;       /* Padding for placeholder not inside rounded edge */
     border: 4px solid #434343;
-    border-radius: 50px;
-    font-size: 3em;               /* large text size */
-    font-family: 'Poppins', Arial, sans-serif;
-    color: #434343;
+    border-radius: 40px;
+    font-size: 3em;
     background-color: #fff;
+    color: #434343;
+    outline: none;
     transition: all 0.3s ease;
-    box-sizing: border-box;       /* ensures padding doesn’t exceed width */
 }
 
-/* Placeholder styling */
 #popup2 #strainSearch::placeholder {
     color: #777;
-    padding-left: 0em;          /* extra padding inside the input */
 }
 
-/* Focus styling */
 #popup2 #strainSearch:focus {
-    outline: none;
     background-color: #f8f8f8;
 }
 
-/* Dropdown styling */
-/* Popup2 dropdown should flow outside the popup */
-#popup2 #strainDropdown {
-    position: fixed;        /* fixed so it floats over everything */
+#strainDropdown {
+    position: fixed;          /* float above everything */
     top: 0;
     left: 0;
-    width: 90%;             /* adjusted dynamically in JS anyway */
-    max-width: 80%;
-    max-height: 300px;
-    overflow-y: auto;
-    z-index: 9999;          /* high so it floats above everything */
+    width: 80%;
+    max-width: 500px;         /* slightly narrower than input */
     background-color: #fff;
     border: 1px solid #434343;
-    box-shadow: 1px 4px 8px rgba(0,0,0,0.1);
-    border-radius: 0 0 4px 4px;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 9999;
     display: none;
 }
 
-#popup2 #strainDropdown div {
-    padding: 10px 15px;
-    cursor: pointer;
-    transition: background-color 0.2s;
+#strainDropdown div {
+    padding: 0.2em 0.5em;
+    font-size: 3em;
     color: #434343;
-    font-size: 3em;              /* match search box */
-    line-height: 1.2em;
+    cursor: pointer;
 }
-#popup2 #strainDropdown div:hover {
+
+#strainDropdown div:hover {
     background-color: #f0f0f0;
 }
+
 
 #popup3 { padding:20px; z-index: 1002}
 #loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
@@ -189,14 +168,23 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     <div id="strainList" class="strain-list"></div>
 </div>
 
+<!-- Popups (siblings) -->
 <div id="popup2" class="popup">
     <button class="close-button">×</button>
-    <div class="popup2-center">
-        <div class="search-container">
-            <input type="text" id="strainSearch" placeholder="Go to Strain...">
-          </div>
+    <h2>Go To Strain</h2>
+    <div class="search-container">
+        <input type="text" id="strainSearch" placeholder="Go to Strain...">
     </div>
-  <div id="strainDropdown"></div>
+</div>
+
+<div id="popup3" class="popup">
+    <button class="close-button">×</button>
+    <h2>About</h2>
+    <!-- About content -->
+</div>
+
+<!-- Strain dropdown should be outside both popups -->
+<div id="strainDropdown"></div>
 
 
 <!-- About / Welcome Popup -->
@@ -1252,16 +1240,15 @@ function setupStrainSearch() {
 
     let highlightedNode = null;
 
-    // Position dropdown floating above everything
     function updateDropdownPosition() {
-        const inputRect = searchInput.getBoundingClientRect();
-        dropdown.style.top = `${inputRect.bottom + 5}px`;
-        dropdown.style.left = `${inputRect.left + inputRect.width * 0.05}px`;
-        dropdown.style.width = `${inputRect.width * 0.9}px`;
+        const rect = searchInput.getBoundingClientRect();
+        dropdown.style.top = `${rect.bottom + 5}px`;
+        dropdown.style.left = `${rect.left + rect.width * 0.05}px`; // slightly inset
+        dropdown.style.width = `${rect.width * 0.9}px`;              // slightly narrower than input
     }
 
-    searchInput.addEventListener('input', updateDropdownPosition);
     searchInput.addEventListener('focus', updateDropdownPosition);
+    searchInput.addEventListener('input', updateDropdownPosition);
 
     searchInput.addEventListener('input', function() {
         const searchText = this.value.toLowerCase();
@@ -1270,7 +1257,7 @@ function setupStrainSearch() {
             return;
         }
 
-        const matchingStrains = nodes.filter(node =>
+        const matches = nodes.filter(node =>
             !node.name.toLowerCase().includes('unknown') &&
             (
                 node.name.toLowerCase().includes(searchText) ||
@@ -1280,32 +1267,30 @@ function setupStrainSearch() {
         );
 
         dropdown.innerHTML = '';
-        matchingStrains.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
+        matches.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
             const div = document.createElement('div');
-            div.innerHTML = strain.name +
-                            (strain.product ? `<br>(${strain.product})` : '') +
-                            (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
+            div.innerHTML = strain.name + (strain.product ? `<br>(${strain.product})` : '') + (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
             div.addEventListener('click', () => {
                 const node = g.selectAll('.node').filter(d => d.id === strain.id);
-                if (!node.empty()) node.dispatch('click'); // simulate click
+                if (!node.empty()) node.dispatch('click');   // simulate node click
                 dropdown.style.display = 'none';
                 searchInput.value = '';
-                popup2.style.display = 'none';
+                popup2.style.display = 'none';              // close popup after selection
             });
             dropdown.appendChild(div);
         });
 
         updateDropdownPosition();
-        dropdown.style.display = matchingStrains.length > 0 ? 'block' : 'none';
+        dropdown.style.display = matches.length > 0 ? 'block' : 'none';
     });
 
-    // Close dropdown if clicking outside
     document.addEventListener('click', function(event) {
         if (!searchInput.contains(event.target) && !dropdown.contains(event.target)) {
             dropdown.style.display = 'none';
         }
     });
 }
+
 
 
 
