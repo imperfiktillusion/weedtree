@@ -31,54 +31,39 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 /* Popup2 */
 #popup2 {
     padding: 20px;
-    width: 75vw;               /* 75% of viewport width */
-    max-width: none;
-    min-width: 400px;           /* optional minimum width */
-    z-index: 1001;
-    display: none;
-    flex-direction: column;
-    align-items: stretch;       /* ??horizontal centering?? */
-    justify-content: flex-start; /* align content from top */
-    top: 25vh;                 /* 25% from top of viewport */
+    width: 75vw;
+    min-width: 400px;
+    top: 25vh;
     left: 50%;
-    transform: translateX(-50%); /* horizontal centering only */
-    background-color: rgba(255,255,255,0); /* 0% opaque */
+    transform: translateX(-50%);
+    background-color: rgba(255,255,255,0); /* transparent */
+    z-index: 1001;
 }
-/* Inner container to help centering contents vertically/horizontally */
+
+/* Inner container centered */
 #popup2 .popup2-center {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
+    display: block; /* don't use flex */
 }
 
 /* Search container */
 #popup2 .search-container {
     position: relative;
-    width: 80%;                   /* container width relative to popup */
-    /*max-width: 700px;             /* optional max width */
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    width: 80%;
     margin: 0 auto;
 }
 
-/* Search input */
+/* Search input - fixed width, solid box */
 #popup2 #strainSearch {
     width: 100%;
     padding: 0.3em 0.81em;
     border: 4px solid #434343;
     border-radius: 70px;
     font-size: 3em;
-    font-family: 'Roboto', monospace; /* monospace for terminal effect */
-    color: transparent; /* hide real text until typing */
-    caret-color: transparent; /* hide real caret */
-    background-color: #fff; /* search box stays solid */
+    font-family: 'Roboto', monospace;
+    color: transparent;          /* hide real text */
+    caret-color: transparent;     /* hide real caret */
+    background-color: #fff;       /* solid input */
     box-sizing: border-box;
-    z-index: 1;
-    position: relative;
 }
 
 /* Fake terminal cursor */
@@ -87,62 +72,41 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     font-family: 'Roboto', monospace;
     font-size: 3em;
     color: black;
-    pointer-events: none;
     top: 50%;
     transform: translateY(-50%);
+    pointer-events: none;
     animation: blink 1s step-start infinite;
 }
 
 /* Blink animation */
 @keyframes blink {
-    50% { opacity: 0; }
-}
-
-/* Dropdown scrolling */
-#strainDropdown {
-    max-height: 300px; /* adjust if needed */
-    overflow-y: auto;
-    position: absolute;
-    background: #fff;
-    border: 2px solid #ccc;
-    z-index: 1003;
-}
-
-
-
-/* Placeholder styling */
-#popup2 #strainSearch::placeholder {
-    color: #777;
-}
-
-/* Focus styling */
-#popup2 #strainSearch:focus {
-    outline: none;
-    background-color: #f8f8f8;
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
 }
 
 /* Dropdown styling */
 #strainDropdown {
+    max-height: 300px;
+    overflow-y: auto;
     position: absolute;
     background: #fff;
     border: 2px solid #ccc;
-    max-height: 400px;   /* can scroll if longer than this */
-    overflow-y: auto;
+    width: 100%;
+    top: calc(100% + 5px); /* always below input */
+    left: 0;
     z-index: 1003;
+    display: none;
 }
 
 #strainDropdown div {
     padding: 10px 15px;
     cursor: pointer;
-    transition: background-color 0.2s;
     color: #434343;
     font-family: 'Roboto', Arial, sans-serif;
-    font-size: 2.5em;             
+    font-size: 2.5em;
     line-height: 1.0em;
 }
-#strainDropdown div:hover {
-    background-color: #f0f0f0;
-}
+#strainDropdown div:hover { background-color: #f0f0f0; }
 
 #popup3 { padding:20px; z-index: 1002}
 #loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
@@ -238,7 +202,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 <div id="popup2" class="popup">
     <button class="close-button">×</button>
     <div class="popup2-center">
-        <div class="search-container" style="position: relative;">
+        <div class="search-container">
             <input type="text" id="strainSearch" placeholder="Go to Strain">
             <span id="fakeCursor" class="terminal-cursor"></span>
             <div id="strainDropdown"></div>
@@ -1294,56 +1258,47 @@ const blendToWhite = (color, amount) => {
 
 
 function setupStrainSearch() {
-    const searchInput = document.getElementById('strainSearch');
-    const fakeCursor = document.getElementById('fakeCursor');
+    const input = document.getElementById('strainSearch');
+    const cursor = document.getElementById('fakeCursor');
     const dropdown = document.getElementById('strainDropdown');
     const popup2 = document.getElementById('popup2');
 
     function updateCursor() {
-        const text = searchInput.value || searchInput.placeholder;
-        fakeCursor.textContent = text + '_';
+        const text = input.value || input.placeholder;
+        cursor.textContent = text + '_';
 
-        // Measure text width to position cursor
-        const tempSpan = document.createElement('span');
-        tempSpan.style.visibility = 'hidden';
-        tempSpan.style.position = 'absolute';
-        tempSpan.style.fontSize = window.getComputedStyle(searchInput).fontSize;
-        tempSpan.style.fontFamily = window.getComputedStyle(searchInput).fontFamily;
-        tempSpan.textContent = text;
-        document.body.appendChild(tempSpan);
-        const textWidth = tempSpan.offsetWidth;
-        document.body.removeChild(tempSpan);
+        // measure text width
+        const span = document.createElement('span');
+        span.style.visibility = 'hidden';
+        span.style.position = 'absolute';
+        span.style.font = window.getComputedStyle(input).font;
+        span.textContent = text;
+        document.body.appendChild(span);
+        const textWidth = span.offsetWidth;
+        document.body.removeChild(span);
 
-        fakeCursor.style.left = `${searchInput.offsetLeft + textWidth + 5}px`;
+        cursor.style.left = input.offsetLeft + textWidth + 'px';
+        cursor.style.top = input.offsetTop + '50%';
+        cursor.style.transform = 'translateY(-50%)';
 
-        // Reveal real text when typing starts
-        searchInput.style.color = searchInput.value.length > 0 ? '#434343' : 'transparent';
+        // reveal real text if typing
+        input.style.color = input.value.length ? '#434343' : 'transparent';
     }
 
-    function updateDropdownPosition() {
-        const rect = searchInput.getBoundingClientRect();
-        const dropdownWidth = rect.width;
-        dropdown.style.width = `${dropdownWidth}px`;
-        dropdown.style.top = `${rect.bottom + 5}px`;
-        dropdown.style.left = `${rect.left}px`;
+    function updateDropdown() {
+        const rect = input.getBoundingClientRect();
+        dropdown.style.width = rect.width + 'px';
+        dropdown.style.top = rect.bottom + 5 + 'px';
+        dropdown.style.left = rect.left + 'px';
     }
 
-    searchInput.addEventListener('focus', () => {
+    input.addEventListener('input', () => {
         updateCursor();
-        updateDropdownPosition();
-    });
+        updateDropdown();
 
-    searchInput.addEventListener('input', function() {
-        const searchText = this.value.toLowerCase();
-        updateCursor();
-        updateDropdownPosition();
+        const searchText = input.value.toLowerCase();
+        if (!searchText) { dropdown.style.display = 'none'; return; }
 
-        if (!searchText) {
-            dropdown.style.display = 'none';
-            return;
-        }
-
-        // Filter nodes (replace with your actual nodes array)
         const matches = nodes.filter(n =>
             !n.name.toLowerCase().includes('unknown') &&
             (n.name.toLowerCase().includes(searchText) ||
@@ -1352,45 +1307,38 @@ function setupStrainSearch() {
         );
 
         dropdown.innerHTML = '';
-
-        matches.sort((a, b) => a.name.localeCompare(b.name)).forEach(strain => {
+        matches.sort((a,b) => a.name.localeCompare(b.name)).forEach(s => {
             const div = document.createElement('div');
-            div.innerHTML = strain.name +
-                            (strain.product ? `<br>(${strain.product})` : '') +
-                            (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
+            div.innerHTML = s.name + (s.product ? `<br>(${s.product})` : '') + (s.alsoKnownAs ? ` [${s.alsoKnownAs}]` : '');
             div.addEventListener('click', () => {
-                const node = g.selectAll('.node').filter(d => d.id === strain.id);
+                const node = g.selectAll('.node').filter(d => d.id === s.id);
                 if (!node.empty()) node.dispatch('click');
-
                 dropdown.style.display = 'none';
-                searchInput.value = '';
-                fakeCursor.textContent = '';
+                input.value = '';
+                cursor.textContent = '';
                 popup2.style.display = 'none';
                 document.querySelector('.popup-overlay').style.display = 'none';
             });
             dropdown.appendChild(div);
         });
-
         dropdown.style.display = matches.length ? 'block' : 'none';
     });
 
+    ['keydown','keyup','focus'].forEach(ev => input.addEventListener(ev, updateCursor));
+    input.addEventListener('blur', () => { cursor.textContent = ''; });
+
     document.addEventListener('click', e => {
-        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) {
             dropdown.style.display = 'none';
         }
     });
 
-    // Keep cursor updating while typing
-    ['keydown', 'keyup', 'focus'].forEach(ev =>
-        searchInput.addEventListener(ev, updateCursor)
-    );
-    searchInput.addEventListener('blur', () => { fakeCursor.textContent = ''; });
-
-    // Initial render
+    // initial
     updateCursor();
 }
 
 setupStrainSearch();
+
 
 
 
