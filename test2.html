@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -76,12 +77,11 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     background-color: #fff; /* fully solid */
     caret-color: transparent; /* hide real caret */
     box-sizing: border-box;
-    z-index: 2;
+    z-index: 1;
     position: relative;
 }
 
-/* Fake terminal cursor */
-.terminal-cursor {
+terminal-cursor {
     position: absolute;
     font-family: 'Roboto', monospace;
     font-size: 3em;
@@ -90,6 +90,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     transform: translateY(-50%);
     pointer-events: none;
     animation: blink 1s step-start infinite;
+    z-index: 2; /* above input */
 }
 
 /* Cursor blinking animation */
@@ -1373,6 +1374,16 @@ function setupStrainSearch() {
         dropdown.style.display = matches.length > 0 ? 'block' : 'none';
         updateCursor();
     });
+    // Initial render
+updateCursor();
+
+// Keep cursor updating while typing
+searchInput.addEventListener('keydown', updateCursor);
+searchInput.addEventListener('keyup', updateCursor);
+searchInput.addEventListener('focus', updateCursor);
+searchInput.addEventListener('blur', () => {
+    fakeCursor.textContent = '';
+});
 }
 setupStrainSearch();
 
