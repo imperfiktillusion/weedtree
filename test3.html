@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -40,6 +42,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     top: 25vh;                 /* 25% from top of viewport */
     left: 50%;
     transform: translateX(-50%); /* horizontal centering only */
+    background-color: rgba(255,155,255,0.25); /* 25% opaque */
 }
 /* Inner container to help centering contents vertically/horizontally */
 #popup2 .popup2-center {
@@ -65,18 +68,45 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 /* Search input */
 #popup2 #strainSearch {
     width: 100%;
-    flex: 1 1 auto;
-    min-width: 0;
     padding: 0.3em 0.81em;
     border: 4px solid #434343;
     border-radius: 70px;
     font-size: 3em;
     font-family: 'Roboto', Arial, sans-serif;
     color: #434343;
-    background-color: #fff;
-    transition: all 0.3s ease;
-    box-sizing: border-box;
+    background-color: #fff; /* fully solid */
     caret-color: transparent; /* hide real caret */
+    box-sizing: border-box;
+    z-index: 1;
+    position: relative;
+}
+
+terminal-cursor {
+    position: absolute;
+    font-family: 'Roboto', monospace;
+    font-size: 3em;
+    color: black;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    animation: blink 1s step-start infinite;
+    z-index: 2; /* above input */
+}
+
+/* Cursor blinking animation */
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Dropdown styling */
+#strainDropdown {
+    position: absolute;
+    background: #fff;
+    border: 2px solid #ccc;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1003;
 }
 
 /* Placeholder styling */
@@ -207,9 +237,10 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 <div id="popup2" class="popup">
     <button class="close-button">×</button>
     <div class="popup2-center">
-        <div class="search-container">
-            <input type="text" id="strainSearch" placeholder="Go to Strain_">
-          </div>
+        <div class="search-container" style="position: relative;">
+            <input type="text" id="strainSearch" placeholder="Go to Strain">
+            <span id="fakeCursor" class="terminal-cursor"></span>
+        </div>
     </div>
  </div>
 
@@ -1263,11 +1294,35 @@ const blendToWhite = (color, amount) => {
 
 function setupStrainSearch() {
     const searchInput = document.getElementById('strainSearch');
+    const fakeCursor = document.getElementById('fakeCursor');
     const dropdown = document.getElementById('strainDropdown');
     const popup2 = document.getElementById('popup2');
 
-    let blinkInterval = null;
+    function updateCursor() {
+        const text = searchInput.value || searchInput.placeholder;
+        fakeCursor.textContent = text + '_';
 
+        // Measure width of text to position cursor
+        const tempSpan = document.createElement('span');
+        tempSpan.style.visibility = 'hidden';
+        tempSpan.style.position = 'absolute';
+        tempSpan.style.fontSize = window.getComputedStyle(searchInput).fontSize;
+        tempSpan.style.fontFamily = window.getComputedStyle(searchInput).fontFamily;
+        tempSpan.textContent = text;
+        document.body.appendChild(tempSpan);
+        const textWidth = tempSpan.offsetWidth;
+        document.body.removeChild(tempSpan);
+
+        fakeCursor.style.left = `${searchInput.offsetLeft + textWidth + 5}px`;
+    }
+
+    searchInput.addEventListener('input', updateCursor);
+    searchInput.addEventListener('focus', updateCursor);
+    searchInput.addEventListener('blur', () => {
+        fakeCursor.textContent = '';
+    });
+
+    // Dropdown positioning
     function updateDropdownPosition() {
         const rect = searchInput.getBoundingClientRect();
         const dropdownWidth = rect.width * 0.9;
@@ -1276,41 +1331,17 @@ function setupStrainSearch() {
         dropdown.style.left = `${rect.left + rect.width / 2 - dropdownWidth / 2}px`;
     }
 
-    function startBlinking() {
-        if (blinkInterval) clearInterval(blinkInterval);
-
-        blinkInterval = setInterval(() => {
-            let val = searchInput.value;
-            if (!val) val = ''; // placeholder will show automatically
-
-            searchInput.value = val.replace(/_$/, '') + '_';
-        }, 500);
-    }
-
-    function stopBlinking() {
-        if (blinkInterval) clearInterval(blinkInterval);
-        searchInput.value = searchInput.value.replace(/_$/, '');
-    }
-
-    searchInput.addEventListener('focus', () => {
-        startBlinking();
-        updateDropdownPosition();
-    });
-
-    searchInput.addEventListener('blur', () => {
-        stopBlinking();
-    });
+    searchInput.addEventListener('focus', updateDropdownPosition);
 
     searchInput.addEventListener('input', function() {
-        // Remove underscore before filtering
-        this.value = this.value.replace(/_$/, '');
-        updateDropdownPosition();
-
         const searchText = this.value.toLowerCase();
         if (!searchText) {
             dropdown.style.display = 'none';
+            updateCursor();
             return;
         }
+
+        updateDropdownPosition();
 
         const matches = nodes.filter(n =>
             !n.name.toLowerCase().includes('unknown') &&
@@ -1332,6 +1363,7 @@ function setupStrainSearch() {
 
                 dropdown.style.display = 'none';
                 searchInput.value = '';
+                fakeCursor.textContent = '';
                 popup2.style.display = 'none';
                 document.querySelector('.popup-overlay').style.display = 'none'; 
             });
@@ -1340,18 +1372,21 @@ function setupStrainSearch() {
         });
 
         dropdown.style.display = matches.length > 0 ? 'block' : 'none';
+        updateCursor();
     });
+    // Initial render
+updateCursor();
 
-    // Click outside closes dropdown
-    document.addEventListener('click', e => {
-        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
-            dropdown.style.display = 'none';
-        }
-    });
+// Keep cursor updating while typing
+searchInput.addEventListener('keydown', updateCursor);
+searchInput.addEventListener('keyup', updateCursor);
+searchInput.addEventListener('focus', updateCursor);
+searchInput.addEventListener('blur', () => {
+    fakeCursor.textContent = '';
+});
 }
-
-// Initialize
 setupStrainSearch();
+
 
 
 
