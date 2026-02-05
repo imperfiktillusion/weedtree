@@ -90,30 +90,24 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 /* Dropdown styling */
 /* Popup2 dropdown should flow outside the popup */
 #popup2 #strainDropdown {
-    position: fixed;               /* change from absolute to fixed */
+    position: fixed;             /* float above everything */
     background-color: #fff;
     border: 1px solid #434343;
-    border-radius: 0 0 10px 10px;
     max-height: 300px;
     overflow-y: auto;
-    width: 90%;                    /* slightly narrower than input */
-    max-width: 600px;
-    box-shadow: 1px 4px 8px rgba(0,0,0,0.1);
-    z-index: 2000;                 /* higher than popup */
     display: none;
+    z-index: 10000;              /* very high so it floats above popup */
+    box-shadow: 1px 4px 8px rgba(0,0,0,0.1);
+    border-radius: 0 0 4px 4px;
 }
-
-/* Dropdown items */
 #popup2 #strainDropdown div {
-    padding: 0.3em 0.5em;
+    padding: 10px 15px;
     cursor: pointer;
     transition: background-color 0.2s;
     color: #434343;
-    font-size: 3em;               /* match search text size */
+    font-size: 3em;              /* match search box */
     line-height: 1.2em;
 }
-
-/* Hover effect */
 #popup2 #strainDropdown div:hover {
     background-color: #f0f0f0;
 }
@@ -1252,19 +1246,23 @@ const blendToWhite = (color, amount) => {
 function setupStrainSearch() {
     const searchInput = document.getElementById('strainSearch');
     const dropdown = document.getElementById('strainDropdown');
-
-    function updateDropdownPosition() {
-        const inputRect = searchInput.getBoundingClientRect();
-        dropdown.style.top = `${inputRect.bottom + 5}px`;   // 5px below the input
-        dropdown.style.left = `${inputRect.left}px`;        // align left edge
-        dropdown.style.width = `${inputRect.width * 0.9}px`; // slightly narrower than input
-    }
-
-    searchInput.addEventListener('input', updateDropdownPosition);
-    searchInput.addEventListener('focus', updateDropdownPosition);
+    const popup2 = document.getElementById('popup2');
 
     let highlightedNode = null;
 
+    // Position dropdown above all, slightly narrower than input
+    function updateDropdownPosition() {
+        const inputRect = searchInput.getBoundingClientRect();
+        dropdown.style.top = `${inputRect.bottom + 5}px`;  // 5px below input
+        dropdown.style.left = `${inputRect.left + inputRect.width * 0.05}px`; // slight indent
+        dropdown.style.width = `${inputRect.width * 0.9}px`; // 90% of input width
+    }
+
+    // Update position when input changes or gains focus
+    searchInput.addEventListener('input', updateDropdownPosition);
+    searchInput.addEventListener('focus', updateDropdownPosition);
+
+    // Handle typing/searching
     searchInput.addEventListener('input', function() {
         const searchText = this.value.toLowerCase();
         if (!searchText) {
@@ -1272,33 +1270,45 @@ function setupStrainSearch() {
             return;
         }
 
-        const matchingStrains = nodes.filter(node => 
+        const matchingStrains = nodes.filter(node =>
             !node.name.toLowerCase().includes('unknown') &&
-            (node.name.toLowerCase().includes(searchText) ||
-             (node.product && node.product.toLowerCase().includes(searchText)) ||
-             (node.alsoKnownAs && node.alsoKnownAs.toLowerCase().includes(searchText)))
+            (
+                node.name.toLowerCase().includes(searchText) ||
+                (node.product && node.product.toLowerCase().includes(searchText)) ||
+                (node.alsoKnownAs && node.alsoKnownAs.toLowerCase().includes(searchText))
+            )
         );
 
+        // Clear previous results
         dropdown.innerHTML = '';
+
+        // Populate dropdown
         matchingStrains.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
             const div = document.createElement('div');
-            div.innerHTML = strain.name + 
-                            (strain.product ? `<br>(${strain.product})` : '') + 
+            div.innerHTML = strain.name +
+                            (strain.product ? `<br>(${strain.product})` : '') +
                             (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
+            
             div.addEventListener('click', () => {
+                // Simulate node click instead of highlight arrow
                 const node = g.selectAll('.node').filter(d => d.id === strain.id);
-                if (!node.empty()) node.dispatch('click'); // simulate clicking the node
+                if (!node.empty()) node.dispatch('click');
+
+                // Close dropdown and popup
                 dropdown.style.display = 'none';
                 searchInput.value = '';
-                popup2.style.display = 'none'; // close the popup after selection
+                popup2.style.display = 'none';
             });
+
             dropdown.appendChild(div);
         });
 
-        updateDropdownPosition(); // keep dropdown under input
+        // Update position and show dropdown
+        updateDropdownPosition();
         dropdown.style.display = matchingStrains.length > 0 ? 'block' : 'none';
     });
 
+    // Close dropdown if clicking outside
     document.addEventListener('click', function(event) {
         if (!searchInput.contains(event.target) && !dropdown.contains(event.target)) {
             dropdown.style.display = 'none';
@@ -1306,17 +1316,6 @@ function setupStrainSearch() {
     });
 }
 
-    function zoomToNode(strain) {
-        const transform = d3.zoomTransform(svg.node());
-        const scale = 2;
-        const x = -strain.x * scale + svg.attr('width') / 2;
-        const y = -strain.y * scale + svg.attr('height') / 2;
-
-        svg.transition()
-            .duration(750)
-            .call(d3.zoom().transform, d3.zoomIdentity.translate(x, y).scale(scale));
-    }
-}
 
     
 window.addEventListener('load', function() {
