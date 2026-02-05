@@ -90,16 +90,21 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 /* Dropdown styling */
 /* Popup2 dropdown should flow outside the popup */
 #popup2 #strainDropdown {
-    position: fixed;             /* float above everything */
-    background-color: #fff;
-    border: 1px solid #434343;
+    position: fixed;        /* fixed so it floats over everything */
+    top: 0;
+    left: 0;
+    width: 90%;             /* adjusted dynamically in JS anyway */
+    max-width: 80%;
     max-height: 300px;
     overflow-y: auto;
-    display: none;
-    z-index: 10000;              /* very high so it floats above popup */
+    z-index: 9999;          /* high so it floats above everything */
+    background-color: #fff;
+    border: 1px solid #434343;
     box-shadow: 1px 4px 8px rgba(0,0,0,0.1);
     border-radius: 0 0 4px 4px;
+    display: none;
 }
+
 #popup2 #strainDropdown div {
     padding: 10px 15px;
     cursor: pointer;
@@ -186,15 +191,12 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 
 <div id="popup2" class="popup">
     <button class="close-button">×</button>
-
     <div class="popup2-center">
         <div class="search-container">
             <input type="text" id="strainSearch" placeholder="Go to Strain...">
-            <div id="strainDropdown"></div>
-        </div>
+          </div>
     </div>
-</div>
-
+  <div id="strainDropdown"></div>
 
 
 <!-- About / Welcome Popup -->
@@ -1250,19 +1252,17 @@ function setupStrainSearch() {
 
     let highlightedNode = null;
 
-    // Position dropdown above all, slightly narrower than input
+    // Position dropdown floating above everything
     function updateDropdownPosition() {
         const inputRect = searchInput.getBoundingClientRect();
-        dropdown.style.top = `${inputRect.bottom + 5}px`;  // 5px below input
-        dropdown.style.left = `${inputRect.left + inputRect.width * 0.05}px`; // slight indent
-        dropdown.style.width = `${inputRect.width * 0.9}px`; // 90% of input width
+        dropdown.style.top = `${inputRect.bottom + 5}px`;
+        dropdown.style.left = `${inputRect.left + inputRect.width * 0.05}px`;
+        dropdown.style.width = `${inputRect.width * 0.9}px`;
     }
 
-    // Update position when input changes or gains focus
     searchInput.addEventListener('input', updateDropdownPosition);
     searchInput.addEventListener('focus', updateDropdownPosition);
 
-    // Handle typing/searching
     searchInput.addEventListener('input', function() {
         const searchText = this.value.toLowerCase();
         if (!searchText) {
@@ -1279,31 +1279,22 @@ function setupStrainSearch() {
             )
         );
 
-        // Clear previous results
         dropdown.innerHTML = '';
-
-        // Populate dropdown
         matchingStrains.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
             const div = document.createElement('div');
             div.innerHTML = strain.name +
                             (strain.product ? `<br>(${strain.product})` : '') +
                             (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
-            
             div.addEventListener('click', () => {
-                // Simulate node click instead of highlight arrow
                 const node = g.selectAll('.node').filter(d => d.id === strain.id);
-                if (!node.empty()) node.dispatch('click');
-
-                // Close dropdown and popup
+                if (!node.empty()) node.dispatch('click'); // simulate click
                 dropdown.style.display = 'none';
                 searchInput.value = '';
                 popup2.style.display = 'none';
             });
-
             dropdown.appendChild(div);
         });
 
-        // Update position and show dropdown
         updateDropdownPosition();
         dropdown.style.display = matchingStrains.length > 0 ? 'block' : 'none';
     });
@@ -1315,6 +1306,7 @@ function setupStrainSearch() {
         }
     });
 }
+
 
 
     
