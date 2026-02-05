@@ -1,4 +1,3 @@
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -36,7 +35,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     z-index: 1001;
     display: none;
     flex-direction: column;
-    align-items: center;       /* horizontal centering */
+    align-items: stretch;       /* ??horizontal centering?? */
     justify-content: flex-start; /* align content from top */
     top: 25vh;                 /* 25% from top of viewport */
     left: 50%;
@@ -65,22 +64,24 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 
 /* Search input */
 #popup2 #strainSearch {
-    width: 100%;                  /* 80% of popup via container */
-    padding: 0.3em 0.4em;           /* inner padding for placeholder & text */
+    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.3em 0.81em;
     border: 4px solid #434343;
     border-radius: 70px;
-    font-size: 3em;               /* large text size */
-    font-family: 'Poppins', Arial, sans-serif;
+    font-size: 3em;
+    font-family: 'Roboto', Arial, sans-serif;
     color: #434343;
     background-color: #fff;
     transition: all 0.3s ease;
-    box-sizing: border-box;       /* ensures padding doesn’t exceed width */
+    box-sizing: border-box;
+    caret-color: transparent; /* hide real caret */
 }
 
 /* Placeholder styling */
 #popup2 #strainSearch::placeholder {
     color: #777;
-    padding-left: 0.3em;          /* extra padding inside the input */
 }
 
 /* Focus styling */
@@ -90,21 +91,13 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 }
 
 /* Dropdown styling */
-/* Popup2 dropdown should flow outside the popup */
 #strainDropdown {
-    position: fixed;        /* fixed so it floats over everything */
-    top: 0;
-    left: 0;
-    width: 90%;             /* adjusted dynamically in JS anyway */
-    max-width: 80%;
-    max-height: 300px;
+    position: absolute;
+    background: #fff;
+    border: 2px solid #ccc;
+    max-height: 400px;   /* can scroll if longer than this */
     overflow-y: auto;
-    z-index: 9999;          /* high so it floats above everything */
-    background-color: #f8f8f8;
-    border: 0px solid #434343;
-    box-shadow: 0px 0px 0px 0px rgba(0,0,0,1);
-    border-radius: 0 0 8px 8px;
-    display: none;
+    z-index: 1003;
 }
 
 #strainDropdown div {
@@ -112,7 +105,8 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     cursor: pointer;
     transition: background-color 0.2s;
     color: #434343;
-    font-size: 2.5em;              /* match search box */
+    font-family: 'Roboto', Arial, sans-serif;
+    font-size: 2.5em;             
     line-height: 1.0em;
 }
 #strainDropdown div:hover {
@@ -148,9 +142,23 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 .pct-pill { fill:#000; stroke:#000; stroke-width:0px; }
 .pct-pill-text { fill:#fff; font-size:9px; font-weight:700; pointer-events:none; }
 
-#popup2 { outline: 3px solid red; }
-.search-container { outline: 3px solid blue; }
-#strainSearch { outline: 3px solid green; }
+/* Hide real cursor initially */
+#popup2 #strainSearch.hidden-cursor {
+    caret-color: transparent;
+}
+
+/* Blinking underscore effect */
+@keyframes blinkCursor {
+    0%, 49% { content: "_"; }
+    50%, 100% { content: " "; }
+}
+
+#popup2 #strainSearch::placeholder {
+    color: #777;
+    padding-left: 0em;
+    /* We'll dynamically append the blinking underscore via JS */
+}
+
     
 </style>
 
@@ -200,7 +208,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     <button class="close-button">×</button>
     <div class="popup2-center">
         <div class="search-container">
-            <input type="text" id="strainSearch" placeholder="Go to Strain...">
+            <input type="text" id="strainSearch" placeholder="Go to Strain_">
           </div>
     </div>
  </div>
@@ -1253,31 +1261,56 @@ const blendToWhite = (color, amount) => {
 
 
 
-    
 function setupStrainSearch() {
     const searchInput = document.getElementById('strainSearch');
     const dropdown = document.getElementById('strainDropdown');
     const popup2 = document.getElementById('popup2');
 
+    let blinkInterval = null;
+
     function updateDropdownPosition() {
         const rect = searchInput.getBoundingClientRect();
-        const dropdownWidth = rect.width * 0.9; // slightly narrower than input
+        const dropdownWidth = rect.width * 0.9;
         dropdown.style.width = `${dropdownWidth}px`;
         dropdown.style.top = `${rect.bottom + 5}px`;
-        dropdown.style.left = `${rect.left + rect.width / 2 - dropdownWidth / 2}px`; // center
+        dropdown.style.left = `${rect.left + rect.width / 2 - dropdownWidth / 2}px`;
     }
 
-    searchInput.addEventListener('focus', updateDropdownPosition);
+    function startBlinking() {
+        if (blinkInterval) clearInterval(blinkInterval);
+
+        blinkInterval = setInterval(() => {
+            let val = searchInput.value;
+            if (!val) val = ''; // placeholder will show automatically
+
+            searchInput.value = val.replace(/_$/, '') + '_';
+        }, 500);
+    }
+
+    function stopBlinking() {
+        if (blinkInterval) clearInterval(blinkInterval);
+        searchInput.value = searchInput.value.replace(/_$/, '');
+    }
+
+    searchInput.addEventListener('focus', () => {
+        startBlinking();
+        updateDropdownPosition();
+    });
+
+    searchInput.addEventListener('blur', () => {
+        stopBlinking();
+    });
 
     searchInput.addEventListener('input', function() {
+        // Remove underscore before filtering
+        this.value = this.value.replace(/_$/, '');
+        updateDropdownPosition();
+
         const searchText = this.value.toLowerCase();
         if (!searchText) {
             dropdown.style.display = 'none';
             return;
         }
-
-        // set width/position first to avoid jump
-        updateDropdownPosition();
 
         const matches = nodes.filter(n =>
             !n.name.toLowerCase().includes('unknown') &&
@@ -1286,7 +1319,7 @@ function setupStrainSearch() {
              (n.alsoKnownAs && n.alsoKnownAs.toLowerCase().includes(searchText)))
         );
 
-        dropdown.innerHTML = ''; // clear existing items
+        dropdown.innerHTML = '';
 
         matches.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
             const div = document.createElement('div');
@@ -1296,22 +1329,31 @@ function setupStrainSearch() {
             div.addEventListener('click', () => {
                 const node = g.selectAll('.node').filter(d => d.id === strain.id);
                 if (!node.empty()) node.dispatch('click');
+
                 dropdown.style.display = 'none';
                 searchInput.value = '';
                 popup2.style.display = 'none';
+                document.querySelector('.popup-overlay').style.display = 'none'; 
             });
+
             dropdown.appendChild(div);
         });
 
         dropdown.style.display = matches.length > 0 ? 'block' : 'none';
     });
 
+    // Click outside closes dropdown
     document.addEventListener('click', e => {
         if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
             dropdown.style.display = 'none';
         }
     });
 }
+
+// Initialize
+setupStrainSearch();
+
+
 
 
 
@@ -1359,6 +1401,13 @@ window.addEventListener('load', function() {
         hidePopup(popup3);
         showPopup(popup2);
     });
+    // --- Close popup2 ---
+    const popup2Close = popup2.querySelector('.close-button');
+        if (popup2Close) {
+           popup2Close.addEventListener('click', () => {
+           hidePopup(popup2);
+      });
+    }
 
     // --- Overlay click ---
     overlay.addEventListener('click', (e) => {
