@@ -72,42 +72,43 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     border: 4px solid #434343;
     border-radius: 70px;
     font-size: 3em;
-    font-family: 'Roboto', Arial, sans-serif;
-    color: #434343;
-    background-color: #fff; /* fully solid */
+    font-family: 'Roboto', monospace; /* monospace for terminal effect */
+    color: transparent; /* hide real text until typing */
     caret-color: transparent; /* hide real caret */
+    background-color: #fff; /* search box stays solid */
     box-sizing: border-box;
     z-index: 1;
     position: relative;
 }
 
-terminal-cursor {
+/* Fake terminal cursor */
+.terminal-cursor {
     position: absolute;
     font-family: 'Roboto', monospace;
     font-size: 3em;
     color: black;
+    pointer-events: none;
     top: 50%;
     transform: translateY(-50%);
-    pointer-events: none;
     animation: blink 1s step-start infinite;
-    z-index: 2; /* above input */
 }
 
-/* Cursor blinking animation */
+/* Blink animation */
 @keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
+    50% { opacity: 0; }
 }
 
-/* Dropdown styling */
+/* Dropdown scrolling */
 #strainDropdown {
+    max-height: 300px; /* adjust if needed */
+    overflow-y: auto;
     position: absolute;
     background: #fff;
     border: 2px solid #ccc;
-    max-height: 400px;
-    overflow-y: auto;
     z-index: 1003;
 }
+
+
 
 /* Placeholder styling */
 #popup2 #strainSearch::placeholder {
@@ -233,17 +234,17 @@ terminal-cursor {
 <div id="popup1" class="popup">
     <div id="strainList" class="strain-list"></div>
 </div>
-
+    
 <div id="popup2" class="popup">
     <button class="close-button">×</button>
     <div class="popup2-center">
         <div class="search-container" style="position: relative;">
             <input type="text" id="strainSearch" placeholder="Go to Strain">
             <span id="fakeCursor" class="terminal-cursor"></span>
+            <div id="strainDropdown"></div>
         </div>
     </div>
- </div>
-
+</div>
 
 <!-- About / Welcome Popup -->
 <div id="popup3" class="popup">
@@ -1302,7 +1303,7 @@ function setupStrainSearch() {
         const text = searchInput.value || searchInput.placeholder;
         fakeCursor.textContent = text + '_';
 
-        // Measure width of text to position cursor
+        // Measure text width to position cursor
         const tempSpan = document.createElement('span');
         tempSpan.style.visibility = 'hidden';
         tempSpan.style.position = 'absolute';
@@ -1314,35 +1315,35 @@ function setupStrainSearch() {
         document.body.removeChild(tempSpan);
 
         fakeCursor.style.left = `${searchInput.offsetLeft + textWidth + 5}px`;
+
+        // Reveal real text when typing starts
+        searchInput.style.color = searchInput.value.length > 0 ? '#434343' : 'transparent';
     }
 
-    searchInput.addEventListener('input', updateCursor);
-    searchInput.addEventListener('focus', updateCursor);
-    searchInput.addEventListener('blur', () => {
-        fakeCursor.textContent = '';
-    });
-
-    // Dropdown positioning
     function updateDropdownPosition() {
         const rect = searchInput.getBoundingClientRect();
-        const dropdownWidth = rect.width * 0.9;
+        const dropdownWidth = rect.width;
         dropdown.style.width = `${dropdownWidth}px`;
         dropdown.style.top = `${rect.bottom + 5}px`;
-        dropdown.style.left = `${rect.left + rect.width / 2 - dropdownWidth / 2}px`;
+        dropdown.style.left = `${rect.left}px`;
     }
 
-    searchInput.addEventListener('focus', updateDropdownPosition);
+    searchInput.addEventListener('focus', () => {
+        updateCursor();
+        updateDropdownPosition();
+    });
 
     searchInput.addEventListener('input', function() {
         const searchText = this.value.toLowerCase();
+        updateCursor();
+        updateDropdownPosition();
+
         if (!searchText) {
             dropdown.style.display = 'none';
-            updateCursor();
             return;
         }
 
-        updateDropdownPosition();
-
+        // Filter nodes (replace with your actual nodes array)
         const matches = nodes.filter(n =>
             !n.name.toLowerCase().includes('unknown') &&
             (n.name.toLowerCase().includes(searchText) ||
@@ -1352,7 +1353,7 @@ function setupStrainSearch() {
 
         dropdown.innerHTML = '';
 
-        matches.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
+        matches.sort((a, b) => a.name.localeCompare(b.name)).forEach(strain => {
             const div = document.createElement('div');
             div.innerHTML = strain.name +
                             (strain.product ? `<br>(${strain.product})` : '') +
@@ -1365,26 +1366,30 @@ function setupStrainSearch() {
                 searchInput.value = '';
                 fakeCursor.textContent = '';
                 popup2.style.display = 'none';
-                document.querySelector('.popup-overlay').style.display = 'none'; 
+                document.querySelector('.popup-overlay').style.display = 'none';
             });
-
             dropdown.appendChild(div);
         });
 
-        dropdown.style.display = matches.length > 0 ? 'block' : 'none';
-        updateCursor();
+        dropdown.style.display = matches.length ? 'block' : 'none';
     });
-    // Initial render
-updateCursor();
 
-// Keep cursor updating while typing
-searchInput.addEventListener('keydown', updateCursor);
-searchInput.addEventListener('keyup', updateCursor);
-searchInput.addEventListener('focus', updateCursor);
-searchInput.addEventListener('blur', () => {
-    fakeCursor.textContent = '';
-});
+    document.addEventListener('click', e => {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    // Keep cursor updating while typing
+    ['keydown', 'keyup', 'focus'].forEach(ev =>
+        searchInput.addEventListener(ev, updateCursor)
+    );
+    searchInput.addEventListener('blur', () => { fakeCursor.textContent = ''; });
+
+    // Initial render
+    updateCursor();
 }
+
 setupStrainSearch();
 
 
