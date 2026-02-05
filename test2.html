@@ -31,8 +31,8 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 #popup2 {
     padding: 20px;
     width: 60vw;                  /* 60% of viewport width */
-    min-width: 400px;             /* optional minimum width */
-    max-width: 800px;             /* optional maximum width */
+    /*min-width: 400px;             /* optional minimum width */
+    /*max-width: 800px;             /* optional maximum width */
     z-index: 1001;
     display: flex;
     flex-direction: column;
@@ -54,7 +54,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 #popup2 .search-container {
     position: relative;
     width: 80%;                   /* container width relative to popup */
-    max-width: 700px;             /* optional max width */
+    /*max-width: 700px;             /* optional max width */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -88,20 +88,18 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 }
 
 /* Dropdown styling */
+/* Popup2 dropdown should flow outside the popup */
 #popup2 #strainDropdown {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90%;                   /* slightly narrower than input */
-    max-width: 600px;             /* optional max width */
+    position: fixed;               /* change from absolute to fixed */
     background-color: #fff;
     border: 1px solid #434343;
     border-radius: 0 0 10px 10px;
     max-height: 300px;
     overflow-y: auto;
-    z-index: 1003;
+    width: 90%;                    /* slightly narrower than input */
+    max-width: 600px;
     box-shadow: 1px 4px 8px rgba(0,0,0,0.1);
+    z-index: 2000;                 /* higher than popup */
     display: none;
 }
 
@@ -1254,40 +1252,50 @@ const blendToWhite = (color, amount) => {
 function setupStrainSearch() {
     const searchInput = document.getElementById('strainSearch');
     const dropdown = document.getElementById('strainDropdown');
+
+    function updateDropdownPosition() {
+        const inputRect = searchInput.getBoundingClientRect();
+        dropdown.style.top = `${inputRect.bottom + 5}px`;   // 5px below the input
+        dropdown.style.left = `${inputRect.left}px`;        // align left edge
+        dropdown.style.width = `${inputRect.width * 0.9}px`; // slightly narrower than input
+    }
+
+    searchInput.addEventListener('input', updateDropdownPosition);
+    searchInput.addEventListener('focus', updateDropdownPosition);
+
     let highlightedNode = null;
 
     searchInput.addEventListener('input', function() {
         const searchText = this.value.toLowerCase();
-        if (searchText.length === 0) {
+        if (!searchText) {
             dropdown.style.display = 'none';
             return;
         }
 
         const matchingStrains = nodes.filter(node => 
-            !node.name.toLowerCase().includes('unknown') && (
-                node.name.toLowerCase().includes(searchText) ||
-                (node.product && node.product.toLowerCase().includes(searchText)) ||
-                (node.alsoKnownAs && node.alsoKnownAs.toLowerCase().includes(searchText))
-            )
+            !node.name.toLowerCase().includes('unknown') &&
+            (node.name.toLowerCase().includes(searchText) ||
+             (node.product && node.product.toLowerCase().includes(searchText)) ||
+             (node.alsoKnownAs && node.alsoKnownAs.toLowerCase().includes(searchText)))
         );
 
         dropdown.innerHTML = '';
-        matchingStrains.sort((a, b) => a.name.localeCompare(b.name)).forEach(strain => {
+        matchingStrains.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
             const div = document.createElement('div');
             div.innerHTML = strain.name + 
                             (strain.product ? `<br>(${strain.product})` : '') + 
                             (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
             div.addEventListener('click', () => {
                 const node = g.selectAll('.node').filter(d => d.id === strain.id);
-                    if (!node.empty()) {
-                        node.dispatch('click');
-                    }
+                if (!node.empty()) node.dispatch('click'); // simulate clicking the node
                 dropdown.style.display = 'none';
                 searchInput.value = '';
+                popup2.style.display = 'none'; // close the popup after selection
             });
             dropdown.appendChild(div);
         });
 
+        updateDropdownPosition(); // keep dropdown under input
         dropdown.style.display = matchingStrains.length > 0 ? 'block' : 'none';
     });
 
@@ -1296,6 +1304,7 @@ function setupStrainSearch() {
             dropdown.style.display = 'none';
         }
     });
+
 
     function zoomToNode(strain) {
         const transform = d3.zoomTransform(svg.node());
