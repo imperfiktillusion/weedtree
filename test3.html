@@ -125,67 +125,60 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 
 #popup3 { padding:20px; z-index: 1002}
 #loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
-/* Container for fullscreen & zoom buttons */
+/* Fullscreen & zoom container (absolute as original) */
 .fullscreen-button-container {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem; /* consistent spacing */
-    position: fixed; /* fixed to viewport for stability */
-    top: 4rem; /* will adjust on small screens via media queries */
-    right: 1rem;
+    gap: 0.5rem;
+    position: absolute; /* keep JS positioning working */
+    top: 70px; /* original default, JS adjusts based on ribbon */
+    right: 10px;
     z-index: 997;
-    max-width: 180px; /* prevents excessive stretching */
-    width: 90%; /* scales down on very small screens */
+    width: 150px; /* fixed width prevents crazy stretching */
 }
 
-/* All buttons in this container */
+/* All buttons in the container */
 .fullscreen-button-container button {
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Poppins', Arial, sans-serif;
-    font-weight: 500;
-    font-size: 1rem; /* stable base font size */
-    padding: 0.5rem 0.8rem;
+    font-size: 1rem; /* stable font size */
+    padding: 0.4rem 0.6rem;
     border: 2px solid #cccccc;
     background-color: white;
     color: #434343;
     cursor: pointer;
     transition: all 0.3s ease;
-    border-radius: 4px; /* small rounded corners for uniformity */
-    min-width: 60px; /* ensures buttons don't shrink too much */
+    border-radius: 4px;
+    min-width: 50px;
+    box-sizing: border-box;
 }
 
-/* Hover effect */
-.fullscreen-button-container button:hover {
-    background-color: #f0f0f0;
-}
-
-/* Zoom buttons container (inside fullscreen container) */
+/* Zoom buttons */
 .zoom-button-container {
     display: flex;
+    width: 100%;
     gap: 0.5rem;
-    width: 100%; /* fills parent container */
 }
 
-/* Individual zoom buttons */
 .zoom-button-container button {
     flex: 1; /* equal width */
-    padding: 0.5rem 0;
     font-size: 1.1rem;
     font-weight: bold;
+    padding: 0.4rem 0;
     border-radius: 4px;
 }
 
-/* Optional: subtle separation for +/- buttons */
+/* Optional subtle separation for zoom buttons */
 #zoomInButton { border-right: 1px solid #cccccc; }
 #zoomOutButton { border-left: 1px solid #cccccc; }
 
-/* Close button (top-right X) */
+/* Close button (absolute) */
 .close-button {
-    position: fixed; /* stays in viewport */
-    top: 1rem;
-    right: 1rem;
+    position: absolute; /* keeps top/right JS logic */
+    top: 15px;
+    right: 15px;
     width: 40px;
     height: 40px;
     border: none;
@@ -204,18 +197,18 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 /* Media queries for small screens */
 @media (max-width: 600px) {
     .fullscreen-button-container {
-        top: 3rem;
-        max-width: 140px;
+        width: 120px;
+        gap: 0.4rem;
     }
 
     .fullscreen-button-container button {
         font-size: 0.9rem;
-        padding: 0.4rem 0.6rem;
+        padding: 0.3rem 0.5rem;
     }
 
     .zoom-button-container button {
         font-size: 1rem;
-        padding: 0.4rem 0;
+        padding: 0.3rem 0;
     }
 
     .close-button {
@@ -224,6 +217,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
         font-size: 1.2rem;
     }
 }
+
 
 .chart-container { flex-grow:1; width:100%; overflow:hidden; }
 #lineageChart { width:100%; height:100%; }
