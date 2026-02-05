@@ -1206,22 +1206,24 @@ function setupStrainSearch() {
         dropdown.style.display = matchingStrains.length > 0 ? 'block' : 'none';
     });
 
-    document.addEventListener('click', function(event) {
-        if (!searchInput.contains(event.target) && !dropdown.contains(event.target)) {
+        div.addEventListener('click', () => {
+            const node = g.selectAll('.node').filter(d => d.id === strain.id);
+            if (!node.empty()) {
+                node.dispatch('click'); // same as clicking the node
+            }
+        
+            // Close the dropdown and reset input
             dropdown.style.display = 'none';
-        }
-    });
+            searchInput.value = '';
+        
+            // Close popup2 and overlay
+            const popup2 = document.getElementById('popup2');
+            const overlay = document.querySelector('.popup-overlay');
+            if (popup2) popup2.style.display = 'none';
+            if (overlay) overlay.style.display = 'none';
+        });
 
-    function zoomToNode(strain) {
-        const transform = d3.zoomTransform(svg.node());
-        const scale = 2;
-        const x = -strain.x * scale + svg.attr('width') / 2;
-        const y = -strain.y * scale + svg.attr('height') / 2;
-
-        svg.transition()
-            .duration(750)
-            .call(d3.zoom().transform, d3.zoomIdentity.translate(x, y).scale(scale));
-    }
+    //zoom was here
 }
 
     
