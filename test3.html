@@ -125,15 +125,106 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 
 #popup3 { padding:20px; z-index: 1002}
 #loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
-.container { height:calc(100vh - 50px); display:flex; flex-direction:column; }
-.close-button { position:absolute; top:15px; right:15px; width:40px; height:40px; border:none; background:#434343; color:white; border-radius:50%; font-size:40px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color 0.3s; }
-.close-button:hover { background-color:#666; }
-.fullscreen-button-container { display:flex; flex-direction:column; gap:5px; position:absolute; top:70px; right:10px; z-index:997; }
-.fullscreen-button-container button { width:100%; padding:3px 5px; border:2px solid #cccccc; border-radius:0; cursor:pointer; font-size:0.3em; font-family:'Poppins', Arial, sans-serif; transition:all 0.3s ease; color:#cccccc; background-color:white; }
-.zoom-button-container { display:flex; width:100%; gap:5px; }
-#zoomInButton, #zoomOutButton { flex:1; padding:0px 5px; font-size:16px; font-weight:bold; }
-#zoomInButton { border-right:2px solid #cccccc; border-top-right-radius:0; border-bottom-right-radius:0; }
-#zoomOutButton { border-left:2px solid #cccccc; border-top-left-radius:0; border-bottom-left-radius:0; }
+/* Container for fullscreen & zoom buttons */
+.fullscreen-button-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* consistent spacing */
+    position: fixed; /* fixed to viewport for stability */
+    top: 4rem; /* will adjust on small screens via media queries */
+    right: 1rem;
+    z-index: 997;
+    max-width: 180px; /* prevents excessive stretching */
+    width: 90%; /* scales down on very small screens */
+}
+
+/* All buttons in this container */
+.fullscreen-button-container button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', Arial, sans-serif;
+    font-weight: 500;
+    font-size: 1rem; /* stable base font size */
+    padding: 0.5rem 0.8rem;
+    border: 2px solid #cccccc;
+    background-color: white;
+    color: #434343;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 4px; /* small rounded corners for uniformity */
+    min-width: 60px; /* ensures buttons don't shrink too much */
+}
+
+/* Hover effect */
+.fullscreen-button-container button:hover {
+    background-color: #f0f0f0;
+}
+
+/* Zoom buttons container (inside fullscreen container) */
+.zoom-button-container {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%; /* fills parent container */
+}
+
+/* Individual zoom buttons */
+.zoom-button-container button {
+    flex: 1; /* equal width */
+    padding: 0.5rem 0;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+/* Optional: subtle separation for +/- buttons */
+#zoomInButton { border-right: 1px solid #cccccc; }
+#zoomOutButton { border-left: 1px solid #cccccc; }
+
+/* Close button (top-right X) */
+.close-button {
+    position: fixed; /* stays in viewport */
+    top: 1rem;
+    right: 1rem;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: #434343;
+    color: white;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.close-button:hover { background-color: #666; }
+
+/* Media queries for small screens */
+@media (max-width: 600px) {
+    .fullscreen-button-container {
+        top: 3rem;
+        max-width: 140px;
+    }
+
+    .fullscreen-button-container button {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.6rem;
+    }
+
+    .zoom-button-container button {
+        font-size: 1rem;
+        padding: 0.4rem 0;
+    }
+
+    .close-button {
+        width: 35px;
+        height: 35px;
+        font-size: 1.2rem;
+    }
+}
+
 .chart-container { flex-grow:1; width:100%; overflow:hidden; }
 #lineageChart { width:100%; height:100%; }
 .node { transition: transform 0.0s ease; }
