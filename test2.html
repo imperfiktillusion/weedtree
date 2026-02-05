@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1297,10 +1298,13 @@ function setupStrainSearch() {
             div.addEventListener('click', () => {
                 const node = g.selectAll('.node').filter(d => d.id === strain.id);
                 if (!node.empty()) node.dispatch('click');
+                
                 dropdown.style.display = 'none';
                 searchInput.value = '';
                 popup2.style.display = 'none';
+                document.querySelector('.popup-overlay').style.display = 'none'; 
             });
+
             dropdown.appendChild(div);
         });
 
