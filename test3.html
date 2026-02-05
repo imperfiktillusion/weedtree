@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -125,98 +126,65 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 
 #popup3 { padding:20px; z-index: 1002}
 #loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
-/* Fullscreen & zoom container (absolute as original) */
+/* Keep your container absolute as-is */
 .fullscreen-button-container {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    position: absolute; /* keep JS positioning working */
-    top: 70px; /* original default, JS adjusts based on ribbon */
-    right: 10px;
+    gap: 0.3rem;
+    position: absolute; /* MUST stay absolute */
+    right: 10px; /* top set by JS */
     z-index: 997;
-    width: 150px; /* fixed width prevents crazy stretching */
 }
 
-/* All buttons in the container */
+/* Buttons inside container */
 .fullscreen-button-container button {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Poppins', Arial, sans-serif;
-    font-size: 1rem; /* stable font size */
-    padding: 0.4rem 0.6rem;
+    padding: 0.4em 0.6em; /* relative to font-size */
+    font-size: 0.9em;      /* small relative font, can scale via JS */
     border: 2px solid #cccccc;
-    background-color: white;
+    border-radius: 0.25em;
+    background: white;
     color: #434343;
     cursor: pointer;
     transition: all 0.3s ease;
-    border-radius: 4px;
-    min-width: 50px;
     box-sizing: border-box;
 }
 
-/* Zoom buttons */
+/* Zoom buttons equal width */
 .zoom-button-container {
     display: flex;
     width: 100%;
-    gap: 0.5rem;
+    gap: 0.3rem;
 }
 
 .zoom-button-container button {
-    flex: 1; /* equal width */
-    font-size: 1.1rem;
+    flex: 1;
     font-weight: bold;
-    padding: 0.4rem 0;
-    border-radius: 4px;
 }
 
-/* Optional subtle separation for zoom buttons */
-#zoomInButton { border-right: 1px solid #cccccc; }
-#zoomOutButton { border-left: 1px solid #cccccc; }
-
-/* Close button (absolute) */
+/* Close button stays absolute */
 .close-button {
-    position: absolute; /* keeps top/right JS logic */
+    position: absolute;
     top: 15px;
     right: 15px;
     width: 40px;
     height: 40px;
-    border: none;
+    border-radius: 50%;
+    font-size: 1.5em;
     background: #434343;
     color: white;
-    border-radius: 50%;
-    font-size: 1.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
+    border: none;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background 0.3s;
 }
+
 .close-button:hover { background-color: #666; }
 
-/* Media queries for small screens */
-@media (max-width: 600px) {
-    .fullscreen-button-container {
-        width: 120px;
-        gap: 0.4rem;
-    }
-
-    .fullscreen-button-container button {
-        font-size: 0.9rem;
-        padding: 0.3rem 0.5rem;
-    }
-
-    .zoom-button-container button {
-        font-size: 1rem;
-        padding: 0.3rem 0;
-    }
-
-    .close-button {
-        width: 35px;
-        height: 35px;
-        font-size: 1.2rem;
-    }
-}
 
 
 .chart-container { flex-grow:1; width:100%; overflow:hidden; }
