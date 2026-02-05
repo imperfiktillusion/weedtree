@@ -1281,60 +1281,40 @@ function setupStrainSearch() {
     const dropdown = document.getElementById('strainDropdown');
     const popup2 = document.getElementById('popup2');
 
-    // ----- Blinking underscore logic -----
-    let blinkInterval;
-    const baseText = "Go to Strain";
-    let showingUnderscore = true;
+    let blinkInterval = null;
+
+    function updateDropdownPosition() {
+        const rect = searchInput.getBoundingClientRect();
+        const dropdownWidth = rect.width * 0.9; // slightly narrower than input
+        dropdown.style.width = `${dropdownWidth}px`;
+        dropdown.style.top = `${rect.bottom + 5}px`;
+        dropdown.style.left = `${rect.left + rect.width / 2 - dropdownWidth / 2}px`; // center
+    }
 
     function startBlinking() {
-        searchInput.classList.add('hidden-cursor'); // hide cursor immediately
-        searchInput.placeholder = baseText + "_";   // initial underscore
+        if (blinkInterval) clearInterval(blinkInterval);
+
         blinkInterval = setInterval(() => {
-            searchInput.placeholder = showingUnderscore ? baseText + "_" : baseText + " ";
-            showingUnderscore = !showingUnderscore;
+            const val = searchInput.value.replace(/_$/, ''); // remove trailing underscore
+            searchInput.value = val + (searchInput.value.endsWith('_') ? '' : '_');
         }, 500);
     }
 
-    function stopBlinking() {
-        clearInterval(blinkInterval);
-        searchInput.placeholder = baseText;
-        searchInput.classList.remove('hidden-cursor'); // show real cursor
-    }
-
-    // start blinking immediately on load
-    startBlinking();
-
-    // stop blinking when user types
-    searchInput.addEventListener('input', () => {
-        if (searchInput.value.length > 0) stopBlinking();
-    });
-
-    // Also hide cursor immediately on focus
     searchInput.addEventListener('focus', () => {
-        if (searchInput.value.length === 0) {
-            searchInput.classList.add('hidden-cursor');
-        }
+        updateDropdownPosition();
+        startBlinking();
     });
-
-    // ----- Original dropdown logic -----
-    function updateDropdownPosition() {
-        const rect = searchInput.getBoundingClientRect();
-        const dropdownWidth = rect.width * 0.9;
-        dropdown.style.width = `${dropdownWidth}px`;
-        dropdown.style.top = `${rect.bottom + 5}px`;
-        dropdown.style.left = `${rect.left + rect.width / 2 - dropdownWidth / 2}px`;
-    }
-
-    searchInput.addEventListener('focus', updateDropdownPosition);
 
     searchInput.addEventListener('input', function() {
+        // remove any existing trailing underscore so we don't double it
+        this.value = this.value.replace(/_$/, '');
+        updateDropdownPosition();
+
         const searchText = this.value.toLowerCase();
         if (!searchText) {
             dropdown.style.display = 'none';
             return;
         }
-
-        updateDropdownPosition();
 
         const matches = nodes.filter(n =>
             !n.name.toLowerCase().includes('unknown') &&
@@ -1357,10 +1337,7 @@ function setupStrainSearch() {
                 dropdown.style.display = 'none';
                 searchInput.value = '';
                 popup2.style.display = 'none';
-                document.querySelector('.popup-overlay').style.display = 'none';
-
-                // reset blinking for next open
-                startBlinking();
+                document.querySelector('.popup-overlay').style.display = 'none'; 
             });
 
             dropdown.appendChild(div);
@@ -1375,6 +1352,10 @@ function setupStrainSearch() {
         }
     });
 }
+
+// Initialize
+setupStrainSearch();
+
 
 
 
