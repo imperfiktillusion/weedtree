@@ -89,7 +89,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 
 /* Dropdown styling */
 /* Popup2 dropdown should flow outside the popup */
-#popup2 #strainDropdown {
+#strainDropdown {
     position: fixed;        /* fixed so it floats over everything */
     top: 0;
     left: 0;
@@ -105,7 +105,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     display: none;
 }
 
-#popup2 #strainDropdown div {
+#strainDropdown div {
     padding: 10px 15px;
     cursor: pointer;
     transition: background-color 0.2s;
@@ -113,7 +113,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     font-size: 3em;              /* match search box */
     line-height: 1.2em;
 }
-#popup2 #strainDropdown div:hover {
+#strainDropdown div:hover {
     background-color: #f0f0f0;
 }
 
@@ -1249,19 +1249,16 @@ const blendToWhite = (color, amount) => {
 function setupStrainSearch() {
     const searchInput = document.getElementById('strainSearch');
     const dropdown = document.getElementById('strainDropdown');
-    const popup2 = document.getElementById('popup2');
-
-    let highlightedNode = null;
 
     function updateDropdownPosition() {
         const rect = searchInput.getBoundingClientRect();
-        dropdown.style.top = `${rect.bottom + 5}px`;
-        dropdown.style.left = `${rect.left + rect.width * 0.05}px`; // slightly inset
-        dropdown.style.width = `${rect.width * 0.9}px`;              // slightly narrower than input
+        dropdown.style.top = `${rect.bottom + 5}px`;       // 5px below input
+        dropdown.style.left = `${rect.left}px`;
+        dropdown.style.width = `${rect.width * 0.9}px`;    // slightly narrower
     }
 
-    searchInput.addEventListener('focus', updateDropdownPosition);
     searchInput.addEventListener('input', updateDropdownPosition);
+    searchInput.addEventListener('focus', updateDropdownPosition);
 
     searchInput.addEventListener('input', function() {
         const searchText = this.value.toLowerCase();
@@ -1270,25 +1267,25 @@ function setupStrainSearch() {
             return;
         }
 
-        const matches = nodes.filter(node =>
-            !node.name.toLowerCase().includes('unknown') &&
-            (
-                node.name.toLowerCase().includes(searchText) ||
-                (node.product && node.product.toLowerCase().includes(searchText)) ||
-                (node.alsoKnownAs && node.alsoKnownAs.toLowerCase().includes(searchText))
-            )
+        const matches = nodes.filter(n =>
+            !n.name.toLowerCase().includes('unknown') &&
+            (n.name.toLowerCase().includes(searchText) ||
+             (n.product && n.product.toLowerCase().includes(searchText)) ||
+             (n.alsoKnownAs && n.alsoKnownAs.toLowerCase().includes(searchText)))
         );
 
         dropdown.innerHTML = '';
         matches.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
             const div = document.createElement('div');
-            div.innerHTML = strain.name + (strain.product ? `<br>(${strain.product})` : '') + (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
+            div.innerHTML = strain.name + 
+                            (strain.product ? `<br>(${strain.product})` : '') + 
+                            (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
             div.addEventListener('click', () => {
                 const node = g.selectAll('.node').filter(d => d.id === strain.id);
-                if (!node.empty()) node.dispatch('click');   // simulate node click
+                if (!node.empty()) node.dispatch('click'); // simulate click
                 dropdown.style.display = 'none';
                 searchInput.value = '';
-                popup2.style.display = 'none';              // close popup after selection
+                document.getElementById('popup2').style.display = 'none'; // close popup2
             });
             dropdown.appendChild(div);
         });
@@ -1297,12 +1294,13 @@ function setupStrainSearch() {
         dropdown.style.display = matches.length > 0 ? 'block' : 'none';
     });
 
-    document.addEventListener('click', function(event) {
-        if (!searchInput.contains(event.target) && !dropdown.contains(event.target)) {
+    document.addEventListener('click', e => {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
             dropdown.style.display = 'none';
         }
     });
 }
+
 
 
 
