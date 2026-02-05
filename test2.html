@@ -1249,16 +1249,18 @@ const blendToWhite = (color, amount) => {
 function setupStrainSearch() {
     const searchInput = document.getElementById('strainSearch');
     const dropdown = document.getElementById('strainDropdown');
+    const popup2 = document.getElementById('popup2');
 
-   function updateDropdownPosition() {
-    const rect = searchInput.getBoundingClientRect();
-    dropdown.style.top = `${rect.bottom + 5}px`; // 5px below input
-    dropdown.style.width = `${rect.width * 0.9}px`; // slightly narrower than input
-    dropdown.style.left = `${rect.left + rect.width/2 - dropdown.offsetWidth/2}px`; // center under input
-}
+    // Position the dropdown under the input, centered
+    function updateDropdownPosition() {
+        const rect = searchInput.getBoundingClientRect();
+        dropdown.style.width = `${rect.width * 0.9}px`;         // set width first
+        const dropdownWidth = dropdown.offsetWidth;             // now width is correct
+        dropdown.style.top = `${rect.bottom + 5}px`;           // 5px below input
+        dropdown.style.left = `${rect.left + rect.width / 2 - dropdownWidth / 2}px`; // center
+    }
 
-
-    searchInput.addEventListener('input', updateDropdownPosition);
+    // Keep dropdown positioned on input/focus
     searchInput.addEventListener('focus', updateDropdownPosition);
 
     searchInput.addEventListener('input', function() {
@@ -1278,23 +1280,25 @@ function setupStrainSearch() {
         dropdown.innerHTML = '';
         matches.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
             const div = document.createElement('div');
-            div.innerHTML = strain.name + 
-                            (strain.product ? `<br>(${strain.product})` : '') + 
+            div.innerHTML = strain.name +
+                            (strain.product ? `<br>(${strain.product})` : '') +
                             (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
             div.addEventListener('click', () => {
                 const node = g.selectAll('.node').filter(d => d.id === strain.id);
                 if (!node.empty()) node.dispatch('click'); // simulate click
                 dropdown.style.display = 'none';
                 searchInput.value = '';
-                document.getElementById('popup2').style.display = 'none'; // close popup2
+                popup2.style.display = 'none'; // close popup2
             });
             dropdown.appendChild(div);
         });
 
+        // Position AFTER all content exists
         updateDropdownPosition();
         dropdown.style.display = matches.length > 0 ? 'block' : 'none';
     });
 
+    // Close dropdown if click outside input/dropdown
     document.addEventListener('click', e => {
         if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
             dropdown.style.display = 'none';
