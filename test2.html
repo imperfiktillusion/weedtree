@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -79,6 +80,10 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     box-sizing: border-box;       /* ensures padding doesn’t exceed width */
 }
 
+#popup2 #strainSearch.hidden-cursor {
+    caret-color: transparent !important; /* force hide caret */
+}
+    
 /* Placeholder styling */
 #popup2 #strainSearch::placeholder {
     color: #777;
@@ -1277,16 +1282,17 @@ function setupStrainSearch() {
     const popup2 = document.getElementById('popup2');
 
     // ----- Blinking underscore logic -----
-    searchInput.classList.add('hidden-cursor'); // hide real cursor initially
     let blinkInterval;
     const baseText = "Go to Strain";
     let showingUnderscore = true;
 
     function startBlinking() {
+        searchInput.classList.add('hidden-cursor'); // hide cursor immediately
+        searchInput.placeholder = baseText + "_";   // initial underscore
         blinkInterval = setInterval(() => {
             searchInput.placeholder = showingUnderscore ? baseText + "_" : baseText + " ";
             showingUnderscore = !showingUnderscore;
-        }, 500); // 500ms blink
+        }, 500);
     }
 
     function stopBlinking() {
@@ -1295,19 +1301,28 @@ function setupStrainSearch() {
         searchInput.classList.remove('hidden-cursor'); // show real cursor
     }
 
+    // start blinking immediately on load
     startBlinking();
 
+    // stop blinking when user types
     searchInput.addEventListener('input', () => {
         if (searchInput.value.length > 0) stopBlinking();
+    });
+
+    // Also hide cursor immediately on focus
+    searchInput.addEventListener('focus', () => {
+        if (searchInput.value.length === 0) {
+            searchInput.classList.add('hidden-cursor');
+        }
     });
 
     // ----- Original dropdown logic -----
     function updateDropdownPosition() {
         const rect = searchInput.getBoundingClientRect();
-        const dropdownWidth = rect.width * 0.9; // slightly narrower than input
+        const dropdownWidth = rect.width * 0.9;
         dropdown.style.width = `${dropdownWidth}px`;
         dropdown.style.top = `${rect.bottom + 5}px`;
-        dropdown.style.left = `${rect.left + rect.width / 2 - dropdownWidth / 2}px`; // center
+        dropdown.style.left = `${rect.left + rect.width / 2 - dropdownWidth / 2}px`;
     }
 
     searchInput.addEventListener('focus', updateDropdownPosition);
@@ -1343,9 +1358,8 @@ function setupStrainSearch() {
                 searchInput.value = '';
                 popup2.style.display = 'none';
                 document.querySelector('.popup-overlay').style.display = 'none';
-                
-                // reset blinking if reopened
-                searchInput.classList.add('hidden-cursor');
+
+                // reset blinking for next open
                 startBlinking();
             });
 
@@ -1361,6 +1375,7 @@ function setupStrainSearch() {
         }
     });
 }
+
 
 
 
