@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1329,13 +1331,13 @@ function setupStrainSearch() {
     const input = document.getElementById('strainSearch');
     const cursor = document.getElementById('fakeCursor');
     const dropdown = document.getElementById('strainDropdown');
-    const popup2 = document.getElementById('popup2');
 
     function updateCursor() {
-        const text = input.value || input.placeholder;
-        cursor.textContent = text + '_';
+        // Combine current text + underscore
+        const text = input.value || "Go to Strain";  // placeholder text if empty
+        cursor.textContent = text + "_";
 
-        // measure text width
+        // Measure text width to align cursor
         const span = document.createElement('span');
         span.style.visibility = 'hidden';
         span.style.position = 'absolute';
@@ -1345,19 +1347,14 @@ function setupStrainSearch() {
         const textWidth = span.offsetWidth;
         document.body.removeChild(span);
 
-        cursor.style.left = input.offsetLeft + textWidth + 'px';
-        cursor.style.top = input.offsetTop + '50%';
-        cursor.style.transform = 'translateY(-50%)';
-
-        // reveal real text if typing
-        input.style.color = input.value.length ? '#434343' : 'transparent';
+        cursor.style.left = input.offsetLeft + textWidth + 5 + "px";
     }
 
     function updateDropdown() {
         const rect = input.getBoundingClientRect();
-        dropdown.style.width = rect.width + 'px';
-        dropdown.style.top = rect.bottom + 5 + 'px';
-        dropdown.style.left = rect.left + 'px';
+        dropdown.style.width = rect.width + "px";
+        dropdown.style.top = rect.bottom + 5 + "px";
+        dropdown.style.left = rect.left + "px";
     }
 
     input.addEventListener('input', () => {
@@ -1375,40 +1372,34 @@ function setupStrainSearch() {
         );
 
         dropdown.innerHTML = '';
-        matches.sort((a,b) => a.name.localeCompare(b.name)).forEach(s => {
+        matches.sort((a,b)=>a.name.localeCompare(b.name)).forEach(s => {
             const div = document.createElement('div');
-            div.innerHTML = s.name + (s.product ? `<br>(${s.product})` : '') + (s.alsoKnownAs ? ` [${s.alsoKnownAs}]` : '');
-            div.addEventListener('click', () => {
-                const node = g.selectAll('.node').filter(d => d.id === s.id);
-                if (!node.empty()) node.dispatch('click');
-                dropdown.style.display = 'none';
-                input.value = '';
-                cursor.textContent = '';
-                popup2.style.display = 'none';
-                document.querySelector('.popup-overlay').style.display = 'none';
+            div.innerHTML = s.name + (s.product?`<br>(${s.product})`:'') + (s.alsoKnownAs?` [${s.alsoKnownAs}]`:'');
+            div.addEventListener('click', ()=>{
+                const node = g.selectAll('.node').filter(d=>d.id===s.id);
+                if(!node.empty()) node.dispatch('click');
+                dropdown.style.display='none';
+                input.value='';
+                cursor.textContent='';
+                document.getElementById('popup2').style.display='none';
+                document.querySelector('.popup-overlay').style.display='none';
             });
             dropdown.appendChild(div);
         });
         dropdown.style.display = matches.length ? 'block' : 'none';
     });
 
-    ['keydown','keyup','focus'].forEach(ev => input.addEventListener(ev, updateCursor));
-    input.addEventListener('blur', () => { cursor.textContent = ''; });
+    ['keydown','keyup','focus'].forEach(ev=>input.addEventListener(ev, updateCursor));
+    input.addEventListener('blur', ()=>{ cursor.textContent = ''; });
 
-    document.addEventListener('click', e => {
-        if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-            dropdown.style.display = 'none';
-        }
+    document.addEventListener('click', e=>{
+        if(!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.style.display='none';
     });
 
-    // initial
     updateCursor();
 }
 
 setupStrainSearch();
-
-
-
 
 
 
