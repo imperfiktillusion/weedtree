@@ -1,3 +1,4 @@
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -149,6 +150,23 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 .link.highlighted { stroke:#f0f !important; stroke-width:3px; }
 .pct-pill { fill:#000; stroke:#000; stroke-width:0px; }
 .pct-pill-text { fill:#fff; font-size:9px; font-weight:700; pointer-events:none; }
+
+/* Hide real cursor initially */
+#popup2 #strainSearch.hidden-cursor {
+    caret-color: transparent;
+}
+
+/* Blinking underscore effect */
+@keyframes blinkCursor {
+    0%, 49% { content: "_"; }
+    50%, 100% { content: " "; }
+}
+
+#popup2 #strainSearch::placeholder {
+    color: #777;
+    padding-left: 0em;
+    /* We'll dynamically append the blinking underscore via JS */
+}
 
     
 </style>
@@ -1258,6 +1276,32 @@ function setupStrainSearch() {
     const dropdown = document.getElementById('strainDropdown');
     const popup2 = document.getElementById('popup2');
 
+    // ----- Blinking underscore logic -----
+    searchInput.classList.add('hidden-cursor'); // hide real cursor initially
+    let blinkInterval;
+    const baseText = "Go to Strain";
+    let showingUnderscore = true;
+
+    function startBlinking() {
+        blinkInterval = setInterval(() => {
+            searchInput.placeholder = showingUnderscore ? baseText + "_" : baseText + " ";
+            showingUnderscore = !showingUnderscore;
+        }, 500); // 500ms blink
+    }
+
+    function stopBlinking() {
+        clearInterval(blinkInterval);
+        searchInput.placeholder = baseText;
+        searchInput.classList.remove('hidden-cursor'); // show real cursor
+    }
+
+    startBlinking();
+
+    searchInput.addEventListener('input', () => {
+        if (searchInput.value.length > 0) stopBlinking();
+    });
+
+    // ----- Original dropdown logic -----
     function updateDropdownPosition() {
         const rect = searchInput.getBoundingClientRect();
         const dropdownWidth = rect.width * 0.9; // slightly narrower than input
@@ -1275,7 +1319,6 @@ function setupStrainSearch() {
             return;
         }
 
-        // set width/position first to avoid jump
         updateDropdownPosition();
 
         const matches = nodes.filter(n =>
@@ -1285,7 +1328,7 @@ function setupStrainSearch() {
              (n.alsoKnownAs && n.alsoKnownAs.toLowerCase().includes(searchText)))
         );
 
-        dropdown.innerHTML = ''; // clear existing items
+        dropdown.innerHTML = '';
 
         matches.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
             const div = document.createElement('div');
@@ -1295,11 +1338,15 @@ function setupStrainSearch() {
             div.addEventListener('click', () => {
                 const node = g.selectAll('.node').filter(d => d.id === strain.id);
                 if (!node.empty()) node.dispatch('click');
-                
+
                 dropdown.style.display = 'none';
                 searchInput.value = '';
                 popup2.style.display = 'none';
-                document.querySelector('.popup-overlay').style.display = 'none'; 
+                document.querySelector('.popup-overlay').style.display = 'none';
+                
+                // reset blinking if reopened
+                searchInput.classList.add('hidden-cursor');
+                startBlinking();
             });
 
             dropdown.appendChild(div);
@@ -1314,6 +1361,7 @@ function setupStrainSearch() {
         }
     });
 }
+
 
 
 
