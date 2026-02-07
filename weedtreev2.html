@@ -16,33 +16,116 @@
 
 <style>
 body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; margin:0; padding:0; font-size:14px; height:100%; overflow:hidden; }
-#centerLine { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
 .header-ribbon { background-color:#434343; color:#fff; padding:10px; display:flex; justify-content:space-between; align-items:center; }
 .header-ribbon h1 { margin:0; font-size:1.8em; color:#fff; margin-left:6px; }
 .header-buttons { display:flex; gap:10px; align-items:center; }
 .subhead { font-size:.4em; font-weight:400; margin-left:3px; }
 .btn { background-color:transparent; color:#fff; padding:5px 15px; border:2px solid #fff; border-radius:18px; cursor:pointer; font-size:0.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .btn:hover { background-color:rgba(255,255,255,.1); }
+.header-buttons .btn {font-size: 0.9em; padding: 5px 15px; min-width: max-content;}
 .popup-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,.5); z-index:999; display:none; }
 .popup { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:20px; border-radius:10px; max-width:80%; max-height:80%; overflow-y:auto; z-index:1000; display:none; }
-#popup1 { padding:0; }
-#popup2, #popup3 { padding:20px; }
-.search-container { position:relative; }   
-#strainSearch { background-color:transparent; color:#fff; padding:5px 15px; border:2px solid #fff; border-radius:18px; font-size:.9em; font-family:'Poppins', Arial, sans-serif; transition:all .3s ease; width:180px; }
-#strainSearch::placeholder { color:rgba(255,255,255,0.7); }
-#strainSearch:focus { outline:none; background-color:rgba(255,255,255,0.1); }
-#strainDropdown { position:absolute; background-color:#fff; border:1px solid #ccc; max-height:400px; overflow-y:auto; display:none; z-index:1000; width:210px; box-shadow:1 4px 8px rgba(0,0,0,0.1); border-radius:0 0 4px 4px; }
-#strainDropdown div { padding:5px 10px; cursor:pointer; transition:background-color 0.2s; color:#434343; font-size:8pt; line-height:1.2; }
-#strainDropdown div:hover { background-color:#f0f0f; }
-.strain-list { column-width:228px; column-gap:5px; padding:10px; max-height:96%; overflow-x:auto; white-space:nowrap; }
-.strain-item { display:flex; align-items:center; margin-bottom:0px; break-inside:avoid-column; }
-.strain-checkbox { appearance:none; -webkit-appearance:none; width:16px; height:16px; border:2px solid #434343; border-radius:50%; margin-right:5px; cursor:pointer; position:relative; }
-.strain-checkbox:checked::after { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:10px; height:10px; background-color:#434343; border-radius:50%; }
-.strain-checkbox:hover { background-color:#f0f0f0; }
-.strain-label { font-size:8pt; cursor:pointer; }    
+#popup1 { padding:20px; } 
+/* Popup2 */
+#popup2 {
+    padding: 20px;
+    width: 75vw;               /* 75% of viewport width */
+    max-width: none;
+    min-width: 400px;           /* optional minimum width */
+    z-index: 1001;
+    display: none;
+    background: transparent;
+    flex-direction: column;
+    align-items: stretch;       /* ??horizontal centering?? */
+    justify-content: flex-start; /* align content from top */
+    top: 25vh;                 /* 25% from top of viewport */
+    left: 50%;
+    transform: translateX(-50%); /* horizontal centering only */
+}
+/* Inner container to help centering contents vertically/horizontally */
+#popup2 .popup2-center {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+}
+
+/* Search container */
+#popup2 .search-container {
+    position: relative;
+    width: 80%;                   /* container width relative to popup */
+    /*max-width: 700px;             /* optional max width */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto;
+}
+
+/* Search input */
+#popup2 #strainSearch {
+    width: 100%;                  /* 80% of popup via container */
+    flex: 1 1 auto;
+    min-width: 0;         /* prevents flex overflow bugs */
+    padding: 0.3em 0.81em;           /* inner padding for placeholder & text vert hor */
+    border: 4px solid #434343;
+    border-radius: 70px;
+    font-size: 3em;               /* large text size */
+    font-family: 'Roboto', Arial, sans-serif;
+    color: #434343;
+    background-color: #fff;
+    transition: all 0.3s ease;
+    box-sizing: border-box;       /* ensures padding doesn’t exceed width */
+}
+
+/* Placeholder styling */
+#popup2 #strainSearch::placeholder {
+    color: #777;
+    padding-left: 0em;          /* extra padding inside the input */
+}
+
+/* Focus styling */
+#popup2 #strainSearch:focus {
+    outline: none;
+    background-color: #f8f8f8;
+}
+
+/* Dropdown styling */
+/* Popup2 dropdown should flow outside the popup */
+#strainDropdown {
+    position: fixed;        /* fixed so it floats over everything */
+    top: 0;
+    left: 0;
+    width: 90%;             /* adjusted dynamically in JS anyway */
+    max-width: 80%;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 9999;          /* high so it floats above everything */
+    background-color: #f8f8f8;
+    border: 0px solid #434343;
+    box-shadow: 0px 0px 0px 0px rgba(0,0,0,1);
+    border-radius: 0 0 8px 8px;
+    display: none;
+}
+
+#strainDropdown div {
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    color: #434343;
+    font-family: 'Roboto', Arial, sans-serif;
+    font-size: 2.5em;              /* match search box */
+    line-height: 1.0em;
+}
+#strainDropdown div:hover {
+    background-color: #f0f0f0;
+}
+
+#popup3 { padding:20px; z-index: 1002}
 #loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
 .container { height:calc(100vh - 50px); display:flex; flex-direction:column; }
-.close-button { position:absolute; top:10px; right:10px; width:30px; height:30px; border:none; background:#434343; color:white; border-radius:50%; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color 0.3s; }
+.close-button { position:absolute; top:15px; right:15px; width:40px; height:40px; border:none; background:#434343; color:white; border-radius:50%; font-size:40px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color 0.3s; }
 .close-button:hover { background-color:#666; }
 .fullscreen-button-container { display:flex; flex-direction:column; gap:5px; position:absolute; top:70px; right:10px; z-index:997; }
 .fullscreen-button-container button { width:100%; padding:3px 5px; border:2px solid #cccccc; border-radius:0; cursor:pointer; font-size:0.3em; font-family:'Poppins', Arial, sans-serif; transition:all 0.3s ease; color:#cccccc; background-color:white; }
@@ -67,6 +150,25 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 .link.highlighted { stroke:#f0f !important; stroke-width:3px; }
 .pct-pill { fill:#000; stroke:#000; stroke-width:0px; }
 .pct-pill-text { fill:#fff; font-size:9px; font-weight:700; pointer-events:none; }
+
+/* Hide real cursor initially */
+#popup2 #strainSearch.hidden-cursor {
+    caret-color: transparent;
+}
+
+/* Blinking underscore effect */
+@keyframes blinkCursor {
+    0%, 49% { content: "_"; }
+    50%, 100% { content: " "; }
+}
+
+#popup2 #strainSearch::placeholder {
+    color: #777;
+    padding-left: 0em;
+    /* We'll dynamically append the blinking underscore via JS */
+}
+
+    
 </style>
 
 </head>
@@ -79,12 +181,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
         <span class="subhead">Work in progress, errors probable</span>
     </h1>
     <div class="header-buttons">
-        <!-- Search -->
-        <div class="search-container">
-            <input type="text" id="strainSearch" placeholder="Locate strain">
-            <div id="strainDropdown"></div>
-        </div>
-        <!-- About Button -->
+        <button id="btn2" class="btn">Go to strain</button>
         <button id="btn3" class="btn">About</button>
     </div>
 </div>
@@ -116,10 +213,15 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     <div id="strainList" class="strain-list"></div>
 </div>
 
-<!-- Coming Soon Popup -->
 <div id="popup2" class="popup">
-    <h5>Record and rate your strains - coming soon</h5>
-</div>
+    <button class="close-button">×</button>
+    <div class="popup2-center">
+        <div class="search-container">
+            <input type="text" id="strainSearch" placeholder="go to strain_">
+          </div>
+    </div>
+ </div>
+
 
 <!-- About / Welcome Popup -->
 <div id="popup3" class="popup">
@@ -143,13 +245,10 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     <p>Sorry it's a bit hard to use on mobile; best on a large screen. Strain search isn't working on mobile at the moment either.</p>
 </div>
 
-<!-- Loading Message -->
+<div id="strainDropdown"></div>
+
 <div id="loading-message">Loading strain data, please wait...</div>
-
-<!-- Center Line for Chart -->
-<div id="centerLine"></div>
-
-    
+  
 <svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
   <symbol id="nzIcon">
     <circle cx="14" cy="14" r="12.5" fill="white" stroke="black" stroke-width="3"/>
@@ -1146,10 +1245,6 @@ g.selectAll('.node')
 
 };
 
-
-
-
-
     
 const getColorByDominance = (dominance) => {
     switch(dominance.toLowerCase()) {
@@ -1171,111 +1266,170 @@ const blendToWhite = (color, amount) => {
     return interpolatedColor;
 };
 
+
+
+
+
+    
 function setupStrainSearch() {
     const searchInput = document.getElementById('strainSearch');
     const dropdown = document.getElementById('strainDropdown');
-    let highlightedNode = null;
+    const popup2 = document.getElementById('popup2');
+
+    // ----- Blinking underscore logic -----
+    searchInput.classList.add('hidden-cursor'); // hide real cursor initially
+    let blinkInterval;
+    const baseText = "Go to Strain";
+    let showingUnderscore = true;
+
+    function startBlinking() {
+        blinkInterval = setInterval(() => {
+            searchInput.placeholder = showingUnderscore ? baseText + "_" : baseText + " ";
+            showingUnderscore = !showingUnderscore;
+        }, 500); // 500ms blink
+    }
+
+    function stopBlinking() {
+        clearInterval(blinkInterval);
+        searchInput.placeholder = baseText;
+        searchInput.classList.remove('hidden-cursor'); // show real cursor
+    }
+
+    startBlinking();
+
+    searchInput.addEventListener('input', () => {
+        if (searchInput.value.length > 0) stopBlinking();
+    });
+
+    // ----- Original dropdown logic -----
+    function updateDropdownPosition() {
+        const rect = searchInput.getBoundingClientRect();
+        const dropdownWidth = rect.width * 0.9; // slightly narrower than input
+        dropdown.style.width = `${dropdownWidth}px`;
+        dropdown.style.top = `${rect.bottom + 5}px`;
+        dropdown.style.left = `${rect.left + rect.width / 2 - dropdownWidth / 2}px`; // center
+    }
+
+    searchInput.addEventListener('focus', updateDropdownPosition);
 
     searchInput.addEventListener('input', function() {
         const searchText = this.value.toLowerCase();
-        if (searchText.length === 0) {
+        if (!searchText) {
             dropdown.style.display = 'none';
             return;
         }
 
-        const matchingStrains = nodes.filter(node => 
-            !node.name.toLowerCase().includes('unknown') && (
-                node.name.toLowerCase().includes(searchText) ||
-                (node.product && node.product.toLowerCase().includes(searchText)) ||
-                (node.alsoKnownAs && node.alsoKnownAs.toLowerCase().includes(searchText))
-            )
+        updateDropdownPosition();
+
+        const matches = nodes.filter(n =>
+            !n.name.toLowerCase().includes('unknown') &&
+            (n.name.toLowerCase().includes(searchText) ||
+             (n.product && n.product.toLowerCase().includes(searchText)) ||
+             (n.alsoKnownAs && n.alsoKnownAs.toLowerCase().includes(searchText)))
         );
 
         dropdown.innerHTML = '';
-        matchingStrains.sort((a, b) => a.name.localeCompare(b.name)).forEach(strain => {
+
+        matches.sort((a,b) => a.name.localeCompare(b.name)).forEach(strain => {
             const div = document.createElement('div');
-            div.innerHTML = strain.name + 
-                            (strain.product ? `<br>(${strain.product})` : '') + 
+            div.innerHTML = strain.name +
+                            (strain.product ? `<br>(${strain.product})` : '') +
                             (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : '');
             div.addEventListener('click', () => {
-                highlightStrain(strain);
+                const node = g.selectAll('.node').filter(d => d.id === strain.id);
+                if (!node.empty()) node.dispatch('click');
+
                 dropdown.style.display = 'none';
                 searchInput.value = '';
+                popup2.style.display = 'none';
+                document.querySelector('.popup-overlay').style.display = 'none';
+                
+                // reset blinking if reopened
+                searchInput.classList.add('hidden-cursor');
+                startBlinking();
             });
+
             dropdown.appendChild(div);
         });
 
-        dropdown.style.display = matchingStrains.length > 0 ? 'block' : 'none';
+        dropdown.style.display = matches.length > 0 ? 'block' : 'none';
     });
 
-    document.addEventListener('click', function(event) {
-        if (!searchInput.contains(event.target) && !dropdown.contains(event.target)) {
+    document.addEventListener('click', e => {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
             dropdown.style.display = 'none';
         }
     });
-
-    function highlightStrain(strain) {
-        if (highlightedNode) {
-            d3.select(highlightedNode).select('.highlight-arrow').remove();
-            highlightedNode = null;
-        }
-
-        const node = g.selectAll('.node').filter(d => d.id === strain.id);
-        const arrow = node.append('path')
-            .attr('d', 'M-70,-6 L-39,0 L-70,6 Z')
-            .attr('class', 'highlight-arrow')
-            .attr('fill', 'red')
-            .attr('transform', 'translate(0,0) scale(3)');
-
-        arrow.on('mouseover', function() {
-            d3.select(this).remove();
-            highlightedNode = null;
-        });
-
-        arrow.on('click', function(event) {
-            event.stopPropagation();
-        });
-
-        highlightedNode = node.node();
-
-        zoomToNode(strain);
-    }
-
-    function zoomToNode(strain) {
-        const transform = d3.zoomTransform(svg.node());
-        const scale = 2;
-        const x = -strain.x * scale + svg.attr('width') / 2;
-        const y = -strain.y * scale + svg.attr('height') / 2;
-
-        svg.transition()
-            .duration(750)
-            .call(d3.zoom().transform, d3.zoomIdentity.translate(x, y).scale(scale));
-    }
 }
-// --- FIX: remove undefined fetchData() call and ensure About popup opens ---
+
+
+
+
+
+
+    
 window.addEventListener('load', function() {
-    // Add event listeners for About popup
-    const aboutBtn = document.getElementById('btn3');
-    const popup3 = document.getElementById('popup3');
     const overlay = document.querySelector('.popup-overlay');
-    if (aboutBtn && popup3 && overlay) {
-        aboutBtn.addEventListener('click', () => {
-            popup3.style.display = 'block';
-            overlay.style.display = 'block';
-        });
-        // Show About popup on initial load
-        popup3.style.display = 'block';
+
+    const popup2 = document.getElementById('popup2');
+    const popup3 = document.getElementById('popup3');
+
+    const aboutBtn = document.getElementById('btn3');
+    const strainBtn = document.getElementById('btn2');
+
+    const searchInput = document.getElementById('strainSearch');
+
+    // Show popup
+    function showPopup(popup) {
+        if (popup === popup2) {
+            popup.style.display = 'flex';  // for centering search
+            searchInput.focus();
+        } else {
+            popup.style.display = 'block'; // for text popup
+        }
         overlay.style.display = 'block';
     }
-});
 
-document.querySelectorAll('.close-button').forEach(button => {
-    button.addEventListener('click', function() {
-        const popup = this.closest('.popup');
+    // Hide popup
+    function hidePopup(popup) {
         popup.style.display = 'none';
-        document.querySelector('.popup-overlay').style.display = 'none';
+        overlay.style.display = 'none';
+    }
+
+    // Buttons
+    if (aboutBtn) aboutBtn.addEventListener('click', () => showPopup(popup3));
+    if (strainBtn) strainBtn.addEventListener('click', () => showPopup(popup2));
+
+    // --- Initial load: only show popup3 ---
+    showPopup(popup3);
+
+    // --- Close popup3 and open popup2 ---
+    const popup3Close = popup3.querySelector('.close-button');
+    popup3Close.addEventListener('click', () => {
+        hidePopup(popup3);
+        showPopup(popup2);
+    });
+    // --- Close popup2 ---
+    const popup2Close = popup2.querySelector('.close-button');
+        if (popup2Close) {
+           popup2Close.addEventListener('click', () => {
+           hidePopup(popup2);
+      });
+    }
+
+    // --- Overlay click ---
+    overlay.addEventListener('click', (e) => {
+        if (popup3.style.display !== 'none') {
+            hidePopup(popup3);
+            showPopup(popup2);
+        } else if (popup2.style.display !== 'none') {
+            hidePopup(popup2);
+        }
     });
 });
+
+
+
 
 document.getElementById('fullscreenToggle').addEventListener('click', toggleFullScreen);
 document.getElementById('zoomInButton').addEventListener('click', () => {
@@ -1354,7 +1508,7 @@ function adjustFullscreenButtonPosition() {
 }
 
 function adjustButtonFontSize() {
-    const buttons = document.querySelectorAll('.btn:not(#btn3)'); // Exclude the About button
+    const buttons = document.querySelectorAll('.btn:not(#btn3):not(#btn2)'); // Exclude the ribbon button
     const headerButtons = document.querySelector('.header-buttons');
     
     // Guard clause - if either buttons or headerButtons don't exist, return early
@@ -1392,10 +1546,7 @@ function adjustButtonFontSize() {
 
 window.addEventListener('load', adjustButtonFontSize);
 
-document.querySelector('.popup-overlay').addEventListener('click', function() {
-    document.querySelectorAll('.popup').forEach(popup => popup.style.display = 'none');
-    this.style.display = 'none';
-});
+
 
 document.querySelectorAll('.popup').forEach(popup => 
     popup.addEventListener('click', event => event.stopPropagation())
