@@ -7,6 +7,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -962,12 +963,13 @@ svg.on('click', function(event) {
 
     
 function highlightLineage(event, d) {
-    // Remove old percentage pills and panel
+
+    // Remove old pills and panel
     g.selectAll('.pct-pill').remove();
     g.selectAll('.pct-pill-text').remove();
     g.selectAll('.info-panel').remove();
 
-    // Toggle off if clicking already focused node
+    // Unfocus if clicking the already-focused node
     if (focusedNode === d) {
         node.classed("dimmed", false).classed("clicked", false);
         link.classed("dimmed", false).attr("stroke-width", lineWidth + 1);
@@ -976,13 +978,11 @@ function highlightLineage(event, d) {
         return;
     }
 
-    // ---- lineage isolation ----
+    // ---- lineage isolation (include variants) ----
     const lineage = new Set();
 
     const getAncestors = (node) => {
         lineage.add(node.id);
-
-        // If variant, climb through base strain
         if (node.variant) {
             const base = nodes.find(n => n.name === node.variant);
             if (base) {
@@ -991,20 +991,20 @@ function highlightLineage(event, d) {
             }
             return;
         }
-
         node.parents.forEach(parentId => {
             const parent = nodes.find(n => n.id === parentId);
-            if (parent && !lineage.has(parent.id)) getAncestors(parent);
+            if (parent) {
+                lineage.add(parent.id);
+                getAncestors(parent);
+            }
         });
     };
 
     const getDescendants = (nodeId) => {
         lineage.add(nodeId);
-
         const children = nodes.filter(n => n.parents.includes(nodeId));
         const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
         const allChildren = [...children, ...variantChildren];
-
         allChildren.forEach(child => {
             if (!lineage.has(child.id)) getDescendants(child.id);
         });
@@ -1013,6 +1013,7 @@ function highlightLineage(event, d) {
     getAncestors(d);
     getDescendants(d.id);
 
+    // --- Dim unrelated nodes and highlight focused ---
     node.classed("dimmed", n => !lineage.has(n.id));
     node.classed("clicked", n => n.id === d.id);
     link.classed("dimmed", l => !lineage.has(l.source) || !lineage.has(l.target))
@@ -1026,85 +1027,89 @@ function highlightLineage(event, d) {
     zoomToLineage(lineage);
 
     // --- Calculate contributions ---
-    const contributionsMap = calculateUpwardChildTotals(d, nodes);
-    const contributors = Array.from(contributionsMap.entries())
-        .filter(([id, perc]) => id !== d.id && perc >= 5)
-        .map(([id, perc]) => {
-            const nodeData = nodes.find(n => n.id === id);
-            return nodeData ? `${Math.round(perc)}% ${nodeData.name}` : null;
-        })
-        .filter(Boolean)
-        .sort((a, b) => parseInt(b) - parseInt(a)); // sort descending %
+    const ancestorContrib = calculateUpwardChildTotals(d, nodes);
+    const descendantContrib = calculateDownwardDescendantTotals(d, nodes);
 
-    
-// --- Render percentage pills on nodes (exclude focused node itself) ---
-g.selectAll('.node')
-  .filter(n => contributionsMap.has(n.id) && n.id !== d.id)
-  .each(function(n) {
-      const pct = contributionsMap.get(n.id);
-      const label = Math.round(pct) + '%';
+    const contributionsMap = new Map();
+    ancestorContrib.forEach((v, k) => contributionsMap.set(k, v));
+    descendantContrib.forEach((v, k) => contributionsMap.set(k, (contributionsMap.get(k) || 0) + v));
 
-      const group = d3.select(this);
+    contributionsMap.set(d.id, 100); // focused node 100%
 
-      const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
-      const pillHeight = nodePillHeight;
-      const pillPaddingX = 10;
-      const pillWidth = 80;
-      const pillX = nodeWidth / 2;
+    // --- Render percentage pills ---
+    g.selectAll('.node')
+      .filter(n => contributionsMap.has(n.id) && n.id !== d.id)
+      .each(function(n) {
+          const pct = contributionsMap.get(n.id);
+          const label = Math.round(pct) + '%';
 
-      // Append rect behind everything
-      group.insert('rect', ':first-child')
-          .attr('class', 'pct-pill')
-          .attr('x', pillX - pillPaddingX * 2 - 4)
-          .attr('y', -pillHeight / 2)
-          .attr('rx', pillHeight / 2)
-          .attr('ry', pillHeight / 2)
-          .attr('width', pillWidth)
-          .attr('height', pillHeight)
-          .attr('fill', 'white')
-          .attr('stroke', nodeStrokeColor)
-          .attr('stroke-width', nodeStrokeWidth);
+          const group = d3.select(this);
 
-      // Append text
-      group.append('text')
-          .attr('class', 'pct-pill-text')
-          .attr('x', nodeWidth / 2 + pillPaddingX)
-          .attr('y', 1)
-          .attr('text-anchor', 'middle')
-          .attr('dominant-baseline', 'middle')
-          .text(label)
-          .style('fill', 'white')
-          .style('pointer-events', 'none');
-  });
+          const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
+          const pillHeight = nodePillHeight;
+          const pillPaddingX = 10;
+          const pillWidth = 80;
+          const pillX = nodeWidth / 2;
 
-    
-    // --- Prepare AKA list ---
+          group.insert('rect', ':first-child')
+              .attr('class', 'pct-pill')
+              .attr('x', pillX - pillPaddingX * 2 - 4)
+              .attr('y', -pillHeight / 2)
+              .attr('rx', pillHeight / 2)
+              .attr('ry', pillHeight / 2)
+              .attr('width', pillWidth)
+              .attr('height', pillHeight)
+              .attr('fill', 'white')
+              .attr('stroke', nodeStrokeColor)
+              .attr('stroke-width', nodeStrokeWidth);
+
+          group.append('text')
+              .attr('class', 'pct-pill-text')
+              .attr('x', nodeWidth / 2 + pillPaddingX)
+              .attr('y', 1)
+              .attr('text-anchor', 'middle')
+              .attr('dominant-baseline', 'middle')
+              .text(label)
+              .style('fill', 'white')
+              .style('pointer-events', 'none');
+      });
+
+    // --- Build info panel ---
     const alsoKnownAs = d.alsoKnownAs
         ? d.alsoKnownAs.split(';').map(s => s.trim()).filter(Boolean)
         : [];
 
-    // --- Build panel text ---
-    let panelHTML = '';
+    const contributors = Array.from(contributionsMap.entries())
+        .filter(([id, perc]) => id !== d.id && perc >= 5)
+        .map(([id, perc]) => ({ id, perc }))
+        .sort((a, b) => b.perc - a.perc)
+        .map(c => {
+            const nodeData = nodes.find(n => n.id === c.id);
+            return nodeData ? `${Math.round(c.perc)}% ${nodeData.name}` : null;
+        })
+        .filter(Boolean);
+
+    let panelText = '';
     if (alsoKnownAs.length) {
-        panelHTML += '<strong>Also known as</strong><br>' + alsoKnownAs.join('<br>') + '<br><br>';
+        panelText += 'Also known as\n';
+        panelText += alsoKnownAs.join('\n') + '\n\n';
     }
     if (contributors.length) {
-        panelHTML += '<strong>Contributors</strong><br>' + contributors.join('<br>');
+        panelText += 'Contributors\n';
+        panelText += contributors.join('\n');
     }
 
-    // --- Compute panel position under node (or under variants if any) ---
-    const variantCount = nodes.filter(n => n.variant === d.name).length;
-    const panelY = d.y + (variantCount + 1) * nodePillHeight + 10;
-
+    const pillHeight = nodePillHeight;
+    const variantCount = d.variant ? nodes.filter(n => n.variant === d.name).length : 0;
+    const gap = 20 + variantCount * pillHeight; // lower panel if variants exist
     const panelWidth = 220;
-    const maxPanelHeight = 10000; // allow panel to extend off viewport if needed
+    const maxPanelHeight = 300;
 
     const foreign = g.append('foreignObject')
         .attr('class', 'info-panel')
         .attr('x', d.x - panelWidth / 2)
-        .attr('y', panelY)
-        .attr('width', panelWidth)
-        .attr('height', maxPanelHeight);
+        .attr('y', d.y + gap)
+        .attr('width', panelWidth);
 
     const div = foreign.append('xhtml:div')
         .style('font-family', "'Roboto', Arial, sans-serif")
@@ -1114,13 +1119,13 @@ g.selectAll('.node')
         .style('border-radius', '8px')
         .style('padding', '8px')
         .style('white-space', 'pre-line')
-        .style('overflow', 'visible')
-        .html(panelHTML);
+        .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
+        .html(panelText.replace(/^(.+)$/gm, '<strong>$1</strong>'));
 
-    // Auto-adjust foreignObject height
     const divHeight = div.node().scrollHeight;
     foreign.attr('height', divHeight);
 }
+
 
 
 
