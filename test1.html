@@ -2,6 +2,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -722,7 +723,7 @@ const node = g.append("g")
     .data(nodes)
     .join("g")
     .attr("class", "node")
-    .attr("transform", d => `translate(${d.x},${d.y})`)
+    .attr("transform", d => `translate(${d.x},${d.y}) scale(1)`)
     .each(function(d) { 
         if (d.product) d3.select(this).raise(); 
         d.baseTransform = `translate(${d.x},${d.y})`;
@@ -738,7 +739,7 @@ node
 
         d.currentScale = 1.7;
         d3.select(this)
-            .interrupt()        // stop any ongoing transitions
+            .interrupt(true)       // stop all ongoing transitions
             .raise()
             .transition()
             .duration(150)
@@ -751,7 +752,7 @@ node
 
         d.currentScale = 1;
         d3.select(this)
-            .interrupt()       // stop any ongoing transitions
+            .interrupt(true)        // stop all ongoing transitions
             .transition()
             .duration(150)
             .attr("transform", `translate(${d.x},${d.y}) scale(${d.currentScale})`)
@@ -761,12 +762,15 @@ node
             });
     })
     .on("click", function(event, d) {
-        event.stopPropagation(); // prevent background pan
+        event.stopPropagation();
         highlightLineage(event, d);
     })
     .call(d3.drag()
         .filter(event => event.shiftKey || event.sourceEvent.type.startsWith("touch"))
-        .on("start", function(event, d) { startDrag(event, d, this); })
+        .on("start", function(event, d) {
+            d3.select(this).interrupt(true); // cancel any hover transition
+            startDrag(event, d, this);
+        })
         .on("drag", function(event, d) {
             if (!d.dragging) return;
             event.x = d.x; // constrain to column
