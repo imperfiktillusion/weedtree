@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -690,29 +691,29 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
 
 if (gen >= 2 && genNodes.length < 20) {
     const normalSpacing = pillHeight + 16;
-    const tinyColSpacing = normalSpacing * 2;
-    const columnSpacing = genNodes.length < 5 ? tinyColSpacing : normalSpacing;
+    const tinyColSpacing = genNodes.length < 5 ? normalSpacing * 2 : normalSpacing;
 
-    // Find the top-most Y among parents in this column
+    // Compute parent mean for the whole column
     const parentYs = genNodes.flatMap(node =>
         node.parents.map(pid => nodes.find(p => p.id === pid)?.y).filter(y => y !== undefined)
     );
+    const parentMeanY = parentYs.length ? d3.mean(parentYs) : 0;
 
-    // Start near the average of parents or default to half spacing
-    let lastY = parentYs.length ? Math.min(...parentYs) - columnSpacing : columnSpacing;
+    let lastY = 0;
 
-    genNodes.forEach(node => {
+    genNodes.forEach((node, index) => {
         if (!node.variant) {
-            // Place node at least columnSpacing below last node
-            node.y = Math.max(lastY + columnSpacing, node.y || 0);
+            const minY = lastY + tinyColSpacing;
+
+            // Pull toward parentMeanY if possible
+            node.y = Math.max(minY, parentMeanY);
 
             // Position variants under parent
             const variants = nodes.filter(n => n.variant === node.name)
                 .sort((a, b) => a.name.localeCompare(b.name));
-
-            variants.forEach((variant, i) => {
-                variant.y = node.y + (i + 1) * (pillHeight + 2);
-                variant.x = node.x;
+            variants.forEach((v, i) => {
+                v.y = node.y + (i + 1) * (pillHeight + 2);
+                v.x = node.x;
             });
 
             // Update lastY including variants
@@ -720,6 +721,7 @@ if (gen >= 2 && genNodes.length < 20) {
         }
     });
 }
+
 
 
 }
