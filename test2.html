@@ -4,6 +4,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -651,102 +652,64 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
 
     // 3️⃣ Sorting
     if (gen === 1) {
-        // Column 2: landraces — dominance + landrace + alphabetical
         genNodes.sort(sortByDominanceAndLandrace);
     } else if (gen >= 2) {
-        // Columns 3+: preserve dominance order across the column
-        // 1. Group by dominance
-const groupedByDom = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
-
-// 2. Sort the groups according to dominanceOrder
-groupedByDom.sort(([aDom], [bDom]) => (dominanceOrder[aDom] ?? 99) - (dominanceOrder[bDom] ?? 99));
-
-// 3. Apply barycentric within each group
-const sortedGroups = groupedByDom.map(([dominance, groupNodes]) => barycentricSort(groupNodes, nodes, 'parents'));
-
-// 4. Flatten back
-genNodes = sortedGroups.flat();
-
+        const groupedByDom = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
+        groupedByDom.sort(([aDom], [bDom]) => (dominanceOrder[aDom] ?? 99) - (dominanceOrder[bDom] ?? 99));
+        const sortedGroups = groupedByDom.map(([dominance, groupNodes]) => barycentricSort(groupNodes, nodes, 'parents'));
+        genNodes = sortedGroups.flat();
     }
 
+    // 4️⃣ Assign initial Y positions
+    let yOffset = 0;
+    const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
+                        genNodes.filter(n => n.variant).length * (pillHeight + 2);
+    const startY = (height - totalHeight) / 2;
 
-for (let gen = 0; gen <= maxGeneration + 1; gen++) {
-    let genNodes = nodes.filter(...);
+    genNodes.forEach(node => {
+        if (!node.variant) {
+            node.y = startY + yOffset;
 
-    // 2️⃣ Set X positions
-    genNodes.forEach(node => node.x = gen * columnWidth);
+            // Position variants under parent
+            const variants = nodes.filter(n => n.variant === node.name)
+                .sort((a, b) => a.name.localeCompare(b.name));
+            variants.forEach((variant, vIndex) => {
+                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                variant.x = node.x;
+            });
 
-    // 3️⃣ Sorting
-    if (gen === 1) { ... }
-    else if (gen >= 2) { ... }
+            yOffset += pillHeight + 16 + variants.length * (pillHeight + 2);
+        }
+    });
 
-    // 3.5️⃣ Nudge toward parent center (only Gen2+ < 20 nodes)
+    // 5️⃣ Apply parent-centered nudge for small columns (Gen2+ < 20 nodes)
     if (gen >= 2 && genNodes.length < 20) {
-        const alpha = 0.5;
+        const alpha = 0.5; // strength of nudge
+
         genNodes.forEach(node => {
             const parentYs = node.parents
                 .map(pid => nodes.find(p => p.id === pid)?.y)
                 .filter(y => y !== undefined);
 
-            if (!parentYs.length) return;
+            if (parentYs.length) {
+                const meanParentY = d3.mean(parentYs);
+                node.y += (meanParentY - node.y) * alpha;
 
-            const parentY = d3.mean(parentYs);
-            node.y += (parentY - node.y) * alpha;
-
-            // variants under parent
-            const variants = nodes.filter(n => n.variant === node.name)
-                .sort((a, b) => a.name.localeCompare(b.name));
-
-            variants.forEach((variant, vIndex) => {
-                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                variant.x = node.x;
-            });
+                // Reposition variants relative to new parent y
+                const variants = nodes.filter(n => n.variant === node.name)
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                variants.forEach((variant, vIndex) => {
+                    variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+                    variant.x = node.x;
+                });
+            }
         });
     }
-
-    
-    // 4️⃣ Assign Y positions
-
-
-if (gen >= 2 && genNodes.length < 20) {
-    const alpha = 0.5; // how strongly to nudge toward parent center
-
-    genNodes.forEach(node => {
-        // get parent Y positions
-        const parentYs = node.parents
-            .map(pid => nodes.find(p => p.id === pid)?.y)
-            .filter(y => y !== undefined);
-
-        if (parentYs.length) {
-            const parentY = d3.mean(parentYs);
-
-            // compute difference between current Y and parent center
-            const delta = parentY - node.y;
-
-            // nudge toward parent center without breaking spacing
-            node.y += delta * alpha;
-        }
-
-        // variants stay relative to parent
-        const variants = nodes.filter(n => n.variant === node.name)
-            .sort((a, b) => a.name.localeCompare(b.name));
-
-        variants.forEach((variant, vIndex) => {
-            variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-            variant.x = node.x;
-        });
-    });
 }
 
+calculateColumn1Positions();
 
 
-
-    
-
-}
-
-
-    calculateColumn1Positions();
 
     const link = g.append("g")
         .selectAll("path")
