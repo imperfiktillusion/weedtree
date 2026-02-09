@@ -2,6 +2,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -673,31 +674,26 @@ genNodes = sortedGroups.flat();
     // 4️⃣ Assign Y positions
 
 
-    
 if (gen >= 2 && genNodes.length < 20) {
-    const alpha = 0.75;
-    const topPadding = 20;
-    const bottomPadding = 20;
-    const usableHeight = height - topPadding - bottomPadding;
+    const alpha = 0.5; // how strongly to nudge toward parent center
 
-    // genNodes already sorted by dominance + barycentric
-    genNodes.forEach((node, i) => {
-        // parent-centered Y
+    genNodes.forEach(node => {
+        // get parent Y positions
         const parentYs = node.parents
             .map(pid => nodes.find(p => p.id === pid)?.y)
             .filter(y => y !== undefined);
 
-        const parentY = parentYs.length 
-            ? d3.mean(parentYs)
-            : topPadding + usableHeight / 2; // fallback to column center
+        if (parentYs.length) {
+            const parentY = d3.mean(parentYs);
 
-        // evenly spaced stackY
-        const stackY = topPadding + usableHeight * (i + 0.5) / genNodes.length;
+            // compute difference between current Y and parent center
+            const delta = parentY - node.y;
 
-        // weighted combination
-        node.y = alpha * parentY + (1 - alpha) * stackY;
+            // nudge toward parent center without breaking spacing
+            node.y += delta * alpha;
+        }
 
-        // variants under parent
+        // variants stay relative to parent
         const variants = nodes.filter(n => n.variant === node.name)
             .sort((a, b) => a.name.localeCompare(b.name));
 
