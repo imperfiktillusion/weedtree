@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -724,66 +725,40 @@ const node = g.append("g")
     .attr("transform", d => `translate(${d.x},${d.y})`)
     .each(function(d) { 
         if (d.product) d3.select(this).raise(); 
-        d.baseTransform = `translate(${d.x},${d.y})`; // store original position
-    })
-    .on("click", highlightLineage)
-  node.on("mouseover", function(event, d) {
-    if (dragging) return;
+        d.baseTransform = `translate(${d.x},${d.y})`;
+        d.currentScale = 1; // initialize scale
+    });
 
-    highlightHoverLineage(event, d);
-
-    d3.select(this)
-        .interrupt() // stop any ongoing transform transition
-        .raise()
-        .transition()
-        .duration(150)
-        .attr("transform", `translate(${d.x},${d.y}) scale(1.7)`);
-})
-.on("mouseout", function(event, d) {
-    if (dragging) return;
-
-    removeHighlightHoverLineage();
-
-    d3.select(this)
-        .interrupt() // stop any ongoing transform transition
-        .transition()
-        .duration(150)
-        .attr("transform", `translate(${d.x},${d.y}) scale(1)`)
-        .on("end", function() {
-            // ensure product nodes are raised after shrink
-            g.selectAll(".node").each(n => { if (n.product) d3.select(this).raise(); });
-        });
-});
-
-
-// --- NODE EVENTS AND DRAGGING (column-constrained) ---
+// --- NODE EVENTS: hover, click, drag ---
 node
-    .each(d => d.currentScale = 1) // initialize scale for hover
-
     .on("mouseover", function(event, d) {
         if (dragging) return;
 
-        // enlarge node on hover
+        highlightHoverLineage(event, d);
+
         d.currentScale = 1.7;
-        d3.select(this).raise()
+        d3.select(this)
+            .interrupt()        // stop any ongoing transitions
+            .raise()
             .transition()
             .duration(150)
             .attr("transform", `translate(${d.x},${d.y}) scale(${d.currentScale})`);
-
-        // highlight lineage
-        highlightHoverLineage(event, d);
     })
     .on("mouseout", function(event, d) {
         if (dragging) return;
 
-        // shrink node back
+        removeHighlightHoverLineage();
+
         d.currentScale = 1;
         d3.select(this)
+            .interrupt()       // stop any ongoing transitions
             .transition()
             .duration(150)
-            .attr("transform", `translate(${d.x},${d.y}) scale(${d.currentScale})`);
-
-        removeHighlightHoverLineage();
+            .attr("transform", `translate(${d.x},${d.y}) scale(${d.currentScale})`)
+            .on("end", function() {
+                // Ensure product nodes are raised
+                g.selectAll(".node").each(n => { if (n.product) d3.select(this).raise(); });
+            });
     })
     .on("click", function(event, d) {
         event.stopPropagation(); // prevent background pan
@@ -791,15 +766,10 @@ node
     })
     .call(d3.drag()
         .filter(event => event.shiftKey || event.sourceEvent.type.startsWith("touch"))
-        .on("start", function(event, d) {
-            startDrag(event, d, this);
-        })
+        .on("start", function(event, d) { startDrag(event, d, this); })
         .on("drag", function(event, d) {
             if (!d.dragging) return;
-
-            // constrain to column (x fixed)
-            event.x = d.x;
-
+            event.x = d.x; // constrain to column
             dragNode(event, d, this);
         })
         .on("end", function(event, d) {
@@ -808,6 +778,7 @@ node
             dragging = false;
         })
     );
+
 
 
 
