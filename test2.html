@@ -1,11 +1,5 @@
 
 
-
-
-
-
-
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -735,88 +729,74 @@ calculateColumn1Positions();
 let dragging = false; // global flag to prevent hover while dragging
 const hoverDelay = 200; // ms before node enlarges
 
-const node = g.append("g")
-    .selectAll("g")
-    .data(nodes)
-    .join("g")
-    .attr("class", "node")
-    .attr("transform", d => `translate(${d.x},${d.y})`)
-    .each(function(d) { 
-        if (d.product) d3.select(this).raise(); 
-        d.baseTransform = `translate(${d.x},${d.y})`;
-        d.currentScale = 1;
-        d.hoverTimer = null;
-    });
+// Wait for fonts to be loaded before measuring text
+document.fonts.ready.then(() => {
 
-// --- Append rect background ---
-node.append("rect")
-    .attr("rx", pillHeight / 2)
-    .attr("ry", pillHeight / 2)
-    .attr("width", d => d.variant ? standardPillWidth * 0.85 : standardPillWidth)
-    .attr("height", pillHeight)
-    .attr("fill", d => {
-        if (d.variant) {
-            const parentNode = nodes.find(n => n.name === d.variant);
-            if (parentNode) return blendToWhite(getColorByDominance(parentNode.dominance), 0.5);
-        }
-        return getColorByDominance(d.dominance);
-    })
-    .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 : -standardPillWidth / 2)
-    .attr("y", -pillHeight / 2)
-    .attr("stroke", d => d.product ? "black" : getColorByDominance(d.dominance))
-    .attr("stroke-width", 3);
-
-// --- Append strain text ---
-node.append("text")
-    .attr("class", "strain-name")
-    .text(d => d.displayName)
-    .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 + 12 : -standardPillWidth / 2 + 12)
-    .attr("y", 1)
-    .attr("dominant-baseline", "middle")
-    .attr("fill", "black")
-    .style("font-size", "15px")
-    .style("font-family", "'Roboto', Arial, sans-serif")
-    .style("font-weight", "bold")
-    .each(function(d) {
-        const textWidth = this.getComputedTextLength();
-        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-        const availableWidth = nodeWidth - 24;
-        if (textWidth > availableWidth) {
-            d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
-        }
-    });
-
-node.append("text")
-    .filter(d => d.product)
-    .text(d => d.product)
-    .attr("class", "product")
-    .attr("y", 1.6)
-    .attr("dominant-baseline", "middle")
-    .attr("fill", "black")
-    .style("font-size", "10px")
-    .style("font-family", "'Roboto', Arial, sans-serif")
-    .style("font-weight", "normal")
-    .each(function(d) {
-        const self = this;
-        requestAnimationFrame(() => {
-            const strainNameText = self.parentNode.querySelector('.strain-name');
-            let strainNameWidth = strainNameText.getComputedTextLength();
+    // --- Append strain text ---
+    node.append("text")
+        .attr("class", "strain-name")
+        .text(d => d.displayName)
+        .attr("x", d => d.variant ? -standardPillWidth * 0.85 / 2 + 12 : -standardPillWidth / 2 + 12)
+        .attr("y", 1)
+        .attr("dominant-baseline", "middle")
+        .attr("fill", "black")
+        .style("font-size", "15px")
+        .style("font-family", "'Roboto', Arial, sans-serif")
+        .style("font-weight", "bold")
+        .each(function(d) {
+            const strainText = d3.select(this);
             const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            let xPos = -nodeWidth / 2 + 5 + strainNameWidth + 10;
+            const availableWidth = nodeWidth - 24;
 
-            const textWidth = self.getComputedTextLength();
-            const remainingWidth = nodeWidth - strainNameWidth - 40;
-            if (textWidth > remainingWidth) {
-                d3.select(self).style("font-family", "'Roboto Condensed', Arial, sans-serif");
-                d3.select(self.parentNode).select('.strain-name')
-                    .style("font-family", "'Roboto Condensed', Arial, sans-serif");
-                strainNameWidth = strainNameText.getComputedTextLength();
-                xPos = -nodeWidth / 2 + 5 + strainNameWidth + 10;
+            let textWidth = this.getComputedTextLength();
+
+            // Apply condensed font if too wide
+            if (textWidth > availableWidth) {
+                strainText.style("font-family", "'Roboto Condensed', Arial, sans-serif");
+                textWidth = this.getComputedTextLength(); // re-measure with condensed font
             }
 
-            d3.select(self).attr("x", xPos);
+            d.strainTextWidth = textWidth; // store width for product text positioning
         });
-    });
+
+    // --- Append product text ---
+    node.append("text")
+        .filter(d => d.product)
+        .text(d => d.product)
+        .attr("class", "product")
+        .attr("y", 1.6)
+        .attr("dominant-baseline", "middle")
+        .attr("fill", "black")
+        .style("font-size", "10px")
+        .style("font-family", "'Roboto', Arial, sans-serif")
+        .style("font-weight", "normal")
+        .each(function(d) {
+            const productText = d3.select(this);
+            const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+
+            // Use the already measured strain-name width
+            let xPos = -nodeWidth / 2 + 5 + d.strainTextWidth + 10;
+            let textWidth = this.getComputedTextLength();
+            let remainingWidth = nodeWidth - d.strainTextWidth - 40;
+
+            // If product text is too wide, switch to condensed font and recalc
+            if (textWidth > remainingWidth) {
+                productText.style("font-family", "'Roboto Condensed', Arial, sans-serif");
+
+                // Recalculate xPos because strain name might also need condensed font
+                const strainText = this.parentNode.querySelector('.strain-name');
+                if (strainText) {
+                    strainText.style.fontFamily = "'Roboto Condensed', Arial, sans-serif";
+                    d.strainTextWidth = strainText.getComputedTextLength();
+                }
+
+                xPos = -nodeWidth / 2 + 5 + d.strainTextWidth + 10;
+            }
+
+            productText.attr("x", xPos);
+        });
+});
+
 
 
 // --- Append product icon ---
