@@ -1,4 +1,3 @@
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -757,21 +756,14 @@ const node = g.append("g")
     });
 
 
-// --- DRAGGING + Chart Panning ---
+// --- NODE DRAGGING (Shift only, desktop) ---
 node.call(d3.drag()
     .on("start", function(event, d) {
-        const isTouch = event.sourceEvent.type.startsWith("touch");
-
-        // Mobile: disable node dragging entirely
-        if (isTouch) return;
-
-        // Desktop: only start drag if Shift is held
-        if (!event.sourceEvent.shiftKey) return;
-
+        if (!event.sourceEvent.shiftKey) return; // Only drag nodes if Shift is held
         startDrag(event, d, this);
     })
     .on("drag", function(event, d) {
-        if (!d.dragging) return; // Only drag if Shift activated
+        if (!d.dragging) return;
         dragNode(event, d, this);
     })
     .on("end", function(event, d) {
@@ -781,22 +773,23 @@ node.call(d3.drag()
     })
 );
 
-// --- Helper functions ---
+// --- HELPER FUNCTIONS ---
 function startDrag(event, d, nodeElement) {
     dragging = true;
     d.dragging = true;
     d3.select(nodeElement).raise();
 
-    // store offsets for variants
+    // Store offsets for variant nodes
     d.variantOffsets = nodes.filter(n => n.variant === d.name)
         .map(v => ({ id: v.id, offsetY: v.y - d.y }));
 }
 
 function dragNode(event, d, nodeElement) {
+    d.x = event.x;
     d.y = event.y;
     d3.select(nodeElement).attr("transform", `translate(${d.x},${d.y})`);
 
-    // move variants with stored offsets
+    // Move variant nodes with stored offsets
     if (d.variantOffsets) {
         d.variantOffsets.forEach(vo => {
             const variantNode = nodes.find(n => n.id === vo.id);
@@ -807,22 +800,16 @@ function dragNode(event, d, nodeElement) {
         });
     }
 
-    // move pct pills along with nodes
-    g.selectAll('.pct-pill')
-        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+    // Update pct pills
+    g.selectAll('.pct-pill, .pct-pill-text')
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d || 
+                     (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
         .attr("transform", p => {
             const nodeRef = nodes.find(n => n.id === p.nodeId);
             return `translate(${nodeRef.x},${nodeRef.y})`;
         });
 
-    g.selectAll('.pct-pill-text')
-        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
-        .attr("transform", p => {
-            const nodeRef = nodes.find(n => n.id === p.nodeId);
-            return `translate(${nodeRef.x},${nodeRef.y})`;
-        });
-
-    // update links
+    // Update links
     g.selectAll(".link").attr("d", l => {
         const sourceNode = nodes.find(n => n.id === l.source);
         const targetNode = nodes.find(n => n.id === l.target);
@@ -834,35 +821,6 @@ function dragNode(event, d, nodeElement) {
         return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
     });
 }
-
-// --- Chart Panning on click/drag anywhere (except Shift+drag node) ---
-svg.on('mousedown', function(event) {
-    // Only start pan if not dragging a node or Shift+dragging
-    if (dragging) return;
-    const isTouch = event.type.startsWith("touch");
-    if (isTouch) return; // Optional: disable panning on mobile if needed
-
-    const start = { x: event.clientX, y: event.clientY };
-    const originTransform = g.attr("transform") || "translate(0,0) scale(1)";
-    const [originTranslate, originScale] = originTransform.match(/translate\((.*?)\) scale\((.*?)\)/).slice(1,3);
-    const [ox, oy] = originTranslate.split(',').map(Number);
-    const scale = parseFloat(originScale);
-
-    const onMouseMove = (moveEvent) => {
-        const dx = (moveEvent.clientX - start.x);
-        const dy = (moveEvent.clientY - start.y);
-        g.attr("transform", `translate(${ox + dx},${oy + dy}) scale(${scale})`);
-    };
-
-    const onMouseUp = () => {
-        window.removeEventListener("mousemove", onMouseMove);
-        window.removeEventListener("mouseup", onMouseUp);
-    };
-
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-});
-
 
 
 
@@ -1648,4 +1606,3 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
-
