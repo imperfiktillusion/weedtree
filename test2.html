@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -674,18 +675,21 @@ genNodes = sortedGroups.flat();
 
     
 if (gen >= 2 && genNodes.length < 20) {
-    const alpha = 0.75; // weight toward parent-centered
-    const topPadding = 20; // small padding from top of chart
+    const alpha = 0.75;
+    const topPadding = 20;
     const bottomPadding = 20;
     const usableHeight = height - topPadding - bottomPadding;
 
-    // already sorted genNodes (dominance + barycentric)
+    // genNodes already sorted by dominance + barycentric
     genNodes.forEach((node, i) => {
         // parent-centered Y
         const parentYs = node.parents
             .map(pid => nodes.find(p => p.id === pid)?.y)
-            .filter(Boolean);
-        const parentY = parentYs.length ? d3.mean(parentYs) : node.y; // fallback to existing Y
+            .filter(y => y !== undefined);
+
+        const parentY = parentYs.length 
+            ? d3.mean(parentYs)
+            : topPadding + usableHeight / 2; // fallback to column center
 
         // evenly spaced stackY
         const stackY = topPadding + usableHeight * (i + 0.5) / genNodes.length;
@@ -703,6 +707,7 @@ if (gen >= 2 && genNodes.length < 20) {
         });
     });
 }
+
 
 
 
