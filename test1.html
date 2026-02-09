@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1085,25 +1086,27 @@ g.selectAll('.node')
 g.selectAll('.info-panel').remove();
 
 // --- Prepare data ---
+// Ensure AKA is read correctly
 const alsoKnownAs = d.alsoKnownAs
     ? d.alsoKnownAs.split(';').map(s => s.trim()).filter(Boolean)
     : [];
 
+// Prepare contributors, excluding the node itself
 const contributionsMap = calculateUpwardChildTotals(d, nodes);
 const contributors = Array.from(contributionsMap.entries())
+    .filter(([id, perc]) => id !== d.id && perc >= 5)   // exclude self, min 5%
     .map(([id, perc]) => ({ id, perc }))
-    .filter(c => c.perc >= 5)
     .sort((a, b) => b.perc - a.perc)
     .map(c => {
         const nodeData = nodes.find(n => n.id === c.id);
-        return nodeData ? `${nodeData.name}: ${Math.round(c.perc)}%` : null;
+        return nodeData ? `${Math.round(c.perc)}% ${nodeData.name}` : null;
     })
     .filter(Boolean);
 
 // --- Build panel content ---
 let panelText = '';
 if (alsoKnownAs.length) {
-    panelText += 'Also known as\n';
+    panelText += 'Also known as\n';  
     panelText += alsoKnownAs.join('\n') + '\n\n';
 }
 if (contributors.length) {
@@ -1111,34 +1114,49 @@ if (contributors.length) {
     panelText += contributors.join('\n');
 }
 
+// --- Determine panel position ---
+// Start below main node
+let panelY = d.y + nodePillHeight / 2 + 20; // default gap 20px
+
+// If there are variants, place panel below the lowest variant
+if (d.variants && d.variants.length) {
+    const variantYs = d.variants.map(v => v.y);
+    const maxVariantY = Math.max(...variantYs);
+    panelY = maxVariantY + nodePillHeight / 2 + 20;
+}
+
 // --- Create panel container ---
 const panelWidth = 220;    // adjust as needed
-const gap = 20;            // space below node
 const maxPanelHeight = 300; // max height before scroll
 
 const foreign = g.append('foreignObject')
     .attr('class', 'info-panel')
     .attr('x', d.x - panelWidth / 2)
-    .attr('y', d.y + pillHeight/2 + gap)
+    .attr('y', panelY)
     .attr('width', panelWidth);
 
 const div = foreign.append('xhtml:div')
     .style('font-family', "'Roboto', Arial, sans-serif")
     .style('font-size', '13px')
     .style('background', 'rgba(255,255,255,0.95)')
-    .style('border', '1px solid #333')
+    .style('border', '0px')             // remove border
     .style('border-radius', '8px')
     .style('padding', '8px')
     .style('white-space', 'pre-line')
     .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
-    .style('overflow-y', 'auto')        // enable vertical scroll
-    .style('max-height', maxPanelHeight + 'px')  // enforce max height
-    .text(panelText);
+    .style('overflow-y', 'auto')
+    .style('max-height', maxPanelHeight + 'px')
+    .html(panelText.replace(/^(.+)$/gm, match => {
+        // Bold the headings
+        if (match === 'Also known as' || match === 'Contributors') {
+            return `<strong>${match}</strong>`;
+        }
+        return match;
+    }));
 
-// --- Dynamically set foreignObject height to match content (up to maxPanelHeight) ---
+// --- Dynamically set foreignObject height ---
 const divHeight = div.node().scrollHeight;
 foreign.attr('height', Math.min(divHeight, maxPanelHeight));
-
 
 
 
