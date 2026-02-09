@@ -690,28 +690,32 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         }
     });
 
-if (gen >= 2 && genNodes.length < 20) {
-    const normalSpacing = pillHeight + 16;
-    const tinyColSpacing = genNodes.length < 5 ? normalSpacing * 2 : normalSpacing;
+if (gen >= 2) {
+    // Filter only small columns
+    const smallColumnNodes = genNodes.filter(n => !n.variant);
+    if (smallColumnNodes.length > 0 && smallColumnNodes.length < 5) {
+        const normalSpacing = pillHeight + 16;
+        const tinyColSpacing = normalSpacing * 2;
 
-    // Compute parent mean for the whole column
-    const parentYs = genNodes.flatMap(node =>
-        node.parents.map(pid => nodes.find(p => p.id === pid)?.y).filter(y => y !== undefined)
-    );
-    const parentMeanY = parentYs.length ? d3.mean(parentYs) : 0;
+        // Compute column top based on parent mean
+        const parentYs = smallColumnNodes.flatMap(node =>
+            node.parents.map(pid => nodes.find(p => p.id === pid)?.y).filter(y => y !== undefined)
+        );
+        const parentMeanY = parentYs.length ? d3.mean(parentYs) : 0;
 
-    let lastY = 0;
+        let lastY = 0;
 
-    genNodes.forEach((node, index) => {
-        if (!node.variant) {
+        smallColumnNodes.forEach(node => {
+            // Minimum Y based on last node + spacing
             const minY = lastY + tinyColSpacing;
 
-            // Pull toward parentMeanY if possible
+            // Place node at higher of minY or parentMeanY
             node.y = Math.max(minY, parentMeanY);
 
-            // Position variants under parent
+            // Position variants
             const variants = nodes.filter(n => n.variant === node.name)
                 .sort((a, b) => a.name.localeCompare(b.name));
+
             variants.forEach((v, i) => {
                 v.y = node.y + (i + 1) * (pillHeight + 2);
                 v.x = node.x;
@@ -719,9 +723,10 @@ if (gen >= 2 && genNodes.length < 20) {
 
             // Update lastY including variants
             lastY = node.y + (variants.length ? (variants.length * (pillHeight + 2)) : 0);
-        }
-    });
+        });
+    }
 }
+
 
 
 
@@ -1246,7 +1251,7 @@ const div = foreign.append('xhtml:div')
     .style('background', 'rgba(255,255,255,0.95)')
     .style('border', '0px')
     .style('border-radius', '8px')
-    .style('padding', '13px')
+    .style('padding', '18px')
     .style('white-space', 'pre-line')
     .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
     .html(panelHTML);
