@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -933,14 +934,13 @@ function dragNode(event, d, nodeElement) {
 
     
 function highlightLineage(event, d) {
-    event.stopPropagation(); // prevent SVG click from immediately closing panel
 
     // --- Remove old percentage pills and info panel ---
     g.selectAll('.pct-pill').remove();
     g.selectAll('.pct-pill-text').remove();
     g.selectAll('.info-panel').remove();
 
-    // --- If clicking the already focused node, unfocus ---
+    // --- If clicking the same node, unfocus ---
     if (focusedNode === d) {
         node.classed("dimmed", false).classed("clicked", false);
         link.classed("dimmed", false).attr("stroke-width", lineWidth + 1);
@@ -949,7 +949,9 @@ function highlightLineage(event, d) {
         return;
     }
 
-    // --- Highlight lineage ---
+    focusedNode = d;
+
+    // ---- lineage isolation ----
     const lineage = new Set();
 
     const getAncestors = (node) => {
@@ -966,7 +968,7 @@ function highlightLineage(event, d) {
 
         node.parents.forEach(parentId => {
             const parent = nodes.find(n => n.id === parentId);
-            if (parent && !lineage.has(parent.id)) {
+            if (parent) {
                 lineage.add(parent.id);
                 getAncestors(parent);
             }
@@ -975,11 +977,9 @@ function highlightLineage(event, d) {
 
     const getDescendants = (nodeId) => {
         lineage.add(nodeId);
-
         const children = nodes.filter(n => n.parents.includes(nodeId));
         const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
         const allChildren = [...children, ...variantChildren];
-
         allChildren.forEach(child => {
             if (!lineage.has(child.id)) {
                 lineage.add(child.id);
@@ -994,21 +994,22 @@ function highlightLineage(event, d) {
     node.classed("dimmed", n => !lineage.has(n.id));
     node.classed("clicked", n => n.id === d.id);
     link.classed("dimmed", l => !lineage.has(l.source) || !lineage.has(l.target))
-        .attr("stroke-width", l => (lineage.has(l.source) && lineage.has(l.target)) ? lineWidth + 2 : lineWidth + 1);
+        .attr("stroke-width", l =>
+            (lineage.has(l.source) && lineage.has(l.target)) ? lineWidth + 2 : lineWidth + 1
+        );
 
-    focusedNode = d;
     zoomToLineage(lineage);
 
-    // --- Render percentage pills ---
+    // --- Show ancestor percentages on nodes ---
     const contributionStartNode = d;
 
     const ancestorContrib = calculateUpwardChildTotals(contributionStartNode, nodes);
     const descendantContrib = calculateDownwardDescendantTotals(contributionStartNode, nodes);
-    const contributions = new Map();
 
+    const contributions = new Map();
     ancestorContrib.forEach((v, k) => contributions.set(k, v));
     descendantContrib.forEach((v, k) => contributions.set(k, (contributions.get(k) || 0) + v));
-    contributions.set(contributionStartNode.id, 100); // self, not rendered
+    contributions.set(contributionStartNode.id, 100); // self 100%, but won't display
 
     g.selectAll('.node')
         .filter(n => contributions.has(n.id) && n.id !== contributionStartNode.id)
@@ -1016,7 +1017,6 @@ function highlightLineage(event, d) {
             const pct = contributions.get(n.id);
             const label = formatPercentage(pct);
             const group = d3.select(this);
-
             const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
             const pillHeight = nodePillHeight;
             const pillPaddingX = 10;
@@ -1046,22 +1046,22 @@ function highlightLineage(event, d) {
                 .style('pointer-events', 'none');
         });
 
-    // --- Prepare AKA and Contributors ---
-    const alsoKnownAs = Array.isArray(d.alsoKnownAs)
-        ? d.alsoKnownAs
-        : (d.alsoKnownAs ? d.alsoKnownAs.split(/[;,]/).map(s => s.trim()).filter(Boolean) : []);
+    // --- Prepare info panel content ---
+    const alsoKnownAs = d.alsoKnownAs
+        ? d.alsoKnownAs.split(';').map(s => s.trim()).filter(Boolean)
+        : [];
 
     const contributionsMap = calculateUpwardChildTotals(d, nodes);
     const contributors = Array.from(contributionsMap.entries())
         .filter(([id, perc]) => id !== d.id && perc >= 5)
-        .map(([id, perc]) => {
-            const nodeData = nodes.find(n => n.id === id);
-            return nodeData ? `${Math.round(perc)}% ${nodeData.name}` : null;
+        .map(([id, perc]) => ({ id, perc }))
+        .sort((a, b) => b.perc - a.perc)
+        .map(c => {
+            const nodeData = nodes.find(n => n.id === c.id);
+            return nodeData ? `${Math.round(c.perc)}% ${nodeData.name}` : null;
         })
-        .filter(Boolean)
-        .sort((a, b) => parseInt(b) - parseInt(a)); // sort descending by %age
+        .filter(Boolean);
 
-    // --- Build panel text ---
     let panelText = '';
     if (alsoKnownAs.length) {
         panelText += 'Also known as\n';
@@ -1072,21 +1072,14 @@ function highlightLineage(event, d) {
         panelText += contributors.join('\n');
     }
 
-    // --- Create panel ---
-    const panelWidth = 220;
-    const gap = 20;
-    const pillHeight = nodePillHeight;
-
-    // Position below variants if any
-    const variantCount = nodes.filter(n => n.variant === d.name).length;
-    const variantSpacing = 25; // adjust if your variant nodes are spaced differently
-    const panelY = d.y + gap + variantCount * variantSpacing;
-
+    // --- Create panel container ---
+    const nodeHeight = nodePillHeight;
+    const gap = 10; // below variants if any
     const foreign = g.append('foreignObject')
         .attr('class', 'info-panel')
-        .attr('x', d.x - panelWidth / 2)
-        .attr('y', panelY)
-        .attr('width', panelWidth);
+        .attr('x', d.x - 110) // center horizontally
+        .attr('y', d.y + nodeHeight / 2 + gap)
+        .attr('width', 220);
 
     const div = foreign.append('xhtml:div')
         .style('font-family', "'Roboto', Arial, sans-serif")
@@ -1097,13 +1090,13 @@ function highlightLineage(event, d) {
         .style('padding', '8px')
         .style('white-space', 'pre-line')
         .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
-        .style('overflow-y', 'auto')
-        .style('max-height', '300px')
-        .html(panelText.replace(/^(.+)$/gm, m => (m === 'Also known as' || m === 'Contributors') ? `<strong>${m}</strong>` : m));
-    
+        .html(panelText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'));
+
+    // --- Auto-adjust height ---
     const divHeight = div.node().scrollHeight;
-    foreign.attr('height', Math.min(divHeight, 300));
+    foreign.attr('height', divHeight);
 }
+
 
 // --- Add SVG click listener to unfocus any node ---
 svg.on('click', function(event) {
