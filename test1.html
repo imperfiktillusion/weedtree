@@ -6,6 +6,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -934,6 +935,9 @@ function dragNode(event, d, nodeElement) {
         .attr("y", -14);
 
 
+
+
+    
     
 // --- Node click handler ---
 node.on('click', function(event, d) {
@@ -954,6 +958,9 @@ svg.on('click', function(event) {
     }
 });
 
+
+
+    
 function highlightLineage(event, d) {
     // Remove old percentage pills and panel
     g.selectAll('.pct-pill').remove();
@@ -1029,6 +1036,48 @@ function highlightLineage(event, d) {
         .filter(Boolean)
         .sort((a, b) => parseInt(b) - parseInt(a)); // sort descending %
 
+    
+// --- Render percentage pills on nodes (exclude focused node itself) ---
+g.selectAll('.node')
+  .filter(n => contributionsMap.has(n.id) && n.id !== d.id)
+  .each(function(n) {
+      const pct = contributionsMap.get(n.id);
+      const label = Math.round(pct) + '%';
+
+      const group = d3.select(this);
+
+      const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
+      const pillHeight = nodePillHeight;
+      const pillPaddingX = 10;
+      const pillWidth = 80;
+      const pillX = nodeWidth / 2;
+
+      // Append rect behind everything
+      group.insert('rect', ':first-child')
+          .attr('class', 'pct-pill')
+          .attr('x', pillX - pillPaddingX * 2 - 4)
+          .attr('y', -pillHeight / 2)
+          .attr('rx', pillHeight / 2)
+          .attr('ry', pillHeight / 2)
+          .attr('width', pillWidth)
+          .attr('height', pillHeight)
+          .attr('fill', 'white')
+          .attr('stroke', nodeStrokeColor)
+          .attr('stroke-width', nodeStrokeWidth);
+
+      // Append text
+      group.append('text')
+          .attr('class', 'pct-pill-text')
+          .attr('x', nodeWidth / 2 + pillPaddingX)
+          .attr('y', 1)
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .text(label)
+          .style('fill', 'white')
+          .style('pointer-events', 'none');
+  });
+
+    
     // --- Prepare AKA list ---
     const alsoKnownAs = d.alsoKnownAs
         ? d.alsoKnownAs.split(';').map(s => s.trim()).filter(Boolean)
@@ -1073,6 +1122,10 @@ function highlightLineage(event, d) {
     foreign.attr('height', divHeight);
 }
 
+
+
+
+    
 
     function highlightHoverLineage(event, d) {
         const lineage = new Set();
