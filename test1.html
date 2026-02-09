@@ -756,36 +756,29 @@ const node = g.append("g")
     });
 
 
-// --- DRAGGING with long press on mobile + shift key for desktop ---
+// --- DRAGGING + Chart Panning ---
 node.call(d3.drag()
     .on("start", function(event, d) {
-        // Mobile: skip immediate drag, use long press
-        if (event.sourceEvent.type.startsWith("touch")) {
-            d.longPressTimer = setTimeout(() => {
-                startDrag(event, d, this);
-            }, 400); // 400ms long press
-        } else {
-            // Desktop: only start drag if Shift is held
-            if (!event.sourceEvent.shiftKey) return;
-            startDrag(event, d, this);
-        }
+        const isTouch = event.sourceEvent.type.startsWith("touch");
+
+        // Mobile: disable node dragging entirely
+        if (isTouch) return;
+
+        // Desktop: only start drag if Shift is held
+        if (!event.sourceEvent.shiftKey) return;
+
+        startDrag(event, d, this);
     })
     .on("drag", function(event, d) {
-        if (!d.dragging) return; // Only drag if long press (mobile) or Shift (desktop) activated
+        if (!d.dragging) return; // Only drag if Shift activated
         dragNode(event, d, this);
     })
     .on("end", function(event, d) {
-        if (d.longPressTimer) {
-            clearTimeout(d.longPressTimer);
-            d.longPressTimer = null;
-        }
         if (!d.dragging) return;
         d.dragging = false;
         dragging = false;
     })
 );
-
-
 
 // --- Helper functions ---
 function startDrag(event, d, nodeElement) {
@@ -840,6 +833,35 @@ function dragNode(event, d, nodeElement) {
         return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
     });
 }
+
+// --- Chart Panning on click/drag anywhere (except Shift+drag node) ---
+svg.on('mousedown', function(event) {
+    // Only start pan if not dragging a node or Shift+dragging
+    if (dragging) return;
+    const isTouch = event.type.startsWith("touch");
+    if (isTouch) return; // Optional: disable panning on mobile if needed
+
+    const start = { x: event.clientX, y: event.clientY };
+    const originTransform = g.attr("transform") || "translate(0,0) scale(1)";
+    const [originTranslate, originScale] = originTransform.match(/translate\((.*?)\) scale\((.*?)\)/).slice(1,3);
+    const [ox, oy] = originTranslate.split(',').map(Number);
+    const scale = parseFloat(originScale);
+
+    const onMouseMove = (moveEvent) => {
+        const dx = (moveEvent.clientX - start.x);
+        const dy = (moveEvent.clientY - start.y);
+        g.attr("transform", `translate(${ox + dx},${oy + dy}) scale(${scale})`);
+    };
+
+    const onMouseUp = () => {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+});
+
 
 
 
