@@ -2,6 +2,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -688,17 +689,22 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     });
 
 if (gen >= 2 && genNodes.length < 20) {
-    const spacing = pillHeight + 16; // normal minimum spacing
-    const smallColSpacing = spacing * 2; // double spacing for tiny columns
-    let lastY = 0;
+    const normalSpacing = pillHeight + 16;
+    const tinyColSpacing = normalSpacing * 2;
+    const columnSpacing = genNodes.length < 5 ? tinyColSpacing : normalSpacing;
 
-    // Determine spacing to use for this column
-    const columnSpacing = genNodes.length < 5 ? smallColSpacing : spacing;
+    // Find the top-most Y among parents in this column
+    const parentYs = genNodes.flatMap(node =>
+        node.parents.map(pid => nodes.find(p => p.id === pid)?.y).filter(y => y !== undefined)
+    );
+
+    // Start near the average of parents or default to half spacing
+    let lastY = parentYs.length ? Math.min(...parentYs) - columnSpacing : columnSpacing;
 
     genNodes.forEach(node => {
-        // Assign Y if not a variant
         if (!node.variant) {
-            node.y = lastY + columnSpacing;
+            // Place node at least columnSpacing below last node
+            node.y = Math.max(lastY + columnSpacing, node.y || 0);
 
             // Position variants under parent
             const variants = nodes.filter(n => n.variant === node.name)
@@ -714,8 +720,6 @@ if (gen >= 2 && genNodes.length < 20) {
         }
     });
 }
-✅ What this does:
-
 
 
 }
