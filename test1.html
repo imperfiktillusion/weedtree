@@ -8,6 +8,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1036,7 +1037,7 @@ function highlightLineage(event, d) {
 
     contributionsMap.set(d.id, 100); // focused node 100%
 
-    // --- Render percentage pills ---
+    // --- Render percentage pills (ancestors + descendants) ---
     g.selectAll('.node')
       .filter(n => contributionsMap.has(n.id) && n.id !== d.id)
       .each(function(n) {
@@ -1074,12 +1075,12 @@ function highlightLineage(event, d) {
               .style('pointer-events', 'none');
       });
 
-    // --- Build info panel ---
+    // --- Build info panel (only AKAs + ancestors) ---
     const alsoKnownAs = d.alsoKnownAs
         ? d.alsoKnownAs.split(';').map(s => s.trim()).filter(Boolean)
         : [];
 
-    const contributors = Array.from(contributionsMap.entries())
+    const contributors = Array.from(ancestorContrib.entries())
         .filter(([id, perc]) => id !== d.id && perc >= 5)
         .map(([id, perc]) => ({ id, perc }))
         .sort((a, b) => b.perc - a.perc)
@@ -1103,7 +1104,6 @@ function highlightLineage(event, d) {
     const variantCount = d.variant ? nodes.filter(n => n.variant === d.name).length : 0;
     const gap = 20 + variantCount * pillHeight; // lower panel if variants exist
     const panelWidth = 220;
-    const maxPanelHeight = 300;
 
     const foreign = g.append('foreignObject')
         .attr('class', 'info-panel')
@@ -1125,6 +1125,7 @@ function highlightLineage(event, d) {
     const divHeight = div.node().scrollHeight;
     foreign.attr('height', divHeight);
 }
+
 
 
 
