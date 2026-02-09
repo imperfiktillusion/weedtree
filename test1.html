@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1063,6 +1064,33 @@ if (node.variant) {
         );
 
     focusedNode = d;
+
+
+    zoomToLineage(lineage);
+        
+const contributionStartNode = d;
+
+const ancestorContrib = calculateUpwardChildTotals(
+    contributionStartNode,
+    nodes
+);
+
+const descendantContrib = calculateDownwardDescendantTotals(
+    contributionStartNode,
+    nodes
+);
+
+const contributions = new Map();
+
+// merge ancestor + descendant maps
+ancestorContrib.forEach((v, k) => {
+    contributions.set(k, v);
+});
+
+descendantContrib.forEach((v, k) => {
+    contributions.set(k, (contributions.get(k) || 0) + v);
+});
+
         // --- Lineage info panel ---
 removeLineageInfoPanel();
 
@@ -1085,7 +1113,12 @@ if (akaList.length) {
 }
 
 // CONTRIBUTORS
-const contributors = buildContributorList(ancestorContrib, d.id, nodes);
+const contributors = buildContributorList(ancestorContribconst contributors = buildContributorList(
+    Object.fromEntries(contributions),
+    d.id,
+    nodes
+);
+, d.id, nodes);
 
 if (contributors.length) {
     const spacer = document.createElement('div');
@@ -1113,32 +1146,7 @@ const [sx, sy] = transform.apply([d.x, d.y]);
 const offsetY = 30;
 panel.style.left = `${Math.min(window.innerWidth - 280, sx + 10)}px`;
 panel.style.top = `${Math.min(window.innerHeight - 200, sy + offsetY)}px`;
-
-    zoomToLineage(lineage);
         
-const contributionStartNode = d;
-
-const ancestorContrib = calculateUpwardChildTotals(
-    contributionStartNode,
-    nodes
-);
-
-const descendantContrib = calculateDownwardDescendantTotals(
-    contributionStartNode,
-    nodes
-);
-
-const contributions = new Map();
-
-// merge ancestor + descendant maps
-ancestorContrib.forEach((v, k) => {
-    contributions.set(k, v);
-});
-
-descendantContrib.forEach((v, k) => {
-    contributions.set(k, (contributions.get(k) || 0) + v);
-});
-
 // focused strain is always 100 (but not rendered)
 contributions.set(contributionStartNode.id, 100);
 
