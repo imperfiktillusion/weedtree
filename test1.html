@@ -4,6 +4,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -733,20 +734,23 @@ const node = g.append("g")
 
 // --- NODE HOVER WITH DELAY (prevent sticky enlargements) ---
 const hoverDelay = 200; // ms delay before enlargement
-node.each(d => d.hoverTimer = null); // per-node hover timer
-node.each(d => d.currentScale = 1); // initialize scale
+
+node.each(d => {
+    d.hoverTimer = null;   // store pending timer per node
+    d.currentScale = 1;    // current scale of node
+});
 
 node.on("mouseover", function(event, d) {
     if (dragging) return;
 
-    // Cancel previous timer if any
+    // cancel any previous timer
     if (d.hoverTimer) clearTimeout(d.hoverTimer);
 
-    // Start new timer for enlargement
+    // start a new timer to enlarge
     d.hoverTimer = setTimeout(() => {
         d.currentScale = 1.7;
         d3.select(this)
-            .interrupt(true) // stop ongoing transitions
+            .interrupt(true)  // stop ongoing transitions
             .raise()
             .transition()
             .duration(150)
@@ -758,13 +762,13 @@ node.on("mouseover", function(event, d) {
 .on("mouseout", function(event, d) {
     if (dragging) return;
 
-    // Cancel pending hover enlargement
+    // cancel pending enlargement
     if (d.hoverTimer) {
         clearTimeout(d.hoverTimer);
         d.hoverTimer = null;
     }
 
-    // Shrink node back if it was enlarged
+    // shrink back if enlarged
     if (d.currentScale !== 1) {
         d.currentScale = 1;
         d3.select(this)
@@ -779,6 +783,7 @@ node.on("mouseover", function(event, d) {
         removeHighlightHoverLineage();
     }
 });
+
 
     .on("click", function(event, d) {
         event.stopPropagation();
