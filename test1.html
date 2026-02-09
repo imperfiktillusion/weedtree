@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -754,23 +755,50 @@ const node = g.append("g")
 });
 
 
-// --- NODE DRAGGING (Shift only, desktop) ---
-node.call(d3.drag()
-    .on("start", function(event, d) {
-        // Only drag nodes if Shift is held (desktop)
-        if (!event.sourceEvent.shiftKey) return;
-        startDrag(event, d, this);
+// --- NODE EVENTS AND DRAGGING ---
+node
+    .on("mouseover", function(event, d) {
+        if (dragging) return; // skip hover effects while dragging
+
+        // enlarge node on hover
+        d3.select(this).raise()
+            .transition()
+            .duration(150)
+            .attr("transform", `translate(${d.x},${d.y}) scale(1.7)`);
+
+        // highlight lineage
+        highlightHoverLineage(event, d);
     })
-    .on("drag", function(event, d) {
-        if (!d.dragging) return;
-        dragNode(event, d, this);
+    .on("mouseout", function(event, d) {
+        if (dragging) return;
+
+        // shrink node back
+        d3.select(this).transition()
+            .duration(150)
+            .attr("transform", `translate(${d.x},${d.y}) scale(1)`);
+
+        removeHighlightHoverLineage();
     })
-    .on("end", function(event, d) {
-        if (!d.dragging) return;
-        d.dragging = false;
-        dragging = false;
+    .on("click", function(event, d) {
+        event.stopPropagation(); // prevent background pan
+        highlightLineage(event, d);
     })
-);
+    .call(d3.drag()
+        .filter(event => event.shiftKey || event.sourceEvent.type.startsWith("touch")) // Shift or touch to drag node
+        .on("start", function(event, d) {
+            startDrag(event, d, this);
+        })
+        .on("drag", function(event, d) {
+            if (!d.dragging) return;
+            dragNode(event, d, this);
+        })
+        .on("end", function(event, d) {
+            if (!d.dragging) return;
+            d.dragging = false;
+            dragging = false;
+        })
+    );
+
 
 // --- HELPER FUNCTIONS ---
 function startDrag(event, d, nodeElement) {
@@ -937,9 +965,10 @@ node.on('click', function(event, d) {
     highlightLineage(event, d);
 });
 
-// --- SVG click listener to unfocus any node ---
+// --- SVG click to pan or unfocus ---
 svg.on('click', function(event) {
     if (!event.defaultPrevented) {
+        // unfocus any node
         focusedNode = null;
         node.classed("dimmed", false).classed("clicked", false);
         link.classed("dimmed", false).attr("stroke-width", lineWidth + 1);
@@ -949,6 +978,7 @@ svg.on('click', function(event) {
         resetZoom();
     }
 });
+
 
 
 
