@@ -1,3 +1,4 @@
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -724,42 +725,40 @@ const node = g.append("g")
         d.baseTransform = `translate(${d.x},${d.y})`; // store original position
     })
     .on("click", highlightLineage)
-    .on("mouseover", function(event, d) {
-        if (dragging) return;
+  node.on("mouseover", function(event, d) {
+    if (dragging) return;
 
-        d3.select(this).interrupt(); // stop any ongoing transitions
+    highlightHoverLineage(event, d);
 
-        highlightHoverLineage(event, d); // highlight ancestors/descendants
+    d3.select(this)
+        .interrupt() // stop any ongoing transform transition
+        .raise()
+        .transition()
+        .duration(150)
+        .attr("transform", `translate(${d.x},${d.y}) scale(1.7)`);
+})
+.on("mouseout", function(event, d) {
+    if (dragging) return;
 
-        d3.select(this)
-            .raise() // bring hovered node to front
-            .transition()
-            .duration(150)
-            .attr("transform", `${d.baseTransform} scale(1.7)`);
-    })
-    .on("mouseout", function(event, d) {
-        if (dragging) return;
+    removeHighlightHoverLineage();
 
-        d3.select(this).interrupt(); // stop ongoing transitions
-
-        removeHighlightHoverLineage(); // remove highlight classes
-
-        d3.select(this)
-            .transition()
-            .duration(150)
-            .attr("transform", d.baseTransform); // shrink back to original size
-
-        // Re-raise all product nodes to front
-        g.selectAll(".node").each(nd => {
-            if (nd.product) d3.select(nd).raise();
+    d3.select(this)
+        .interrupt() // stop any ongoing transform transition
+        .transition()
+        .duration(150)
+        .attr("transform", `translate(${d.x},${d.y}) scale(1)`)
+        .on("end", function() {
+            // ensure product nodes are raised after shrink
+            g.selectAll(".node").each(n => { if (n.product) d3.select(this).raise(); });
         });
-    });
+});
 
 
 // --- NODE DRAGGING (Shift only, desktop) ---
 node.call(d3.drag()
     .on("start", function(event, d) {
-        if (!event.sourceEvent.shiftKey) return; // Only drag nodes if Shift is held
+        // Only drag nodes if Shift is held (desktop)
+        if (!event.sourceEvent.shiftKey) return;
         startDrag(event, d, this);
     })
     .on("drag", function(event, d) {
@@ -785,6 +784,7 @@ function startDrag(event, d, nodeElement) {
 }
 
 function dragNode(event, d, nodeElement) {
+    // Update node coordinates
     d.x = event.x;
     d.y = event.y;
     d3.select(nodeElement).attr("transform", `translate(${d.x},${d.y})`);
@@ -802,7 +802,7 @@ function dragNode(event, d, nodeElement) {
 
     // Update pct pills
     g.selectAll('.pct-pill, .pct-pill-text')
-        .filter(p => nodes.find(n => n.id === p.nodeId) === d || 
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d ||
                      (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
         .attr("transform", p => {
             const nodeRef = nodes.find(n => n.id === p.nodeId);
