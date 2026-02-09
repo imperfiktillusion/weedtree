@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -929,242 +930,156 @@ function dragNode(event, d, nodeElement) {
 
 
     
-    function highlightLineage(event, d) {
+function highlightLineage(event, d) {
 
-    // Remove old percentage pills
-    g.selectAll('.pct-pill').remove();
-    g.selectAll('.pct-pill-text').remove();
+    // --- If clicking the focused node, reset ---
+    if (focusedNode === d) {
+        node.classed("dimmed", false).classed("clicked", false);
+        link.classed("dimmed", false).attr("stroke-width", lineWidth + 1);
+        g.selectAll('.pct-pill').remove();
+        g.selectAll('.pct-pill-text').remove();
+        g.selectAll('.info-panel').remove();
+        focusedNode = null;
+        resetZoom();
+        return;
+    }
 
-   if (focusedNode === d) {
+    focusedNode = d;
 
-    g.selectAll('.pct-pill').remove();
-    g.selectAll('.pct-pill-text').remove();
-
-    node.classed("dimmed", false);
-    node.classed("clicked", false);
-    link.classed("dimmed", false)
-        .attr("stroke-width", lineWidth + 1);
-
-    focusedNode = null;
-    resetZoom();
-    return;
-}
-
-      
-
-    // ---- lineage isolation (UNCHANGED variant logic) ----
+    // --- Compute lineage (ancestors + descendants) ---
     const lineage = new Set();
 
-    const getAncestors = (node) => {
-    lineage.add(node.id);
-
-    // If variant, climb through base strain
-if (node.variant) {
-    const base = nodes.find(n => n.name === node.variant);
-    if (base) {
-        lineage.add(base.id);
-        getAncestors(base);
-    }
-    return;
-}
-
-
-    node.parents.forEach(parentId => {
-        const parent = nodes.find(n => n.id === parentId);
-        if (parent) {
-            lineage.add(parent.id);
-            getAncestors(parent);
+    const getAncestors = node => {
+        lineage.add(node.id);
+        if (node.variant) {
+            const base = nodes.find(n => n.name === node.variant);
+            if (base) {
+                lineage.add(base.id);
+                getAncestors(base);
+            }
+            return;
         }
-    });
-};
+        node.parents.forEach(pid => {
+            const parent = nodes.find(n => n.id === pid);
+            if (parent && !lineage.has(parent.id)) getAncestors(parent);
+        });
+    };
 
-
- const getDescendants = (nodeId) => {
-    lineage.add(nodeId);
-    
-    // Include normal children
-    const children = nodes.filter(n => n.parents.includes(nodeId));
-    
-    // Include variant children
-    const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
-    
-    const allChildren = [...children, ...variantChildren];
-    
-    allChildren.forEach(child => {
-        if (!lineage.has(child.id)) {  // prevent infinite recursion
-            lineage.add(child.id);
-            getDescendants(child.id);
-        }
-    });
-};
-
+    const getDescendants = nodeId => {
+        lineage.add(nodeId);
+        const children = nodes.filter(n => n.parents.includes(nodeId));
+        const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
+        [...children, ...variantChildren].forEach(c => {
+            if (!lineage.has(c.id)) getDescendants(c.id);
+        });
+    };
 
     getAncestors(d);
     getDescendants(d.id);
 
-    node.classed("dimmed", n => !lineage.has(n.id));
-    node.classed("clicked", n => n.id === d.id);
+    // --- Highlight nodes and links ---
+    node.classed("dimmed", n => !lineage.has(n.id))
+        .classed("clicked", n => n.id === d.id);
+
     link.classed("dimmed", l => !lineage.has(l.source) || !lineage.has(l.target))
         .attr("stroke-width", l =>
-            (lineage.has(l.source) && lineage.has(l.target))
-                ? lineWidth + 2
-                : lineWidth + 1
+            (lineage.has(l.source) && lineage.has(l.target)) ? lineWidth + 2 : lineWidth + 1
         );
 
-    focusedNode = d;
     zoomToLineage(lineage);
-        
-const contributionStartNode = d;
 
-const ancestorContrib = calculateUpwardChildTotals(
-    contributionStartNode,
-    nodes
-);
+    // --- Render contribution pills ---
+    g.selectAll('.pct-pill').remove();
+    g.selectAll('.pct-pill-text').remove();
 
-const descendantContrib = calculateDownwardDescendantTotals(
-    contributionStartNode,
-    nodes
-);
+    const contributions = new Map([...calculateUpwardChildTotals(d, nodes), ...calculateDownwardDescendantTotals(d, nodes)]);
+    contributions.set(d.id, 100); // focused strain itself
 
-const contributions = new Map();
+    g.selectAll('.node')
+        .filter(n => contributions.has(n.id) && n.id !== d.id)
+        .each(function(n) {
+            const pct = contributions.get(n.id);
+            const label = formatPercentage(pct);
 
-// merge ancestor + descendant maps
-ancestorContrib.forEach((v, k) => {
-    contributions.set(k, v);
-});
+            const group = d3.select(this);
+            const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            const pillHeight = nodePillHeight;
+            const pillPaddingX = 10;
+            const pillWidth = 80;
+            const pillX = nodeWidth / 2;
 
-descendantContrib.forEach((v, k) => {
-    contributions.set(k, (contributions.get(k) || 0) + v);
-});
+            group.insert('rect', ':first-child')
+                .attr('class', 'pct-pill')
+                .attr('x', pillX - pillPaddingX * 2 - 4)
+                .attr('y', -pillHeight / 2)
+                .attr('rx', pillHeight / 2)
+                .attr('ry', pillHeight / 2)
+                .attr('width', pillWidth)
+                .attr('height', pillHeight)
+                .attr('fill', 'white')
+                .attr('stroke', nodeStrokeColor)
+                .attr('stroke-width', nodeStrokeWidth);
 
-// focused strain is always 100 (but not rendered)
-contributions.set(contributionStartNode.id, 100);
+            group.append('text')
+                .attr('class', 'pct-pill-text')
+                .attr('x', nodeWidth / 2 + pillPaddingX)
+                .attr('y', 1)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text(label)
+                .style('fill', 'white')
+                .style('pointer-events', 'none');
+        });
 
+    // --- Build info panel (AKAs + Contributors) ---
+    g.selectAll('.info-panel').remove();
 
-g.selectAll('.node')
-  .filter(n => contributions.has(n.id) && n.id !== contributionStartNode.id)
-  .each(function(n) {
+    const alsoKnownAs = d.alsoKnownAs ? d.alsoKnownAs.split(';').map(s => s.trim()).filter(Boolean) : [];
+    const contributors = Array.from(calculateUpwardChildTotals(d, nodes).entries())
+        .filter(([id, perc]) => id !== d.id && perc >= 5)
+        .sort((a, b) => b[1] - a[1])
+        .map(([id, perc]) => {
+            const nData = nodes.find(n => n.id === id);
+            return nData ? `${Math.round(perc)}% ${nData.name}` : null;
+        })
+        .filter(Boolean);
 
-    const pct = contributions.get(n.id);
-    const label = formatPercentage(pct);
+    let panelText = '';
+    if (alsoKnownAs.length) panelText += 'Also known as\n' + alsoKnownAs.join('\n') + '\n\n';
+    if (contributors.length) panelText += 'Contributors\n' + contributors.join('\n');
 
-    const group = d3.select(this);
+    // Determine panel position (below variants if any)
+    let panelY = d.y + nodePillHeight / 2 + 20;
+    if (d.variants && d.variants.length) {
+        const maxVariantY = Math.max(...d.variants.map(v => v.y));
+        panelY = maxVariantY + nodePillHeight / 2 + 20;
+    }
 
-    const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
-    const pillHeight = nodePillHeight;
-    const pillPaddingX = 10;
-    const pillWidth = 80;
-    const pillX = nodeWidth / 2;
+    const panelWidth = 220;
+    const maxPanelHeight = 300;
 
-    // **Append rect directly to node group**
-    group.insert('rect', ':first-child') // insert behind everything in this node
-      .attr('class', 'pct-pill')
-      .attr('x', pillX - pillPaddingX *2 - 4 )
-      .attr('y', -pillHeight / 2)
-      .attr('rx', pillHeight / 2)
-      .attr('ry', pillHeight / 2)
-      .attr('width', pillWidth)
-      .attr('height', pillHeight)
-      .attr('fill', 'white')
-      .attr('stroke', nodeStrokeColor)
-      .attr('stroke-width', nodeStrokeWidth);
+    const foreign = g.append('foreignObject')
+        .attr('class', 'info-panel')
+        .attr('x', d.x - panelWidth / 2)
+        .attr('y', panelY)
+        .attr('width', panelWidth);
 
-    // **Append text on top of everything**
-    group.append('text')
-      .attr('class', 'pct-pill-text')
-      .attr('x', nodeWidth / 2 + pillPaddingX)  
-      .attr('y', 1)
-      .attr('text-anchor', 'middle')
-      .attr('dominant-baseline', 'middle')
-      .text(label)
-      .style('fill', 'white')
-      .style('pointer-events', 'none');
-  });
+    const div = foreign.append('xhtml:div')
+        .style('font-family', "'Roboto', Arial, sans-serif")
+        .style('font-size', '13px')
+        .style('background', 'rgba(255,255,255,0.95)')
+        .style('border', '0px')
+        .style('border-radius', '8px')
+        .style('padding', '8px')
+        .style('white-space', 'pre-line')
+        .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
+        .style('overflow-y', 'auto')
+        .style('max-height', maxPanelHeight + 'px')
+        .html(panelText.replace(/^(.+)$/gm, m => (m === 'Also known as' || m === 'Contributors') ? `<strong>${m}</strong>` : m));
 
-
-// --- Remove old info panel ---
-g.selectAll('.info-panel').remove();
-
-// --- Prepare data ---
-// Ensure AKA is read correctly
-const alsoKnownAs = d.alsoKnownAs
-    ? d.alsoKnownAs.split(';').map(s => s.trim()).filter(Boolean)
-    : [];
-
-// Prepare contributors, excluding the node itself
-const contributionsMap = calculateUpwardChildTotals(d, nodes);
-const contributors = Array.from(contributionsMap.entries())
-    .filter(([id, perc]) => id !== d.id && perc >= 5)   // exclude self, min 5%
-    .map(([id, perc]) => ({ id, perc }))
-    .sort((a, b) => b.perc - a.perc)
-    .map(c => {
-        const nodeData = nodes.find(n => n.id === c.id);
-        return nodeData ? `${Math.round(c.perc)}% ${nodeData.name}` : null;
-    })
-    .filter(Boolean);
-
-// --- Build panel content ---
-let panelText = '';
-if (alsoKnownAs.length) {
-    panelText += 'Also known as\n';  
-    panelText += alsoKnownAs.join('\n') + '\n\n';
-}
-if (contributors.length) {
-    panelText += 'Contributors\n';
-    panelText += contributors.join('\n');
+    foreign.attr('height', Math.min(div.node().scrollHeight, maxPanelHeight));
 }
 
-// --- Determine panel position ---
-// Start below main node
-let panelY = d.y + nodePillHeight / 2 + 20; // default gap 20px
-
-// If there are variants, place panel below the lowest variant
-if (d.variants && d.variants.length) {
-    const variantYs = d.variants.map(v => v.y);
-    const maxVariantY = Math.max(...variantYs);
-    panelY = maxVariantY + nodePillHeight / 2 + 20;
-}
-
-// --- Create panel container ---
-const panelWidth = 220;    // adjust as needed
-const maxPanelHeight = 300; // max height before scroll
-
-const foreign = g.append('foreignObject')
-    .attr('class', 'info-panel')
-    .attr('x', d.x - panelWidth / 2)
-    .attr('y', panelY)
-    .attr('width', panelWidth);
-
-const div = foreign.append('xhtml:div')
-    .style('font-family', "'Roboto', Arial, sans-serif")
-    .style('font-size', '13px')
-    .style('background', 'rgba(255,255,255,0.95)')
-    .style('border', '0px')             // remove border
-    .style('border-radius', '8px')
-    .style('padding', '8px')
-    .style('white-space', 'pre-line')
-    .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
-    .style('overflow-y', 'auto')
-    .style('max-height', maxPanelHeight + 'px')
-    .html(panelText.replace(/^(.+)$/gm, match => {
-        // Bold the headings
-        if (match === 'Also known as' || match === 'Contributors') {
-            return `<strong>${match}</strong>`;
-        }
-        return match;
-    }));
-
-// --- Dynamically set foreignObject height ---
-const divHeight = div.node().scrollHeight;
-foreign.attr('height', Math.min(divHeight, maxPanelHeight));
-
-
-
-
-
-
-        
-}
 
 
     function highlightHoverLineage(event, d) {
