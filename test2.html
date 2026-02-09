@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -672,28 +664,53 @@ genNodes = sortedGroups.flat();
     }
 
     // 4️⃣ Assign Y positions
-    let yOffset = 0;
-    const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
-                        genNodes.filter(n => n.variant).length * (pillHeight + 2);
-    const startY = (height - totalHeight) / 2;
+  for (let gen = 2; gen <= maxGeneration; gen++) {
+    // 1️⃣ Filter nodes for this generation
+    let genNodes = nodes.filter(n => n.generation === gen);
 
+    // Skip large columns (20+ nodes)
+    if (genNodes.length >= 20) continue;
+
+    // Sort by your existing rank/order
+    // (assuming genNodes already in correct column order)
+    
+    // 2️⃣ Compute parent-centered Y
     genNodes.forEach(node => {
-        if (!node.variant) {
-            node.y = startY + yOffset;
-            yOffset += pillHeight + 16;
+        const parentYs = node.parents
+            .map(pid => nodes.find(p => p.id === pid)?.y)
+            .filter(Boolean);
 
-            // 5️⃣ Position variants under parent
-            const variants = nodes.filter(n => n.variant === node.name)
-                .sort((a, b) => a.name.localeCompare(b.name));
-
-            variants.forEach((variant, vIndex) => {
-                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                variant.x = node.x;
-            });
-
-            yOffset += variants.length * (pillHeight + 2);
+        if (parentYs.length) {
+            node.targetY = d3.mean(parentYs); // literal vertical center between parents
+        } else {
+            node.targetY = 0; // fallback for unknown parents
         }
     });
+
+    // 3️⃣ Enforce minimum vertical spacing
+    const spacing = pillHeight + 16; // minimum space between pills
+    let lastY = 0;
+
+    genNodes.forEach(node => {
+        if (node.targetY < lastY + spacing) {
+            node.y = lastY + spacing; // push down if overlapping
+        } else {
+            node.y = node.targetY; // otherwise use parent-centered Y
+        }
+
+        // 4️⃣ Position variants under parent
+        const variants = nodes.filter(n => n.variant === node.name)
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        variants.forEach((variant, vIndex) => {
+            variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+        });
+
+        // Update lastY to account for variants
+        lastY = node.y + (variants.length ? (variants.length * (pillHeight + 2)) : 0);
+    });
+}
+
 }
 
 
