@@ -9,6 +9,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -694,12 +695,12 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         }
     });
 
-  // 6️⃣ Weighted nudge toward column center for small columns
-if (gen >= 2 && genNodes.length < 100) {
-    const alpha = 0.6; // strength of nudge toward weighted center
+// 6️⃣ Weighted nudge toward column center for small columns
+if (gen >= 2 && genNodes.length < 20) {
+    const alpha = 0.6; // strength of nudge toward parent center
     const minSpacing = pillHeight + 16;
 
-    // 1️⃣ Compute ideal parent-centered Y for each node
+    // 1️⃣ Compute targetY for each node based on parents
     genNodes.forEach(node => {
         if (!node.variant) {
             const parentYs = node.parents
@@ -710,15 +711,20 @@ if (gen >= 2 && genNodes.length < 100) {
         }
     });
 
-    // 2️⃣ Compute weighted column center
+    // 2️⃣ Compute total height needed for this column
+    const totalNodesHeight = genNodes.filter(n => !n.variant).length * minSpacing +
+                             genNodes.reduce((sum, n) => sum + nodes.filter(v => v.variant === n.name).length * (pillHeight + 2), 0);
+
+    // 3️⃣ Compute top anchor so column can float up if parents are high
     const columnYs = genNodes.filter(n => !n.variant).map(n => n.targetY);
     const columnCenter = d3.mean(columnYs);
+    let topY = Math.max(0, columnCenter - totalNodesHeight / 2);
 
-    // 3️⃣ Spread nodes around column center with minimum spacing
-    let lastY = columnCenter - (genNodes.length - 1) / 2 * minSpacing;
+    // 4️⃣ Place nodes
+    let lastY = topY;
     genNodes.forEach(node => {
         if (!node.variant) {
-            // move toward targetY + column weighting
+            // weighted nudge toward parent-centered Y
             node.y = node.targetY * alpha + lastY * (1 - alpha);
 
             // enforce minimum spacing from previous node
@@ -726,7 +732,7 @@ if (gen >= 2 && genNodes.length < 100) {
 
             lastY = node.y + minSpacing;
 
-            // reposition variants relative to node
+            // position variants relative to node
             const variants = nodes.filter(n => n.variant === node.name)
                 .sort((a, b) => a.name.localeCompare(b.name));
             variants.forEach((variant, vIndex) => {
@@ -738,6 +744,7 @@ if (gen >= 2 && genNodes.length < 100) {
         }
     });
 }
+
 
 }
 
