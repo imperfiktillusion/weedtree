@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -755,16 +756,19 @@ const node = g.append("g")
 });
 
 
-// --- NODE EVENTS AND DRAGGING ---
+// --- NODE EVENTS AND DRAGGING (column-constrained) ---
 node
+    .each(d => d.currentScale = 1) // initialize scale for hover
+
     .on("mouseover", function(event, d) {
-        if (dragging) return; // skip hover effects while dragging
+        if (dragging) return;
 
         // enlarge node on hover
+        d.currentScale = 1.7;
         d3.select(this).raise()
             .transition()
             .duration(150)
-            .attr("transform", `translate(${d.x},${d.y}) scale(1.7)`);
+            .attr("transform", `translate(${d.x},${d.y}) scale(${d.currentScale})`);
 
         // highlight lineage
         highlightHoverLineage(event, d);
@@ -773,9 +777,11 @@ node
         if (dragging) return;
 
         // shrink node back
-        d3.select(this).transition()
+        d.currentScale = 1;
+        d3.select(this)
+            .transition()
             .duration(150)
-            .attr("transform", `translate(${d.x},${d.y}) scale(1)`);
+            .attr("transform", `translate(${d.x},${d.y}) scale(${d.currentScale})`);
 
         removeHighlightHoverLineage();
     })
@@ -784,12 +790,16 @@ node
         highlightLineage(event, d);
     })
     .call(d3.drag()
-        .filter(event => event.shiftKey || event.sourceEvent.type.startsWith("touch")) // Shift or touch to drag node
+        .filter(event => event.shiftKey || event.sourceEvent.type.startsWith("touch"))
         .on("start", function(event, d) {
             startDrag(event, d, this);
         })
         .on("drag", function(event, d) {
             if (!d.dragging) return;
+
+            // constrain to column (x fixed)
+            event.x = d.x;
+
             dragNode(event, d, this);
         })
         .on("end", function(event, d) {
@@ -798,6 +808,7 @@ node
             dragging = false;
         })
     );
+
 
 
 // --- HELPER FUNCTIONS ---
@@ -977,6 +988,13 @@ svg.on('click', function(event) {
         g.selectAll('.info-panel').remove();
         resetZoom();
     }
+});
+    
+svg.on("mouseleave", () => {
+    node.each(d => d.currentScale = 1)
+        .transition()
+        .duration(150)
+        .attr("transform", d => `translate(${d.x},${d.y}) scale(1)`);
 });
 
 
