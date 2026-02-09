@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -730,37 +731,55 @@ const node = g.append("g")
         d.currentScale = 1; // initialize scale
     });
 
-// --- NODE EVENTS: hover, click, drag ---
-node
-    .on("mouseover", function(event, d) {
-        if (dragging) return;
+// --- NODE HOVER WITH DELAY (prevent sticky enlargements) ---
+const hoverDelay = 200; // ms delay before enlargement
+node.each(d => d.hoverTimer = null); // per-node hover timer
+node.each(d => d.currentScale = 1); // initialize scale
 
-        highlightHoverLineage(event, d);
+node.on("mouseover", function(event, d) {
+    if (dragging) return;
 
+    // Cancel previous timer if any
+    if (d.hoverTimer) clearTimeout(d.hoverTimer);
+
+    // Start new timer for enlargement
+    d.hoverTimer = setTimeout(() => {
         d.currentScale = 1.7;
         d3.select(this)
-            .interrupt(true)       // stop all ongoing transitions
+            .interrupt(true) // stop ongoing transitions
             .raise()
             .transition()
             .duration(150)
             .attr("transform", `translate(${d.x},${d.y}) scale(${d.currentScale})`);
-    })
-    .on("mouseout", function(event, d) {
-        if (dragging) return;
 
-        removeHighlightHoverLineage();
+        highlightHoverLineage(event, d);
+    }, hoverDelay);
+})
+.on("mouseout", function(event, d) {
+    if (dragging) return;
 
+    // Cancel pending hover enlargement
+    if (d.hoverTimer) {
+        clearTimeout(d.hoverTimer);
+        d.hoverTimer = null;
+    }
+
+    // Shrink node back if it was enlarged
+    if (d.currentScale !== 1) {
         d.currentScale = 1;
         d3.select(this)
-            .interrupt(true)        // stop all ongoing transitions
+            .interrupt(true)
             .transition()
             .duration(150)
             .attr("transform", `translate(${d.x},${d.y}) scale(${d.currentScale})`)
             .on("end", function() {
-                // Ensure product nodes are raised
+                // ensure product nodes are raised after shrink
                 g.selectAll(".node").each(n => { if (n.product) d3.select(this).raise(); });
             });
-    })
+        removeHighlightHoverLineage();
+    }
+});
+
     .on("click", function(event, d) {
         event.stopPropagation();
         highlightLineage(event, d);
