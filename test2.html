@@ -786,17 +786,10 @@ node.append("text")
         }
     });
 
-// --- Append product text ---
 node.append("text")
     .filter(d => d.product)
     .text(d => d.product)
     .attr("class", "product")
-    .attr("x", function(d) {
-        const strainNameText = this.parentNode.querySelector('.strain-name');
-        const strainNameWidth = strainNameText.getComputedTextLength();
-        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-        return -nodeWidth / 2 + 5 + strainNameWidth + 10;
-    })
     .attr("y", 1.6)
     .attr("dominant-baseline", "middle")
     .attr("fill", "black")
@@ -804,18 +797,27 @@ node.append("text")
     .style("font-family", "'Roboto', Arial, sans-serif")
     .style("font-weight", "normal")
     .each(function(d) {
-        const textWidth = this.getComputedTextLength();
-        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-        const strainNameText = this.parentNode.querySelector('.strain-name');
-        const remainingWidth = nodeWidth - strainNameText.getComputedTextLength() - 40;
-        if (textWidth > remainingWidth) {
-            d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
-            d3.select(this.parentNode).select('.strain-name')
-                .style("font-family", "'Roboto Condensed', Arial, sans-serif");
-            const newWidth = strainNameText.getComputedTextLength();
-            d3.select(this).attr("x", -nodeWidth / 2 + 5 + newWidth + 10);
-        }
+        const self = this;
+        requestAnimationFrame(() => {
+            const strainNameText = self.parentNode.querySelector('.strain-name');
+            let strainNameWidth = strainNameText.getComputedTextLength();
+            const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+            let xPos = -nodeWidth / 2 + 5 + strainNameWidth + 10;
+
+            const textWidth = self.getComputedTextLength();
+            const remainingWidth = nodeWidth - strainNameWidth - 40;
+            if (textWidth > remainingWidth) {
+                d3.select(self).style("font-family", "'Roboto Condensed', Arial, sans-serif");
+                d3.select(self.parentNode).select('.strain-name')
+                    .style("font-family", "'Roboto Condensed', Arial, sans-serif");
+                strainNameWidth = strainNameText.getComputedTextLength();
+                xPos = -nodeWidth / 2 + 5 + strainNameWidth + 10;
+            }
+
+            d3.select(self).attr("x", xPos);
+        });
     });
+
 
 // --- Append product icon ---
 node.filter(d => d.product)
