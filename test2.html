@@ -8,6 +8,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -694,7 +695,7 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     });
 
   // 6️⃣ Weighted nudge toward column center for small columns
-if (gen >= 2 && genNodes.length < 41) {
+if (gen >= 2 && genNodes.length < 100) {
     const alpha = 0.6; // strength of nudge toward weighted center
     const minSpacing = pillHeight + 16;
 
