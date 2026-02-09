@@ -1,15 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -695,53 +683,37 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         }
     });
 
-// 6️⃣ Weighted nudge toward column center for small columns
 if (gen >= 2 && genNodes.length < 20) {
-    const alpha = 0.6; // strength of nudge toward parent center
-    const minSpacing = pillHeight + 16;
+    // Minimum vertical spacing (from your CSS/pillHeight)
+    const spacing = pillHeight + 4; 
 
-    // 1️⃣ Compute targetY for each node based on parents
+    // Compute desired Y (parent-centered)
     genNodes.forEach(node => {
-        if (!node.variant) {
-            const parentYs = node.parents
-                .map(pid => nodes.find(p => p.id === pid)?.y)
-                .filter(y => y !== undefined);
+        const parentYs = node.parents
+            .map(pid => nodes.find(p => p.id === pid)?.y)
+            .filter(y => y !== undefined);
 
-            node.targetY = parentYs.length ? d3.mean(parentYs) : node.y;
-        }
+        node.desiredY = parentYs.length ? d3.mean(parentYs) : node.y;
     });
 
-    // 2️⃣ Compute total height needed for this column
-    const totalNodesHeight = genNodes.filter(n => !n.variant).length * minSpacing +
-                             genNodes.reduce((sum, n) => sum + nodes.filter(v => v.variant === n.name).length * (pillHeight + 2), 0);
+    // Sort nodes by desiredY (top to bottom)
+    genNodes.sort((a, b) => a.desiredY - b.desiredY);
 
-    // 3️⃣ Compute top anchor so column can float up if parents are high
-    const columnYs = genNodes.filter(n => !n.variant).map(n => n.targetY);
-    const columnCenter = d3.mean(columnYs);
-    let topY = Math.max(0, columnCenter - totalNodesHeight / 2);
-
-    // 4️⃣ Place nodes
-    let lastY = topY;
+    // Cascade placement enforcing spacing
+    let lastY = 0;
     genNodes.forEach(node => {
-        if (!node.variant) {
-            // weighted nudge toward parent-centered Y
-            node.y = node.targetY * alpha + lastY * (1 - alpha);
+        node.y = Math.max(node.desiredY, lastY + spacing);
 
-            // enforce minimum spacing from previous node
-            if (node.y < lastY) node.y = lastY;
+        // Place variants directly under parent
+        const variants = nodes.filter(n => n.variant === node.name)
+            .sort((a, b) => a.name.localeCompare(b.name));
 
-            lastY = node.y + minSpacing;
+        variants.forEach((variant, vIndex) => {
+            variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+            variant.x = node.x;
+        });
 
-            // position variants relative to node
-            const variants = nodes.filter(n => n.variant === node.name)
-                .sort((a, b) => a.name.localeCompare(b.name));
-            variants.forEach((variant, vIndex) => {
-                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                variant.x = node.x;
-            });
-
-            lastY += variants.length * (pillHeight + 2);
-        }
+        lastY = node.y + (variants.length ? (variants.length * (pillHeight + 2)) : 0);
     });
 }
 
