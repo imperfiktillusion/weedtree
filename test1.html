@@ -1,3 +1,4 @@
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -151,6 +152,32 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 .pct-pill { fill:#000; stroke:#000; stroke-width:0px; }
 .pct-pill-text { fill:#fff; font-size:9px; font-weight:700; pointer-events:none; }
 
+#lineageInfoPanel {
+    position: absolute;
+    max-width: 260px;
+    background: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: Roboto, Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.35;
+    color: #222;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    pointer-events: none;
+    z-index: 2000;
+}
+
+#lineageInfoPanel .heading {
+    font-weight: 600;
+    margin: 6px 0 4px;
+}
+
+#lineageInfoPanel .spacer {
+    height: 8px;
+}
+
+    
 /* Hide real cursor initially */
 #popup2 #strainSearch.hidden-cursor {
     caret-color: transparent;
@@ -267,6 +294,32 @@ let attributes = [];
 let nodes = [];
 let svg, g, zoom;
 let focusedNode = null;
+    function removeLineageInfoPanel() {
+    const existing = document.getElementById('lineageInfoPanel');
+    if (existing) existing.remove();
+}
+
+function formatAlsoKnownAs(d) {
+    if (!d.alsoKnownAs) return [];
+    if (Array.isArray(d.alsoKnownAs)) return d.alsoKnownAs.filter(Boolean);
+
+    return d.alsoKnownAs
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+}
+
+function buildContributorList(contribMap, focusNodeId, nodes) {
+    return Object.entries(contribMap)
+        .filter(([id, pct]) => id !== focusNodeId && pct >= 5)
+        .map(([id, pct]) => {
+            const node = nodes.find(n => n.id === id);
+            return node ? { name: node.name, pct } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.pct - a.pct);
+}
+
 let lineWidth = 2;
 
 // --- Shared node layout constants ---
@@ -943,7 +996,7 @@ function dragNode(event, d, nodeElement) {
     link.classed("dimmed", false)
         .attr("stroke-width", lineWidth + 1);
 
-    focusedNode = null;
+    focusedNode = null;removeLineageInfoPanel();
     resetZoom();
     return;
 }
@@ -1010,6 +1063,58 @@ if (node.variant) {
         );
 
     focusedNode = d;
+        // --- Lineage info panel ---
+removeLineageInfoPanel();
+
+const panel = document.createElement('div');
+panel.id = 'lineageInfoPanel';
+
+// ALSO KNOWN AS
+const akaList = formatAlsoKnownAs(d);
+if (akaList.length) {
+    const heading = document.createElement('div');
+    heading.className = 'heading';
+    heading.textContent = 'Also known as';
+    panel.appendChild(heading);
+
+    akaList.forEach(name => {
+        const line = document.createElement('div');
+        line.textContent = name;
+        panel.appendChild(line);
+    });
+}
+
+// CONTRIBUTORS
+const ancestorContrib = calculateUpwardChildTotals(d, nodes);
+const contributors = buildContributorList(ancestorContrib, d.id, nodes);
+
+if (contributors.length) {
+    const spacer = document.createElement('div');
+    spacer.className = 'spacer';
+    panel.appendChild(spacer);
+
+    const heading = document.createElement('div');
+    heading.className = 'heading';
+    heading.textContent = 'Contributors';
+    panel.appendChild(heading);
+
+    contributors.forEach(c => {
+        const line = document.createElement('div');
+        line.textContent = `${c.name} — ${c.pct.toFixed(1)}%`;
+        panel.appendChild(line);
+    });
+}
+
+document.body.appendChild(panel);
+
+// Position panel under focused node
+const transform = d3.zoomTransform(svg.node());
+const [sx, sy] = transform.apply([d.x, d.y]);
+
+const offsetY = 30;
+panel.style.left = `${Math.min(window.innerWidth - 280, sx + 10)}px`;
+panel.style.top = `${Math.min(window.innerHeight - 200, sy + offsetY)}px`;
+
     zoomToLineage(lineage);
         
 const contributionStartNode = d;
@@ -1476,7 +1581,7 @@ document.getElementById('deselectButton').addEventListener('click', () => {
             .classed("dimmed", false)
             .attr("stroke-width", lineWidth + 1);
 
-        focusedNode = null;
+        focusedNode = null;removeLineageInfoPanel();
         resetZoom();
     }
 });
