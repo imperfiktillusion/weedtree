@@ -6,6 +6,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -692,7 +693,7 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     });
 
     // 6️⃣ Nudge nodes toward parent center for small columns
-    if (gen >= 2 && genNodes.length < 20) {
+    if (gen >= 2 && genNodes.length < 41) {
         const alpha = 0.5; // strength of nudge
         let lastY = 0;
 
