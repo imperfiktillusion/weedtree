@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -687,34 +688,33 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     });
 
 if (gen >= 2 && genNodes.length < 20) {
-    const alpha = 1; // fully parent-centered
-    const spacing = pillHeight + 8; // use your standard min vertical spacing
-    let lastY = 0; // tracks bottom of last node in this column
+    const spacing = pillHeight + 16; // normal minimum spacing
+    const smallColSpacing = spacing * 2; // double spacing for tiny columns
+    let lastY = 0;
+
+    // Determine spacing to use for this column
+    const columnSpacing = genNodes.length < 5 ? smallColSpacing : spacing;
 
     genNodes.forEach(node => {
-        // 1️⃣ Compute desired Y: parent-centered if parents exist, else current Y
-        const parentYs = node.parents
-            .map(pid => nodes.find(p => p.id === pid)?.y)
-            .filter(y => y !== undefined);
+        // Assign Y if not a variant
+        if (!node.variant) {
+            node.y = lastY + columnSpacing;
 
-        let desiredY = parentYs.length ? d3.mean(parentYs) : node.y || lastY + spacing;
+            // Position variants under parent
+            const variants = nodes.filter(n => n.variant === node.name)
+                .sort((a, b) => a.name.localeCompare(b.name));
 
-        // 2️⃣ Enforce minimum spacing from previous node
-        node.y = Math.max(desiredY, lastY + spacing);
+            variants.forEach((variant, i) => {
+                variant.y = node.y + (i + 1) * (pillHeight + 2);
+                variant.x = node.x;
+            });
 
-        // 3️⃣ Position variants under parent
-        const variants = nodes.filter(n => n.variant === node.name)
-            .sort((a, b) => a.name.localeCompare(b.name));
-
-        variants.forEach((variant, i) => {
-            variant.y = node.y + (i + 1) * (pillHeight + 2);
-            variant.x = node.x;
-        });
-
-        // 4️⃣ Update lastY to include this node and its variants
-        lastY = node.y + (variants.length ? (variants.length * (pillHeight + 2)) : 0);
+            // Update lastY including variants
+            lastY = node.y + (variants.length ? (variants.length * (pillHeight + 2)) : 0);
+        }
     });
 }
+✅ What this does:
 
 
 
