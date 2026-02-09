@@ -1,3 +1,4 @@
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1079,6 +1080,72 @@ g.selectAll('.node')
       .style('pointer-events', 'none');
   });
 
+
+// --- Remove old info panel ---
+g.selectAll('.info-panel').remove();
+
+// --- Prepare data ---
+const alsoKnownAs = d.alsoKnownAs
+    ? d.alsoKnownAs.split(';').map(s => s.trim()).filter(Boolean)
+    : [];
+
+const contributionsMap = calculateUpwardChildTotals(d, nodes);
+const contributors = Array.from(contributionsMap.entries())
+    .map(([id, perc]) => ({ id, perc }))
+    .filter(c => c.perc >= 5)
+    .sort((a, b) => b.perc - a.perc)
+    .map(c => {
+        const nodeData = nodes.find(n => n.id === c.id);
+        return nodeData ? `${nodeData.name}: ${Math.round(c.perc)}%` : null;
+    })
+    .filter(Boolean);
+
+// --- Build panel content ---
+let panelText = '';
+if (alsoKnownAs.length) {
+    panelText += 'Also known as\n';
+    panelText += alsoKnownAs.join('\n') + '\n\n';
+}
+if (contributors.length) {
+    panelText += 'Contributors\n';
+    panelText += contributors.join('\n');
+}
+
+// --- Create panel container ---
+const panelWidth = 220;    // adjust as needed
+const gap = 20;            // space below node
+const maxPanelHeight = 300; // max height before scroll
+
+const foreign = g.append('foreignObject')
+    .attr('class', 'info-panel')
+    .attr('x', d.x - panelWidth / 2)
+    .attr('y', d.y + pillHeight/2 + gap)
+    .attr('width', panelWidth);
+
+const div = foreign.append('xhtml:div')
+    .style('font-family', "'Roboto', Arial, sans-serif")
+    .style('font-size', '13px')
+    .style('background', 'rgba(255,255,255,0.95)')
+    .style('border', '1px solid #333')
+    .style('border-radius', '8px')
+    .style('padding', '8px')
+    .style('white-space', 'pre-line')
+    .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
+    .style('overflow-y', 'auto')        // enable vertical scroll
+    .style('max-height', maxPanelHeight + 'px')  // enforce max height
+    .text(panelText);
+
+// --- Dynamically set foreignObject height to match content (up to maxPanelHeight) ---
+const divHeight = div.node().scrollHeight;
+foreign.attr('height', Math.min(divHeight, maxPanelHeight));
+
+
+
+
+
+
+
+        
 }
 
 
