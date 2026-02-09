@@ -731,22 +731,42 @@ const node = g.append("g")
     .join("g")
     .attr("class", "node")
     .attr("transform", d => `translate(${d.x},${d.y})`)
-    .each(function(d) { if (d.product) d3.select(this).raise(); })
+    .each(function(d) { 
+        if (d.product) d3.select(this).raise(); 
+        d.baseTransform = `translate(${d.x},${d.y})`; // store original position
+    })
     .on("click", highlightLineage)
     .on("mouseover", function(event, d) {
-        if (dragging) return; // prevent hover expansion while dragging
-        highlightHoverLineage(event, d);
-        d3.select(this).raise()
+        if (dragging) return;
+
+        d3.select(this).interrupt(); // stop any ongoing transitions
+
+        highlightHoverLineage(event, d); // highlight ancestors/descendants
+
+        d3.select(this)
+            .raise() // bring hovered node to front
             .transition()
-            .attr("transform", `translate(${d.x},${d.y}) scale(1.7, 1.7)`);
+            .duration(150)
+            .attr("transform", `${d.baseTransform} scale(1.7)`);
     })
     .on("mouseout", function(event, d) {
         if (dragging) return;
-        removeHighlightHoverLineage();
-        d3.select(this).transition()
-            .attr("transform", `translate(${d.x},${d.y}) scale(1)`);
-        g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
+
+        d3.select(this).interrupt(); // stop ongoing transitions
+
+        removeHighlightHoverLineage(); // remove highlight classes
+
+        d3.select(this)
+            .transition()
+            .duration(150)
+            .attr("transform", d.baseTransform); // shrink back to original size
+
+        // Re-raise all product nodes to front
+        g.selectAll(".node").each(nd => {
+            if (nd.product) d3.select(nd).raise();
+        });
     });
+
 
 // --- DRAGGING with long press on mobile + shift key for desktop ---
 node.call(d3.drag()
