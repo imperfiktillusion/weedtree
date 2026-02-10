@@ -633,6 +633,10 @@ const createLineageChart = () => {
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
     column2Nodes.sort(sortByDominanceAndLandrace);
 
+
+
+
+    
 for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     // 1️⃣ Filter nodes for this generation
     let genNodes = nodes.filter(n =>
@@ -649,47 +653,56 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         genNodes.sort(sortByDominanceAndLandrace);
     } else if (gen >= 2) {
         // Columns 3+: preserve dominance order across the column
-        // 1. Group by dominance
-const groupedByDom = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
-
-// 2. Sort the groups according to dominanceOrder
-groupedByDom.sort(([aDom], [bDom]) => (dominanceOrder[aDom] ?? 99) - (dominanceOrder[bDom] ?? 99));
-
-// 3. Apply barycentric within each group
-const sortedGroups = groupedByDom.map(([dominance, groupNodes]) => barycentricSort(groupNodes, nodes, 'parents'));
-
-// 4. Flatten back
-genNodes = sortedGroups.flat();
-
+        const groupedByDom = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
+        groupedByDom.sort(([aDom], [bDom]) => (dominanceOrder[aDom] ?? 99) - (dominanceOrder[bDom] ?? 99));
+        const sortedGroups = groupedByDom.map(([dom, groupNodes]) => barycentricSort(groupNodes, nodes, 'parents'));
+        genNodes = sortedGroups.flat();
     }
 
-    // 4️⃣ Assign Y positions
-    let yOffset = 0;
-    const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
-                        genNodes.filter(n => n.variant).length * (pillHeight + 2);
-    const startY = (height - totalHeight) / 2;
+ // 4️⃣ Assign Y positions
+let yOffset = 0;
 
-    genNodes.forEach(node => {
-        if (!node.variant) {
-            node.y = startY + yOffset;
-            yOffset += pillHeight + 16;
+// Count only non-variant nodes for spacing logic
+const nonVariantNodes = genNodes.filter(n => !n.variant);
 
-            // 5️⃣ Position variants under parent
-            const variants = nodes.filter(n => n.variant === node.name)
-                .sort((a, b) => a.name.localeCompare(b.name));
-
-            variants.forEach((variant, vIndex) => {
-                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                variant.x = node.x;
-            });
-
-            yOffset += variants.length * (pillHeight + 2);
-        }
-    });
+// Decide vertical spacing
+let spacing = 16; // default spacing
+if (gen >= 2 && nonVariantNodes.length <= 5) {
+    spacing = pillHeight * 2; // double minimum spacing for small columns
 }
 
+const totalHeight = nonVariantNodes.length * (pillHeight + spacing) +
+                    genNodes.filter(n => n.variant).length * (pillHeight + 2);
+const startY = (height - totalHeight) / 2;
 
-    calculateColumn1Positions();
+nonVariantNodes.forEach(node => {
+    node.y = startY + yOffset;
+    yOffset += pillHeight + spacing;
+
+    // 5️⃣ Position variants under parent
+    const variants = nodes.filter(n => n.variant === node.name)
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    variants.forEach((variant, vIndex) => {
+        variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+        variant.x = node.x;
+    });
+
+    yOffset += variants.length * (pillHeight + 2);
+});
+
+
+
+
+
+}
+
+    
+    
+    
+calculateColumn1Positions();
+
+
 
     const link = g.append("g")
         .selectAll("path")
@@ -712,6 +725,7 @@ genNodes = sortedGroups.flat();
         });
 
 let dragging = false; // global flag to prevent hover while dragging
+const hoverDelay = 200; // ms before node enlarges
 
 const node = g.append("g")
     .selectAll("g")
@@ -719,61 +733,158 @@ const node = g.append("g")
     .join("g")
     .attr("class", "node")
     .attr("transform", d => `translate(${d.x},${d.y})`)
-    .each(function(d) { if (d.product) d3.select(this).raise(); })
-    .on("click", highlightLineage)
-    .on("mouseover", function(event, d) {
-        if (dragging) return; // prevent hover expansion while dragging
-        highlightHoverLineage(event, d);
-        d3.select(this).raise()
-            .transition()
-            .attr("transform", `translate(${d.x},${d.y}) scale(1.7, 1.7)`);
-    })
-    .on("mouseout", function(event, d) {
-        if (dragging) return;
-        removeHighlightHoverLineage();
-        d3.select(this).transition()
-            .attr("transform", `translate(${d.x},${d.y}) scale(1)`);
-        g.selectAll(".node").each(function(d) { if (d.product) d3.select(this).raise(); });
+    .each(function(d) { 
+        if (d.product) d3.select(this).raise(); 
+        d.baseTransform = `translate(${d.x},${d.y})`;
+        d.currentScale = 1;
+        d.hoverTimer = null;
     });
 
-// --- DRAGGING with long press on mobile + shift key for desktop ---
-node.call(d3.drag()
-    .on("start", function(event, d) {
-        // Mobile: skip immediate drag, use long press
-        if (event.sourceEvent.type.startsWith("touch")) {
-            d.longPressTimer = setTimeout(() => {
-                startDrag(event, d, this);
-            }, 400); // 400ms long press
-        } else {
-            // Desktop: only start drag if Shift is held
-            if (!event.sourceEvent.shiftKey) return;
-            startDrag(event, d, this);
+// --- Append rect background ---
+node.append("rect")
+    .attr("rx", pillHeight / 2)
+    .attr("ry", pillHeight / 2)
+    .attr("width", d => d.variant ? standardPillWidth * 0.85 : standardPillWidth)
+    .attr("height", pillHeight)
+    .attr("fill", d => {
+        if (d.variant) {
+            const parentNode = nodes.find(n => n.name === d.variant);
+            if (parentNode) return blendToWhite(getColorByDominance(parentNode.dominance), 0.5);
         }
+        return getColorByDominance(d.dominance);
+    })
+    .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 : -standardPillWidth / 2)
+    .attr("y", -pillHeight / 2)
+    .attr("stroke", d => d.product ? "black" : getColorByDominance(d.dominance))
+    .attr("stroke-width", 3);
+
+// --- Append strain text ---
+node.append("text")
+    .attr("class", "strain-name")
+    .text(d => d.displayName)
+    .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 + 12 : -standardPillWidth / 2 + 12)
+    .attr("y", 1)
+    .attr("dominant-baseline", "middle")
+    .attr("fill", "black")
+    .style("font-size", "15px")
+    .style("font-family", "'Roboto', Arial, sans-serif")
+    .style("font-weight", "bold")
+    .each(function(d) {
+        const textWidth = this.getComputedTextLength();
+        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const availableWidth = nodeWidth - 24;
+        if (textWidth > availableWidth) {
+            d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
+        }
+    });
+
+// --- Append product text ---
+node.append("text")
+    .filter(d => d.product)
+    .text(d => d.product)
+    .attr("class", "product")
+    .attr("x", function(d) {
+        const strainNameText = this.parentNode.querySelector('.strain-name');
+        const strainNameWidth = strainNameText.getComputedTextLength();
+        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        return -nodeWidth / 2 + 5 + strainNameWidth + 10;
+    })
+    .attr("y", 1.6)
+    .attr("dominant-baseline", "middle")
+    .attr("fill", "black")
+    .style("font-size", "10px")
+    .style("font-family", "'Roboto', Arial, sans-serif")
+    .style("font-weight", "normal")
+    .each(function(d) {
+        const textWidth = this.getComputedTextLength();
+        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const strainNameText = this.parentNode.querySelector('.strain-name');
+        const remainingWidth = nodeWidth - strainNameText.getComputedTextLength() - 40;
+        if (textWidth > remainingWidth) {
+            d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
+            d3.select(this.parentNode).select('.strain-name')
+                .style("font-family", "'Roboto Condensed', Arial, sans-serif");
+            const newWidth = strainNameText.getComputedTextLength();
+            d3.select(this).attr("x", -nodeWidth / 2 + 5 + newWidth + 10);
+        }
+    });
+
+// --- Append product icon ---
+node.filter(d => d.product)
+    .append("use")
+    .attr("xhref", "#nzIcon")
+    .attr("width", 30)
+    .attr("height", 30)
+    .attr("x", d => (d.variant ? standardPillWidth * 0.85 : standardPillWidth)/2 - 20)
+    .attr("y", -14);
+
+// --- Hover enlargement with delay ---
+node.on("mouseover", function(event, d) {
+    if (dragging) return;
+
+    if (d.hoverTimer) clearTimeout(d.hoverTimer);
+    d.hoverTimer = setTimeout(() => {
+        d.currentScale = 1.7;
+        d3.select(this)
+            .interrupt(true)
+            .raise()
+            .transition()
+            .duration(150)
+            .attr("transform", `translate(${d.x},${d.y}) scale(${d.currentScale})`);
+        highlightHoverLineage(event, d);
+    }, hoverDelay);
+})
+.on("mouseout", function(event, d) {
+    if (dragging) return;
+
+    if (d.hoverTimer) {
+        clearTimeout(d.hoverTimer);
+        d.hoverTimer = null;
+    }
+
+    if (d.currentScale !== 1) {
+        d.currentScale = 1;
+        d3.select(this)
+            .interrupt(true)
+            .transition()
+            .duration(150)
+            .attr("transform", `translate(${d.x},${d.y}) scale(${d.currentScale})`)
+            .on("end", function() {
+                g.selectAll(".node").each(n => { if (n.product) d3.select(this).raise(); });
+            });
+        removeHighlightHoverLineage();
+    }
+});
+
+// --- Click handler ---
+node.on("click", function(event, d) {
+    event.stopPropagation();
+    highlightLineage(event, d);
+});
+
+// --- Column-constrained node dragging ---
+node.call(d3.drag()
+    .filter(event => event.shiftKey || event.sourceEvent.type.startsWith("touch"))
+    .on("start", function(event, d) {
+        startDrag(event, d, this);
     })
     .on("drag", function(event, d) {
-        if (!d.dragging) return; // Only drag if long press (mobile) or Shift (desktop) activated
+        if (!d.dragging) return;
+        event.x = d.x; // constrain to column
         dragNode(event, d, this);
     })
     .on("end", function(event, d) {
-        if (d.longPressTimer) {
-            clearTimeout(d.longPressTimer);
-            d.longPressTimer = null;
-        }
         if (!d.dragging) return;
         d.dragging = false;
         dragging = false;
     })
 );
 
-
-
-// --- Helper functions ---
+// --- HELPER FUNCTIONS ---
 function startDrag(event, d, nodeElement) {
     dragging = true;
     d.dragging = true;
     d3.select(nodeElement).raise();
-
-    // store offsets for variants
     d.variantOffsets = nodes.filter(n => n.variant === d.name)
         .map(v => ({ id: v.id, offsetY: v.y - d.y }));
 }
@@ -781,43 +892,28 @@ function startDrag(event, d, nodeElement) {
 function dragNode(event, d, nodeElement) {
     d.y = event.y;
     d3.select(nodeElement).attr("transform", `translate(${d.x},${d.y})`);
-
-    // move variants with stored offsets
     if (d.variantOffsets) {
         d.variantOffsets.forEach(vo => {
-            const variantNode = nodes.find(n => n.id === vo.id);
-            variantNode.y = d.y + vo.offsetY;
-            g.selectAll(".node")
-                .filter(n => n.id === variantNode.id)
-                .attr("transform", `translate(${variantNode.x},${variantNode.y})`);
+            const vNode = nodes.find(n => n.id === vo.id);
+            vNode.y = d.y + vo.offsetY;
+            g.selectAll(".node").filter(n => n.id === vNode.id)
+                .attr("transform", `translate(${vNode.x},${vNode.y})`);
         });
     }
-
-    // move pct pills along with nodes
-    g.selectAll('.pct-pill')
-        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
+    g.selectAll('.pct-pill, .pct-pill-text')
+        .filter(p => nodes.find(n => n.id === p.nodeId) === d ||
+                     (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
         .attr("transform", p => {
             const nodeRef = nodes.find(n => n.id === p.nodeId);
             return `translate(${nodeRef.x},${nodeRef.y})`;
         });
-
-    g.selectAll('.pct-pill-text')
-        .filter(p => nodes.find(n => n.id === p.nodeId) === d || (d.variantOffsets && d.variantOffsets.some(vo => vo.id === p.nodeId)))
-        .attr("transform", p => {
-            const nodeRef = nodes.find(n => n.id === p.nodeId);
-            return `translate(${nodeRef.x},${nodeRef.y})`;
-        });
-
-    // update links
     g.selectAll(".link").attr("d", l => {
-        const sourceNode = nodes.find(n => n.id === l.source);
-        const targetNode = nodes.find(n => n.id === l.target);
-        const sourcePillWidth = sourceNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
-        const targetPillWidth = targetNode.variant ? standardPillWidth * 0.85 : standardPillWidth;
-        const sourceX = sourceNode.x + sourcePillWidth / 2;
-        const targetX = targetNode.x - targetPillWidth / 2;
-        const midX = (sourceX + targetX) / 2;
-        return `M${sourceX},${sourceNode.y} C${midX},${sourceNode.y} ${midX},${targetNode.y} ${targetX},${targetNode.y}`;
+        const s = nodes.find(n => n.id === l.source);
+        const t = nodes.find(n => n.id === l.target);
+        const sWidth = s.variant ? standardPillWidth*0.85 : standardPillWidth;
+        const tWidth = t.variant ? standardPillWidth*0.85 : standardPillWidth;
+        const midX = (s.x + sWidth/2 + t.x - tWidth/2)/2;
+        return `M${s.x + sWidth/2},${s.y} C${midX},${s.y} ${midX},${t.y} ${t.x - tWidth/2},${t.y}`;
     });
 }
 
@@ -926,80 +1022,93 @@ function dragNode(event, d, nodeElement) {
         .attr("y", -14);
 
 
+
+
     
-    function highlightLineage(event, d) {
+    
+// --- Node click handler ---
+node.on('click', function(event, d) {
+    event.stopPropagation(); // prevent SVG background click
+    highlightLineage(event, d);
+});
 
-    // Remove old percentage pills
+// --- SVG click to pan or unfocus ---
+svg.on('click', function(event) {
+    if (!event.defaultPrevented) {
+        // unfocus any node
+        focusedNode = null;
+        node.classed("dimmed", false).classed("clicked", false);
+        link.classed("dimmed", false).attr("stroke-width", lineWidth + 1);
+        g.selectAll('.pct-pill').remove();
+        g.selectAll('.pct-pill-text').remove();
+        g.selectAll('.info-panel').remove();
+        resetZoom();
+    }
+});
+    
+svg.on("mouseleave", () => {
+    node.each(d => d.currentScale = 1)
+        .transition()
+        .duration(150)
+        .attr("transform", d => `translate(${d.x},${d.y}) scale(1)`);
+});
+
+
+
+
+    
+function highlightLineage(event, d) {
+
+    // Remove old pills and panel
     g.selectAll('.pct-pill').remove();
     g.selectAll('.pct-pill-text').remove();
+    g.selectAll('.info-panel').remove();
 
-   if (focusedNode === d) {
+    // Unfocus if clicking the already-focused node
+    if (focusedNode === d) {
+        node.classed("dimmed", false).classed("clicked", false);
+        link.classed("dimmed", false).attr("stroke-width", lineWidth + 1);
+        focusedNode = null;
+        resetZoom();
+        return;
+    }
 
-    g.selectAll('.pct-pill').remove();
-    g.selectAll('.pct-pill-text').remove();
-
-    node.classed("dimmed", false);
-    node.classed("clicked", false);
-    link.classed("dimmed", false)
-        .attr("stroke-width", lineWidth + 1);
-
-    focusedNode = null;
-    resetZoom();
-    return;
-}
-
-      
-
-    // ---- lineage isolation (UNCHANGED variant logic) ----
+    // ---- lineage isolation (include variants) ----
     const lineage = new Set();
 
     const getAncestors = (node) => {
-    lineage.add(node.id);
-
-    // If variant, climb through base strain
-if (node.variant) {
-    const base = nodes.find(n => n.name === node.variant);
-    if (base) {
-        lineage.add(base.id);
-        getAncestors(base);
-    }
-    return;
-}
-
-
-    node.parents.forEach(parentId => {
-        const parent = nodes.find(n => n.id === parentId);
-        if (parent) {
-            lineage.add(parent.id);
-            getAncestors(parent);
+        lineage.add(node.id);
+        if (node.variant) {
+            const base = nodes.find(n => n.name === node.variant);
+            if (base) {
+                lineage.add(base.id);
+                getAncestors(base);
+            }
+            return;
         }
-    });
-};
+        node.parents.forEach(parentId => {
+            const parent = nodes.find(n => n.id === parentId);
+            if (parent) {
+                lineage.add(parent.id);
+                getAncestors(parent);
+            }
+        });
+    };
 
-
- const getDescendants = (nodeId) => {
-    lineage.add(nodeId);
-    
-    // Include normal children
-    const children = nodes.filter(n => n.parents.includes(nodeId));
-    
-    // Include variant children
-    const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
-    
-    const allChildren = [...children, ...variantChildren];
-    
-    allChildren.forEach(child => {
-        if (!lineage.has(child.id)) {  // prevent infinite recursion
-            lineage.add(child.id);
-            getDescendants(child.id);
-        }
-    });
-};
-
+    const getDescendants = (nodeId) => {
+        lineage.add(nodeId);
+        const children = nodes.filter(n => n.parents.includes(nodeId));
+        const variantChildren = nodes.filter(n => n.variant === nodes.find(nd => nd.id === nodeId).name);
+        const allChildren = [...children, ...variantChildren];
+        allChildren.forEach(child => {
+            if (!lineage.has(child.id)) getDescendants(child.id);
+        });
+    };
 
     getAncestors(d);
     getDescendants(d.id);
 
+    // --- Dim unrelated nodes and highlight focused ---
     node.classed("dimmed", n => !lineage.has(n.id));
     node.classed("clicked", n => n.id === d.id);
     link.classed("dimmed", l => !lineage.has(l.source) || !lineage.has(l.target))
@@ -1011,76 +1120,119 @@ if (node.variant) {
 
     focusedNode = d;
     zoomToLineage(lineage);
-        
-const contributionStartNode = d;
 
-const ancestorContrib = calculateUpwardChildTotals(
-    contributionStartNode,
-    nodes
-);
+    // --- Calculate contributions ---
+    const ancestorContrib = calculateUpwardChildTotals(d, nodes);
+    const descendantContrib = calculateDownwardDescendantTotals(d, nodes);
 
-const descendantContrib = calculateDownwardDescendantTotals(
-    contributionStartNode,
-    nodes
-);
+    const contributionsMap = new Map();
+    ancestorContrib.forEach((v, k) => contributionsMap.set(k, v));
+    descendantContrib.forEach((v, k) => contributionsMap.set(k, (contributionsMap.get(k) || 0) + v));
 
-const contributions = new Map();
+    contributionsMap.set(d.id, 100); // focused node 100%
 
-// merge ancestor + descendant maps
-ancestorContrib.forEach((v, k) => {
-    contributions.set(k, v);
-});
+    // --- Render percentage pills (ancestors + descendants) ---
+    g.selectAll('.node')
+      .filter(n => contributionsMap.has(n.id) && n.id !== d.id)
+      .each(function(n) {
+          const pct = contributionsMap.get(n.id);
+          const label = Math.round(pct) + '%';
 
-descendantContrib.forEach((v, k) => {
-    contributions.set(k, (contributions.get(k) || 0) + v);
-});
+          const group = d3.select(this);
 
-// focused strain is always 100 (but not rendered)
-contributions.set(contributionStartNode.id, 100);
+          const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
+          const pillHeight = nodePillHeight;
+          const pillPaddingX = 10;
+          const pillWidth = 80;
+          const pillX = nodeWidth / 2;
 
+          group.insert('rect', ':first-child')
+              .attr('class', 'pct-pill')
+              .attr('x', pillX - pillPaddingX * 2 - 4)
+              .attr('y', -pillHeight / 2)
+              .attr('rx', pillHeight / 2)
+              .attr('ry', pillHeight / 2)
+              .attr('width', pillWidth)
+              .attr('height', pillHeight)
+              .attr('fill', 'white')
+              .attr('stroke', nodeStrokeColor)
+              .attr('stroke-width', nodeStrokeWidth);
 
-g.selectAll('.node')
-  .filter(n => contributions.has(n.id) && n.id !== contributionStartNode.id)
-  .each(function(n) {
+          group.append('text')
+              .attr('class', 'pct-pill-text')
+              .attr('x', nodeWidth / 2 + pillPaddingX)
+              .attr('y', 1)
+              .attr('text-anchor', 'middle')
+              .attr('dominant-baseline', 'middle')
+              .text(label)
+              .style('fill', 'white')
+              .style('pointer-events', 'none');
+      });
 
-    const pct = contributions.get(n.id);
-    const label = formatPercentage(pct);
+// --- Build info panel (only AKAs + ancestors) ---
+const alsoKnownAs = d.alsoKnownAs
+    ? d.alsoKnownAs.split(';').map(s => s.trim()).filter(Boolean)
+    : [];
 
-    const group = d3.select(this);
+const contributors = Array.from(ancestorContrib.entries())
+    .filter(([id, perc]) => id !== d.id && perc >= 5)
+    .map(([id, perc]) => ({ id, perc }))
+    .sort((a, b) => b.perc - a.perc)
+    .map(c => {
+        const nodeData = nodes.find(n => n.id === c.id);
+        return nodeData ? `${Math.round(c.perc)}% ${nodeData.name}` : null;
+    })
+    .filter(Boolean);
 
-    const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
-    const pillHeight = nodePillHeight;
-    const pillPaddingX = 10;
-    const pillWidth = 80;
-    const pillX = nodeWidth / 2;
+let panelHTML = '';
 
-    // **Append rect directly to node group**
-    group.insert('rect', ':first-child') // insert behind everything in this node
-      .attr('class', 'pct-pill')
-      .attr('x', pillX - pillPaddingX *2 - 4 )
-      .attr('y', -pillHeight / 2)
-      .attr('rx', pillHeight / 2)
-      .attr('ry', pillHeight / 2)
-      .attr('width', pillWidth)
-      .attr('height', pillHeight)
-      .attr('fill', 'white')
-      .attr('stroke', nodeStrokeColor)
-      .attr('stroke-width', nodeStrokeWidth);
+// Add AKAs section
+if (alsoKnownAs.length) {
+    panelHTML += '<div style="font-weight:bold;">Also known as</div>';
+    panelHTML += '<div>' + alsoKnownAs.join('<br>') + '</div><br>';
+}
 
-    // **Append text on top of everything**
-    group.append('text')
-      .attr('class', 'pct-pill-text')
-      .attr('x', nodeWidth / 2 + pillPaddingX)  
-      .attr('y', 1)
-      .attr('text-anchor', 'middle')
-      .attr('dominant-baseline', 'middle')
-      .text(label)
-      .style('fill', 'white')
-      .style('pointer-events', 'none');
-  });
+// Add Contributors section
+if (contributors.length) {
+    panelHTML += '<div style="font-weight:bold;">Contributors</div>';
+    panelHTML += '<div>' + contributors.join('<br>') + '</div>';
+}
+
+// --- Determine panel position below variants ---
+const pillHeight = nodePillHeight;
+const variantCount = nodes.filter(n => n.variant === d.name).length;
+const gap = 20 + variantCount * pillHeight; // 20px base gap + space for variant pills
+const panelWidth = 240;
+
+const foreign = g.append('foreignObject')
+    .attr('class', 'info-panel')
+    .attr('x', d.x - panelWidth / 2)
+    .attr('y', d.y + gap)
+    .attr('width', panelWidth);
+
+const div = foreign.append('xhtml:div')
+    .style('font-family', "'Roboto', Arial, sans-serif")
+    .style('font-size', '13px')
+    .style('background', 'rgba(255,255,255,0.95)')
+    .style('border', '0px')
+    .style('border-radius', '8px')
+    .style('padding', '18px')
+    .style('white-space', 'pre-line')
+    .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
+    .html(panelHTML);
+
+// Set panel height to show all content
+const divHeight = div.node().scrollHeight;
+foreign.attr('height', divHeight);
 
 }
 
+
+
+
+
+
+    
 
     function highlightHoverLineage(event, d) {
         const lineage = new Set();
@@ -1279,7 +1431,7 @@ function setupStrainSearch() {
     // ----- Blinking underscore logic -----
     searchInput.classList.add('hidden-cursor'); // hide real cursor initially
     let blinkInterval;
-    const baseText = "Go to Strain";
+    const baseText = "go to strain";
     let showingUnderscore = true;
 
     function startBlinking() {
@@ -1558,5 +1710,6 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
+
 
 
