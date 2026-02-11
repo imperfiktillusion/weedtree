@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -729,75 +727,6 @@ calculateColumn1Positions();
 let dragging = false; // global flag to prevent hover while dragging
 const hoverDelay = 200; // ms before node enlarges
 
-// Wait for fonts to be loaded before measuring text
-document.fonts.ready.then(() => {
-
-    // --- Append strain text ---
-    node.append("text")
-        .attr("class", "strain-name")
-        .text(d => d.displayName)
-        .attr("x", d => d.variant ? -standardPillWidth * 0.85 / 2 + 12 : -standardPillWidth / 2 + 12)
-        .attr("y", 1)
-        .attr("dominant-baseline", "middle")
-        .attr("fill", "black")
-        .style("font-size", "15px")
-        .style("font-family", "'Roboto', Arial, sans-serif")
-        .style("font-weight", "bold")
-        .each(function(d) {
-            const strainText = d3.select(this);
-            const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-            const availableWidth = nodeWidth - 24;
-
-            let textWidth = this.getComputedTextLength();
-
-            // Apply condensed font if too wide
-            if (textWidth > availableWidth) {
-                strainText.style("font-family", "'Roboto Condensed', Arial, sans-serif");
-                textWidth = this.getComputedTextLength(); // re-measure with condensed font
-            }
-
-            d.strainTextWidth = textWidth; // store width for product text positioning
-        });
-
-    // --- Append product text ---
-    node.append("text")
-        .filter(d => d.product)
-        .text(d => d.product)
-        .attr("class", "product")
-        .attr("y", 1.6)
-        .attr("dominant-baseline", "middle")
-        .attr("fill", "black")
-        .style("font-size", "10px")
-        .style("font-family", "'Roboto', Arial, sans-serif")
-        .style("font-weight", "normal")
-        .each(function(d) {
-            const productText = d3.select(this);
-            const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-
-            // Use the already measured strain-name width
-            let xPos = -nodeWidth / 2 + 5 + d.strainTextWidth + 10;
-            let textWidth = this.getComputedTextLength();
-            let remainingWidth = nodeWidth - d.strainTextWidth - 40;
-
-            // If product text is too wide, switch to condensed font and recalc
-            if (textWidth > remainingWidth) {
-                productText.style("font-family", "'Roboto Condensed', Arial, sans-serif");
-
-                // Recalculate xPos because strain name might also need condensed font
-                const strainText = this.parentNode.querySelector('.strain-name');
-                if (strainText) {
-                    strainText.style.fontFamily = "'Roboto Condensed', Arial, sans-serif";
-                    d.strainTextWidth = strainText.getComputedTextLength();
-                }
-
-                xPos = -nodeWidth / 2 + 5 + d.strainTextWidth + 10;
-            }
-
-            productText.attr("x", xPos);
-        });
-});
-
-
 
 // --- Append product icon ---
 node.filter(d => d.product)
@@ -1012,6 +941,49 @@ function dragNode(event, d, nodeElement) {
         .attr("y", -14);
 
 
+function relayoutText() {
+    node.each(function(d) {
+        const g = d3.select(this);
+        const strain = g.select('.strain-name').node();
+        const product = g.select('.product').node();
+
+        if (!strain) return;
+
+        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const availableWidth = nodeWidth - 24;
+
+        // --- strain name first ---
+        strain.style.fontFamily = "'Roboto', Arial, sans-serif";
+        let strainWidth = strain.getComputedTextLength();
+
+        if (strainWidth > availableWidth) {
+            strain.style.fontFamily = "'Roboto Condensed', Arial, sans-serif";
+            strainWidth = strain.getComputedTextLength();
+        }
+
+        // --- product text ---
+        if (product) {
+            product.style.fontFamily = "'Roboto', Arial, sans-serif";
+
+            let xPos = -nodeWidth / 2 + 5 + strainWidth + 10;
+            let remainingWidth = nodeWidth - strainWidth - 40;
+
+            if (product.getComputedTextLength() > remainingWidth) {
+                product.style.fontFamily = "'Roboto Condensed', Arial, sans-serif";
+            }
+
+            product.setAttribute("x", xPos);
+        }
+    });
+}
+
+// run immediately (first paint)
+relayoutText();
+
+// run again once fonts are loaded (this fixes first-load bug)
+if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(relayoutText);
+}
 
 
     
