@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -297,6 +289,9 @@ const indicaOrder = [
     'Purple Afghan Indica Landraces',
     'Hindu Kush Landraces',
     'Nepalese Indica Landraces',
+    'India Indica Landraces',
+    'Thailand Indica Landraces',
+    'African Indica Landraces',
     'North American Indica Landraces'
 ];
 
@@ -308,6 +303,7 @@ const sativaOrder = [
     'Chocolate Thai Sativa Landraces',
     'Purple Thai Sativa Landraces',
     'Indonesia Sativa Landraces',
+    'African Sativa Landraces',
     'North African Sativa Landraces',
     'East African Sativa landraces',
     'South African Sativa Landraces',
@@ -641,6 +637,10 @@ const createLineageChart = () => {
     const column2Nodes = nodes.filter(n => n.generation === 1 && !n.variant);
     column2Nodes.sort(sortByDominanceAndLandrace);
 
+
+
+
+    
 for (let gen = 0; gen <= maxGeneration + 1; gen++) {
     // 1️⃣ Filter nodes for this generation
     let genNodes = nodes.filter(n =>
@@ -657,47 +657,56 @@ for (let gen = 0; gen <= maxGeneration + 1; gen++) {
         genNodes.sort(sortByDominanceAndLandrace);
     } else if (gen >= 2) {
         // Columns 3+: preserve dominance order across the column
-        // 1. Group by dominance
-const groupedByDom = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
-
-// 2. Sort the groups according to dominanceOrder
-groupedByDom.sort(([aDom], [bDom]) => (dominanceOrder[aDom] ?? 99) - (dominanceOrder[bDom] ?? 99));
-
-// 3. Apply barycentric within each group
-const sortedGroups = groupedByDom.map(([dominance, groupNodes]) => barycentricSort(groupNodes, nodes, 'parents'));
-
-// 4. Flatten back
-genNodes = sortedGroups.flat();
-
+        const groupedByDom = d3.groups(genNodes, n => n.dominance?.toLowerCase() || 'unknown');
+        groupedByDom.sort(([aDom], [bDom]) => (dominanceOrder[aDom] ?? 99) - (dominanceOrder[bDom] ?? 99));
+        const sortedGroups = groupedByDom.map(([dom, groupNodes]) => barycentricSort(groupNodes, nodes, 'parents'));
+        genNodes = sortedGroups.flat();
     }
 
-    // 4️⃣ Assign Y positions
-    let yOffset = 0;
-    const totalHeight = genNodes.filter(n => !n.variant).length * (pillHeight + 10) +
-                        genNodes.filter(n => n.variant).length * (pillHeight + 2);
-    const startY = (height - totalHeight) / 2;
+ // 4️⃣ Assign Y positions
+let yOffset = 0;
 
-    genNodes.forEach(node => {
-        if (!node.variant) {
-            node.y = startY + yOffset;
-            yOffset += pillHeight + 16;
+// Count only non-variant nodes for spacing logic
+const nonVariantNodes = genNodes.filter(n => !n.variant);
 
-            // 5️⃣ Position variants under parent
-            const variants = nodes.filter(n => n.variant === node.name)
-                .sort((a, b) => a.name.localeCompare(b.name));
-
-            variants.forEach((variant, vIndex) => {
-                variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
-                variant.x = node.x;
-            });
-
-            yOffset += variants.length * (pillHeight + 2);
-        }
-    });
+// Decide vertical spacing
+let spacing = 16; // default spacing
+if (gen >= 2 && nonVariantNodes.length <= 5) {
+    spacing = pillHeight * 2; // double minimum spacing for small columns
 }
 
+const totalHeight = nonVariantNodes.length * (pillHeight + spacing) +
+                    genNodes.filter(n => n.variant).length * (pillHeight + 2);
+const startY = (height - totalHeight) / 2;
 
-    calculateColumn1Positions();
+nonVariantNodes.forEach(node => {
+    node.y = startY + yOffset;
+    yOffset += pillHeight + spacing;
+
+    // 5️⃣ Position variants under parent
+    const variants = nodes.filter(n => n.variant === node.name)
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    variants.forEach((variant, vIndex) => {
+        variant.y = node.y + (vIndex + 1) * (pillHeight + 2);
+        variant.x = node.x;
+    });
+
+    yOffset += variants.length * (pillHeight + 2);
+});
+
+
+
+
+
+}
+
+    
+    
+    
+calculateColumn1Positions();
+
+
 
     const link = g.append("g")
         .selectAll("path")
@@ -1189,15 +1198,15 @@ if (alsoKnownAs.length) {
 
 // Add Contributors section
 if (contributors.length) {
-    panelHTML += '<div style="font-weight:bold;">Contributors</div>';
+    panelHTML += '<div style="font-weight:bold;">Ancestor contributions</div>';
     panelHTML += '<div>' + contributors.join('<br>') + '</div>';
 }
 
 // --- Determine panel position below variants ---
 const pillHeight = nodePillHeight;
 const variantCount = nodes.filter(n => n.variant === d.name).length;
-const gap = 40 + variantCount * pillHeight; // 20px base gap + space for variant pills
-const panelWidth = 220;
+const gap = 20 + variantCount * pillHeight; // 20px base gap + space for variant pills
+const panelWidth = 240;
 
 const foreign = g.append('foreignObject')
     .attr('class', 'info-panel')
@@ -1211,7 +1220,7 @@ const div = foreign.append('xhtml:div')
     .style('background', 'rgba(255,255,255,0.95)')
     .style('border', '0px')
     .style('border-radius', '8px')
-    .style('padding', '8px')
+    .style('padding', '18px')
     .style('white-space', 'pre-line')
     .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
     .html(panelHTML);
@@ -1705,3 +1714,6 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
+
+
+
