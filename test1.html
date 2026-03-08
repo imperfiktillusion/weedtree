@@ -7,9 +7,6 @@
 
 
 
-
-
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -180,17 +177,28 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     /* We'll dynamically append the blinking underscore via JS */
 }
 
-.contributors-grid {
-  display:grid;
-  grid-template-columns:auto 10px auto;
-  column-gap:6px;
-  row-gap:2px;
-  align-items:center;
+    .contributors-grid{
+display:grid;
+grid-template-columns:50px 14px auto;
+column-gap:8px;
+row-gap:4px;
+align-items:center;
 }
 
-.c-perc { text-align:right; }
-.c-dot { width:8px;height:8px;border-radius:50%; }
-.c-name { text-align:left; }
+.c-perc{
+text-align:right;
+font-weight:600;
+}
+
+.c-dot{
+width:10px;
+height:10px;
+border-radius:50%;
+}
+
+.c-name{
+white-space:nowrap;
+}
     
 </style>
 
@@ -1221,18 +1229,18 @@ const contributors = Array.from(ancestorContrib.entries())
 
 let panelHTML = '';
 
-// AKAs
+// Add AKAs section
 if (alsoKnownAs.length) {
-    panelHTML += '<div style="font-weight:bold;padding:6px 6px 2px 6px;">Also known as</div>';
-    panelHTML += '<div style="padding:0 6px 8px 6px;">' + alsoKnownAs.join('<br>') + '</div>';
+    panelHTML += '<div style="font-weight:bold;">Also known as</div>';
+    panelHTML += '<div>' + alsoKnownAs.join('<br>') + '</div><br>';
 }
 
-// Contributors
+// Add Contributors section
 if (contributors.length) {
 
     panelHTML += `
-    <div style="font-weight:bold;padding:6px 6px 2px 6px;">Ancestor contributions</div>
-    <div class="contributors-grid" style="padding:0 6px 8px 6px;">
+    <div style="font-weight:bold;margin-bottom:6px;">Ancestor contributions</div>
+    <div class="contributors-grid">
     `;
 
     contributors.forEach(c => {
@@ -1249,41 +1257,38 @@ if (contributors.length) {
     panelHTML += `</div>`;
 }
 
-
 // --- Determine panel position below variants ---
 const pillHeight = nodePillHeight;
 const variantCount = nodes.filter(n => n.variant === d.name).length;
-const gap = 20 + variantCount * pillHeight;
-
-const basePanelWidth = 240;
+const gap = 20 + variantCount * pillHeight; // 20px base gap + space for variant pills
+const panelWidth = 240;
 
 const foreign = g.append('foreignObject')
     .attr('class', 'info-panel')
-    .attr('x', d.x - basePanelWidth / 2)
+    .attr('x', d.x - panelWidth / 2)
     .attr('y', d.y + gap)
-    .attr('width', basePanelWidth)
-    .attr('height', 10); // temporary
-
+    .attr('width', panelWidth);
 
 const div = foreign.append('xhtml:div')
     .style('font-family', "'Roboto', Arial, sans-serif")
     .style('font-size', '13px')
     .style('background', 'rgba(255,255,255,0.95)')
+    .style('border', '0px')
     .style('border-radius', '8px')
-    .style('padding', '0')
-    .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
+    .style('padding', '2px')
     .style('white-space', 'nowrap')
+    .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
     .html(panelHTML);
 
+// Set panel height to show all content
+const divHeight = div.node().scrollHeight;
+foreign.attr('height', divHeight);
 
-// measure content
-const contentWidth = div.node().scrollWidth;
-const contentHeight = div.node().scrollHeight;
+}
 
-// expand only if needed
-foreign
-    .attr('width', Math.max(basePanelWidth, contentWidth))
-    .attr('height', contentHeight);
+
+
+
 
 
     
@@ -1764,5 +1769,4 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
-
 
