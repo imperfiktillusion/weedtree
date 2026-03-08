@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -128,7 +129,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 }
 
 #popup3 { padding:20px; z-index: 1012}
-#loading-message { position:fixed; top:40%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
+#loading-message { position:fixed; top:40%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:100%; z-index:1001; display:none; }
 .container { height:calc(100vh - 50px); display:flex; flex-direction:column; }
 .close-button { position:absolute; top:15px; right:15px; width:40px; height:40px; border:none; background:#434343; color:white; border-radius:50%; font-size:40px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color 0.3s; }
 .close-button:hover { background-color:#666; }
@@ -173,6 +174,27 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     /* We'll dynamically append the blinking underscore via JS */
 }
 
+
+.node-menu{
+position:fixed;
+background:white;
+border:1px solid #ccc;
+border-radius:6px;
+box-shadow:0 3px 10px rgba(0,0,0,0.2);
+display:none;
+z-index:9999;
+font-family:'Roboto',sans-serif;
+}
+
+.node-menu div{
+padding:8px 14px;
+cursor:pointer;
+}
+
+.node-menu div:hover{
+background:#eee;
+}
+    
     
 </style>
 
@@ -253,7 +275,13 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 <div id="strainDropdown"></div>
 
 <div id="loading-message">chart loading...</div>
-  
+
+<div id="nodeMenu" class="node-menu">
+<div id="copyURL">Copy URL</div>
+<div id="copyContrib">Copy contributors</div>
+</div>
+
+    
 <svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
   <symbol id="nzIcon">
     <circle cx="14" cy="14" r="12.5" fill="white" stroke="black" stroke-width="3"/>
@@ -1648,6 +1676,8 @@ document.getElementById('deselectButton').addEventListener('click', () => {
 });
 
 
+    
+
 function toggleFullScreen() {
     if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
@@ -1658,6 +1688,57 @@ function toggleFullScreen() {
     }
 }
 
+
+const nodeMenu = document.getElementById("nodeMenu");
+let menuNode = null;
+
+node.on("contextmenu",function(event,d){
+
+event.preventDefault();
+
+menuNode=d;
+
+nodeMenu.style.display="block";
+nodeMenu.style.left=event.pageX+"px";
+nodeMenu.style.top=event.pageY+"px";
+
+});
+document.addEventListener("click",()=>{
+nodeMenu.style.display="none";
+});
+document.getElementById("copyURL").onclick=function(){
+
+if(!menuNode) return;
+
+const url = window.location.origin + window.location.pathname + "?focus=" + menuNode.name.replace(/\s+/g,"_");
+
+navigator.clipboard.writeText(url);
+
+nodeMenu.style.display="none";
+
+};
+document.getElementById("copyContrib").onclick=function(){
+
+if(!menuNode) return;
+
+const ancestorContrib = calculateUpwardChildTotals(menuNode,nodes);
+
+const text = Array.from(ancestorContrib.entries())
+.filter(([id,p])=>p>=5)
+.map(([id,p])=>{
+const n=nodes.find(n=>n.id===id);
+return `${n.name} ${Math.round(p)}%`;
+})
+.join(", ");
+
+navigator.clipboard.writeText(text);
+
+nodeMenu.style.display="none";
+
+};
+
+
+    
 window.addEventListener('resize', function() {
     createLineageChart();
     adjustFullscreenButtonPosition();
