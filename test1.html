@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -16,11 +17,6 @@
     
 
 <style>
-html,body{
-height:100%;
-width:100%;
-overflow:hidden;
-}
 body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; margin:0; padding:0; font-size:14px; height:100%; overflow:hidden; }
 .header-ribbon { background-color:#434343; color:#fff; padding:10px; display:flex; justify-content:space-between; align-items:center; }
 .header-ribbon h1 { margin:0; font-size:1.8em; color:#fff; margin-left:6px; }
@@ -105,8 +101,8 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     left: 0;
     width: 90%;             /* adjusted dynamically in JS anyway */
     max-width: 80%;
-    max-height: none;
-    overflow-y: visable;
+    max-height: 300px;
+    overflow-y: auto;
     z-index: 9999;          /* high so it floats above everything */
     background-color: #f8f8f8;
     border: 0px solid #434343;
@@ -174,69 +170,12 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     /* We'll dynamically append the blinking underscore via JS */
 }
 
-.contributors-grid{
-display:grid;
-grid-template-columns:50px 14px auto;
-column-gap:8px;
-row-gap:4px;
-align-items:center;
-}
-
-.c-perc{
-text-align:right;
-font-weight:600;
-}
-
-.c-dot{
-width:10px;
-height:10px;
-border-radius:50%;
-}
-
-.c-name{
-white-space:nowrap;
-}
-
-
-
-    .node-menu{
-position:fixed;
-background:white;
-border:1px solid #ccc;
-border-radius:6px;
-box-shadow:0 3px 10px rgba(0,0,0,0.2);
-display:none;
-z-index:9999;
-font-family:'Roboto',sans-serif;
-}
-
-.node-menu div{
-padding:8px 14px;
-cursor:pointer;
-}
-
-.node-menu div:hover{
-background:#eee;
-}
     
 </style>
 
 </head>
-
-
-
-<div id="nodeMenu" class="node-menu">
-<div id="copyURL">Copy URL</div>
-<div id="copyContrib">Copy contributors</div>
-</div>
-
-
-    
 <body>
 
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="screen-orientation" content="landscape">
-    
 <!-- Header -->
 <div class="header-ribbon">
     <h1>
@@ -386,8 +325,6 @@ const showError = (message) => {
     alert(message);
 };
 
-    document.getElementById('loading-message').style.display='block';
-
 // --- Fetch and parse CSV data ---
 fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978')
     .then(response => {
@@ -411,9 +348,6 @@ fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_
         document.getElementById('loading-message').style.display = 'none';
         createLineageChart();
         setupStrainSearch();
-        setTimeout(()=>{
-        document.getElementById('loading-message').style.display='none';
-        },50);
     })
     .catch(error => {
         showError("Error fetching data: " + error.message);
@@ -928,60 +862,6 @@ node.on("mouseover", function(event, d) {
     }
 });
 
-
-const nodeMenu = document.getElementById("nodeMenu");
-let menuNode = null;
-
-node.on("contextmenu",function(event,d){
-
-event.preventDefault();
-
-menuNode=d;
-
-nodeMenu.style.display="block";
-nodeMenu.style.left=event.pageX+"px";
-nodeMenu.style.top=event.pageY+"px";
-
-});
-
-
-document.addEventListener("click",()=>{
-nodeMenu.style.display="none";
-});
-
-document.getElementById("copyURL").onclick=function(){
-
-if(!menuNode) return;
-
-const url = window.location.origin + window.location.pathname + "?focus=" + menuNode.name.replace(/\s+/g,"_");
-
-navigator.clipboard.writeText(url);
-
-nodeMenu.style.display="none";
-
-};
-
-document.getElementById("copyContrib").onclick=function(){
-
-if(!menuNode) return;
-
-const ancestorContrib = calculateUpwardChildTotals(menuNode,nodes);
-
-const text = Array.from(ancestorContrib.entries())
-.filter(([id,p])=>p>=5)
-.map(([id,p])=>{
-const n=nodes.find(n=>n.id===id);
-return `${n.name} ${Math.round(p)}%`;
-})
-.join(", ");
-
-navigator.clipboard.writeText(text);
-
-nodeMenu.style.display="none";
-
-};
-    
-
 // --- Click handler ---
 node.on("click", function(event, d) {
     event.stopPropagation();
@@ -1304,20 +1184,10 @@ const contributors = Array.from(ancestorContrib.entries())
     .filter(([id, perc]) => id !== d.id && perc >= 5)
     .map(([id, perc]) => ({ id, perc }))
     .sort((a, b) => b.perc - a.perc)
-   const contributors = Array.from(ancestorContrib.entries())
-    .filter(([id, perc]) => id !== d.id && perc >= 5)
-    .map(([id, perc]) => {
-        const nodeData = nodes.find(n => n.id === id);
-        if (!nodeData) return null;
-
-        return {
-            name: nodeData.name,
-            perc: Math.round(perc),
-            dominance: nodeData.dominance
-        };
+    .map(c => {
+        const nodeData = nodes.find(n => n.id === c.id);
+        return nodeData ? `${Math.round(c.perc)}% ${nodeData.name}` : null;
     })
-    .filter(Boolean)
-    .sort((a,b)=>b.perc-a.perc);
     .filter(Boolean);
 
 let panelHTML = '';
@@ -1330,31 +1200,15 @@ if (alsoKnownAs.length) {
 
 // Add Contributors section
 if (contributors.length) {
-
-    panelHTML += `
-    <div style="font-weight:bold;margin-bottom:6px;">Ancestor contributions</div>
-    <div class="contributors-grid">
-    `;
-
-    contributors.forEach(c => {
-
-        const color = getColorByDominance(c.dominance);
-
-        panelHTML += `
-        <div class="c-perc">${c.perc}%</div>
-        <div class="c-dot" style="background:${color};"></div>
-        <div class="c-name">${c.name}</div>
-        `;
-    });
-
-    panelHTML += `</div>`;
+    panelHTML += '<div style="font-weight:bold;">Ancestor contributions</div>';
+    panelHTML += '<div>' + contributors.join('<br>') + '</div>';
 }
 
 // --- Determine panel position below variants ---
 const pillHeight = nodePillHeight;
 const variantCount = nodes.filter(n => n.variant === d.name).length;
 const gap = 20 + variantCount * pillHeight; // 20px base gap + space for variant pills
-const panelWidth = 400;
+const panelWidth = 240;
 
 const foreign = g.append('foreignObject')
     .attr('class', 'info-panel')
@@ -1369,7 +1223,7 @@ const div = foreign.append('xhtml:div')
     .style('border', '0px')
     .style('border-radius', '8px')
     .style('padding', '18px')
-    .style('white-space', 'nowrap')
+    .style('white-space', 'pre-line')
     .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
     .html(panelHTML);
 
@@ -1433,7 +1287,7 @@ foreign.attr('height', divHeight);
         const maxY = d3.max(activeNodes, n => n.y) + pillHeight / 2;
         const padding = 50;
 
-        const scale = 0.8 * Math.min(
+        const scale = Math.min(
             width / (maxX - minX + 2 * padding),
             height / (maxY - minY + 2 * padding)
         );
@@ -1673,7 +1527,6 @@ function setupStrainSearch() {
 
     
 window.addEventListener('load', function() {
-    window.scrollTo(0,1);
     const overlay = document.querySelector('.popup-overlay');
 
     const popup2 = document.getElementById('popup2');
@@ -1734,9 +1587,7 @@ window.addEventListener('load', function() {
 });
 
 
-if(screen.orientation && screen.orientation.lock){
-screen.orientation.lock("landscape").catch(()=>{});
-}
+
 
 document.getElementById('fullscreenToggle').addEventListener('click', toggleFullScreen);
 document.getElementById('zoomInButton').addEventListener('click', () => {
