@@ -323,7 +323,9 @@ const showError = (message) => {
     document.getElementById('loading-message').style.display = 'none';
     alert(message);
 };
-
+    
+document.getElementById('loading-message').style.display='block';
+    
 // --- Fetch and parse CSV data ---
 fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978')
     .then(response => {
