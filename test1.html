@@ -1331,7 +1331,7 @@ foreign.attr('height', divHeight);
         const maxY = d3.max(activeNodes, n => n.y) + pillHeight / 2;
         const padding = 50;
 
-        const scale = 0.8 * Math.min(
+        const scale = 0.9 * Math.min(
             width / (maxX - minX + 2 * padding),
             height / (maxY - minY + 2 * padding)
         );
