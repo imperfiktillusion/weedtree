@@ -1,3 +1,4 @@
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -32,7 +33,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     width: 75vw;               /* 75% of viewport width */
     max-width: none;
     min-width: 400px;           /* optional minimum width */
-    z-index: 1001;
+    z-index: 1011;
     display: none;
     background: transparent;
     flex-direction: column;
@@ -94,13 +95,13 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 /* Dropdown styling */
 /* Popup2 dropdown should flow outside the popup */
 #strainDropdown {
-    position: fixed;        /* fixed so it floats over everything */
+        position: fixed;        /* fixed so it floats over everything */
     top: 0;
     left: 0;
     width: 90%;             /* adjusted dynamically in JS anyway */
     max-width: 80%;
-    max-height: 300px;
-    overflow-y: auto;
+    max-height: none;
+    overflow-y: visible;
     z-index: 9999;          /* high so it floats above everything */
     background-color: #f8f8f8;
     border: 0px solid #434343;
@@ -122,8 +123,8 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     background-color: #f0f0f0;
 }
 
-#popup3 { padding:20px; z-index: 1002}
-#loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
+#popup3 { padding:20px; z-index: 1012}
+#loading-message { position:fixed; top:40%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:50px; z-index:1001; display:none; }
 .container { height:calc(100vh - 50px); display:flex; flex-direction:column; }
 .close-button { position:absolute; top:15px; right:15px; width:40px; height:40px; border:none; background:#434343; color:white; border-radius:50%; font-size:40px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color 0.3s; }
 .close-button:hover { background-color:#666; }
@@ -168,6 +169,28 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     /* We'll dynamically append the blinking underscore via JS */
 }
 
+    .contributors-grid{
+display:grid;
+grid-template-columns:30px 10px auto;
+column-gap:4px;
+row-gap:4px;
+align-items:center;
+}
+
+.c-perc{
+text-align:left;
+font-weight:600;
+}
+
+.c-dot{
+width:10px;
+height:10px;
+border-radius:50%;
+}
+
+.c-name{
+white-space:nowrap;
+}
     
 </style>
 
@@ -247,7 +270,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 
 <div id="strainDropdown"></div>
 
-<div id="loading-message">Loading strain data, please wait...</div>
+<div id="loading-message">chart loading...</div>
   
 <svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
   <symbol id="nzIcon">
@@ -322,7 +345,9 @@ const showError = (message) => {
     document.getElementById('loading-message').style.display = 'none';
     alert(message);
 };
-
+    
+document.getElementById('loading-message').style.display='block';
+    
 // --- Fetch and parse CSV data ---
 fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978')
     .then(response => {
@@ -346,6 +371,9 @@ fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_
         document.getElementById('loading-message').style.display = 'none';
         createLineageChart();
         setupStrainSearch();
+        setTimeout(()=>{
+        document.getElementById('loading-message').style.display='none';
+        },50);
     })
     .catch(error => {
         showError("Error fetching data: " + error.message);
@@ -1140,10 +1168,8 @@ function highlightLineage(event, d) {
       .filter(n => contributionsMap.has(n.id) && n.id !== d.id)
       .each(function(n) {
           const pct = contributionsMap.get(n.id);
-          const label = Math.round(pct) + '%';
-
+          const label = pct < 1 ? '<1%' : Math.round(pct) + '%';
           const group = d3.select(this);
-
           const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
           const pillHeight = nodePillHeight;
           const pillPaddingX = 10;
@@ -1180,13 +1206,18 @@ const alsoKnownAs = d.alsoKnownAs
 
 const contributors = Array.from(ancestorContrib.entries())
     .filter(([id, perc]) => id !== d.id && perc >= 5)
-    .map(([id, perc]) => ({ id, perc }))
-    .sort((a, b) => b.perc - a.perc)
-    .map(c => {
-        const nodeData = nodes.find(n => n.id === c.id);
-        return nodeData ? `${Math.round(c.perc)}% ${nodeData.name}` : null;
+    .map(([id, perc]) => {
+        const nodeData = nodes.find(n => n.id === id);
+        if (!nodeData) return null;
+
+        return {
+            name: nodeData.name,
+            perc: Math.round(perc),
+            dominance: nodeData.dominance
+        };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a,b)=>b.perc-a.perc);
 
 let panelHTML = '';
 
@@ -1198,19 +1229,35 @@ if (alsoKnownAs.length) {
 
 // Add Contributors section
 if (contributors.length) {
-    panelHTML += '<div style="font-weight:bold;">Ancestor contributions</div>';
-    panelHTML += '<div>' + contributors.join('<br>') + '</div>';
+
+    panelHTML += `
+    <div style="font-weight:bold;margin-bottom:6px;">Ancestor contributions</div>
+    <div class="contributors-grid">
+    `;
+
+    contributors.forEach(c => {
+
+        const color = getColorByDominance(c.dominance);
+
+        panelHTML += `
+        <div class="c-perc">${c.perc}%</div>
+        <div class="c-dot" style="background:${color};"></div>
+        <div class="c-name">${c.name}</div>
+        `;
+    });
+
+    panelHTML += `</div>`;
 }
 
 // --- Determine panel position below variants ---
-const pillHeight = nodePillHeight;
+const pillHeight = nodePillHeight+1;
 const variantCount = nodes.filter(n => n.variant === d.name).length;
 const gap = 20 + variantCount * pillHeight; // 20px base gap + space for variant pills
-const panelWidth = 240;
+const panelWidth = 220;
 
 const foreign = g.append('foreignObject')
     .attr('class', 'info-panel')
-    .attr('x', d.x - panelWidth / 2)
+    .attr('x', d.x + 10 - panelWidth / 2)
     .attr('y', d.y + gap)
     .attr('width', panelWidth);
 
@@ -1220,9 +1267,8 @@ const div = foreign.append('xhtml:div')
     .style('background', 'rgba(255,255,255,0.95)')
     .style('border', '0px')
     .style('border-radius', '8px')
-    .style('padding', '18px')
-    .style('white-space', 'pre-line')
-    .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
+    .style('padding', '8px')
+    .style('white-space', 'nowrap')
     .html(panelHTML);
 
 // Set panel height to show all content
@@ -1285,7 +1331,7 @@ foreign.attr('height', divHeight);
         const maxY = d3.max(activeNodes, n => n.y) + pillHeight / 2;
         const padding = 50;
 
-        const scale = Math.min(
+        const scale = 0.8 * Math.min(
             width / (maxX - minX + 2 * padding),
             height / (maxY - minY + 2 * padding)
         );
@@ -1714,6 +1760,3 @@ document.querySelectorAll('.popup').forEach(popup =>
 </script>
 </body>
 </html>
-
-
-
