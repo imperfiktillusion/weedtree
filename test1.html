@@ -10,6 +10,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1261,9 +1262,9 @@ if (contributors.length) {
 }
 
 // --- Determine panel position below variants ---
-const pillHeight = nodePillHeight;
+const pillHeight = nodePillHeight+4;
 const variantCount = nodes.filter(n => n.variant === d.name).length;
-const gap = 40 + variantCount * pillHeight; // 20px base gap + space for variant pills
+const gap = 20 + variantCount * pillHeight; // 20px base gap + space for variant pills
 const panelWidth = 240;
 
 const foreign = g.append('foreignObject')
@@ -1278,7 +1279,7 @@ const div = foreign.append('xhtml:div')
     .style('background', 'rgba(255,255,255,0.95)')
     .style('border', '0px')
     .style('border-radius', '8px')
-    .style('padding', '20px')
+    .style('padding', '8px')
     .style('white-space', 'nowrap')
     .html(panelHTML);
 
