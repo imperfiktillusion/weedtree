@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -171,6 +172,43 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 }
 
     
+
+/* --- Tweaks injected --- */
+#infoPanel .contributors{
+display:grid;
+grid-template-columns:60px 16px 1fr;
+column-gap:8px;
+align-items:center;
+white-space:nowrap;
+}
+.contributor-dot{
+width:12px;
+height:12px;
+border-radius:50%;
+display:inline-block;
+}
+#strainSearchResults{
+max-height:none !important;
+overflow:visible !important;
+}
+#customContextMenu{
+position:fixed;
+background:#fff;
+border:1px solid #ccc;
+border-radius:6px;
+box-shadow:0 4px 12px rgba(0,0,0,.15);
+display:none;
+z-index:9999;
+font-size:13px;
+}
+#customContextMenu div{
+padding:8px 14px;
+cursor:pointer;
+}
+#customContextMenu div:hover{
+background:#f0f0f0;
+}
+
 </style>
 
 </head>
@@ -1713,6 +1751,49 @@ document.querySelectorAll('.popup').forEach(popup =>
 
 
     
+</script>
+<script>
+/* --- Context Menu + Clipboard --- */
+document.addEventListener("DOMContentLoaded",function(){
+
+const menu=document.createElement("div");
+menu.id="customContextMenu";
+menu.innerHTML=`
+<div id="copyURL">Copy URL</div>
+<div id="copyContrib">Copy contributors</div>
+`;
+document.body.appendChild(menu);
+
+let currentStrain=null;
+
+document.addEventListener("contextmenu",e=>{
+const node=e.target.closest(".node");
+if(!node)return;
+e.preventDefault();
+currentStrain=node.dataset?.name || node.textContent.trim();
+menu.style.left=e.clientX+"px";
+menu.style.top=e.clientY+"px";
+menu.style.display="block";
+});
+
+document.addEventListener("click",()=>menu.style.display="none");
+
+document.getElementById("copyURL").onclick=function(){
+if(!currentStrain)return;
+const url=`https://weedtree.fyi/?strain=${currentStrain.replace(/ /g,"_")}`;
+navigator.clipboard.writeText(url);
+menu.style.display="none";
+};
+
+document.getElementById("copyContrib").onclick=function(){
+const rows=[...document.querySelectorAll("#infoPanel .contributors div")];
+let out=[];
+rows.forEach(r=>out.push(r.innerText.replace(/\s+/g,"\t")));
+navigator.clipboard.writeText(out.join("\n"));
+menu.style.display="none";
+};
+
+});
 </script>
 </body>
 </html>
