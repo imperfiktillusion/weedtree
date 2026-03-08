@@ -177,27 +177,26 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     /* We'll dynamically append the blinking underscore via JS */
 }
 
-    .contributors-grid{
-display:grid;
-grid-template-columns:50px 14px auto;
-column-gap:8px;
-row-gap:4px;
-align-items:center;
+   .contributors-grid {
+  display: grid;
+  grid-template-columns: auto 10px auto;
+  column-gap: 8px;
+  row-gap: 3px;
+  align-items: center;
 }
 
-.c-perc{
-text-align:right;
-font-weight:600;
+.c-perc {
+  text-align: right;
 }
 
-.c-dot{
-width:10px;
-height:10px;
-border-radius:50%;
+.c-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
-.c-name{
-white-space:nowrap;
+.c-name {
+  text-align: left;
 }
     
 </style>
@@ -1231,16 +1230,16 @@ let panelHTML = '';
 
 // Add AKAs section
 if (alsoKnownAs.length) {
-    panelHTML += '<div style="font-weight:bold;">Also known as</div>';
-    panelHTML += '<div>' + alsoKnownAs.join('<br>') + '</div><br>';
+    panelHTML += '<div style="font-weight:bold;padding:12px 12px 6px 12px;">Also known as</div>';
+    panelHTML += '<div style="padding:0 12px 12px 12px;">' + alsoKnownAs.join('<br>') + '</div>';
 }
 
 // Add Contributors section
 if (contributors.length) {
 
     panelHTML += `
-    <div style="font-weight:bold;margin-bottom:6px;">Ancestor contributions</div>
-    <div class="contributors-grid">
+    <div style="font-weight:bold;padding:12px 12px 6px 12px;">Ancestor contributions</div>
+    <div class="contributors-grid" style="padding:0 12px 12px 12px;">
     `;
 
     contributors.forEach(c => {
@@ -1260,33 +1259,33 @@ if (contributors.length) {
 // --- Determine panel position below variants ---
 const pillHeight = nodePillHeight;
 const variantCount = nodes.filter(n => n.variant === d.name).length;
-const gap = 20 + variantCount * pillHeight; // 20px base gap + space for variant pills
-const panelWidth = 240;
+const gap = 20 + variantCount * pillHeight;
+
+const minPanelWidth = 240;
 
 const foreign = g.append('foreignObject')
     .attr('class', 'info-panel')
-    .attr('x', d.x - panelWidth / 2)
+    .attr('x', d.x - minPanelWidth / 2)
     .attr('y', d.y + gap)
-    .attr('width', panelWidth);
+    .attr('width', minPanelWidth);
 
 const div = foreign.append('xhtml:div')
     .style('font-family', "'Roboto', Arial, sans-serif")
     .style('font-size', '13px')
     .style('background', 'rgba(255,255,255,0.95)')
-    .style('border', '0px')
     .style('border-radius', '8px')
-    .style('padding', '18px')
+    .style('padding', '0')
     .style('white-space', 'nowrap')
     .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
+    .style('display', 'inline-block')
     .html(panelHTML);
 
-// Set panel height to show all content
-const divHeight = div.node().scrollHeight;
-foreign.attr('height', divHeight);
+// Resize panel to fit content
+const divNode = div.node();
 
-}
-
-
+foreign
+    .attr('width', Math.max(minPanelWidth, divNode.scrollWidth))
+    .attr('height', divNode.scrollHeight);
 
 
 
