@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -349,6 +350,9 @@ fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_
         document.getElementById('loading-message').style.display = 'none';
         createLineageChart();
         setupStrainSearch();
+        setTimeout(()=>{
+        document.getElementById('loading-message').style.display='none';
+        },50);
     })
     .catch(error => {
         showError("Error fetching data: " + error.message);
