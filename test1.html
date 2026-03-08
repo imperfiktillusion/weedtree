@@ -182,7 +182,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 
     .contributors-grid{
 display:grid;
-grid-template-columns:35px 10px auto;
+grid-template-columns:30px 10px auto;
 column-gap:4px;
 row-gap:4px;
 align-items:center;
@@ -1268,7 +1268,7 @@ const panelWidth = 240;
 
 const foreign = g.append('foreignObject')
     .attr('class', 'info-panel')
-    .attr('x', d.x - panelWidth / 2)
+    .attr('x', d.x + 20 - panelWidth / 2)
     .attr('y', d.y + gap)
     .attr('width', panelWidth);
 
