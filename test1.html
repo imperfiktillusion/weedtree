@@ -4,6 +4,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -174,6 +175,28 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     /* We'll dynamically append the blinking underscore via JS */
 }
 
+    .contributors-grid{
+display:grid;
+grid-template-columns:50px 14px auto;
+column-gap:8px;
+row-gap:4px;
+align-items:center;
+}
+
+.c-perc{
+text-align:right;
+font-weight:600;
+}
+
+.c-dot{
+width:10px;
+height:10px;
+border-radius:50%;
+}
+
+.c-name{
+white-space:nowrap;
+}
     
 </style>
 
@@ -1191,13 +1214,18 @@ const alsoKnownAs = d.alsoKnownAs
 
 const contributors = Array.from(ancestorContrib.entries())
     .filter(([id, perc]) => id !== d.id && perc >= 5)
-    .map(([id, perc]) => ({ id, perc }))
-    .sort((a, b) => b.perc - a.perc)
-    .map(c => {
-        const nodeData = nodes.find(n => n.id === c.id);
-        return nodeData ? `${Math.round(c.perc)}% ${nodeData.name}` : null;
+    .map(([id, perc]) => {
+        const nodeData = nodes.find(n => n.id === id);
+        if (!nodeData) return null;
+
+        return {
+            name: nodeData.name,
+            perc: Math.round(perc),
+            dominance: nodeData.dominance
+        };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a,b)=>b.perc-a.perc);
 
 let panelHTML = '';
 
@@ -1209,15 +1237,31 @@ if (alsoKnownAs.length) {
 
 // Add Contributors section
 if (contributors.length) {
-    panelHTML += '<div style="font-weight:bold;">Ancestor contributions</div>';
-    panelHTML += '<div>' + contributors.join('<br>') + '</div>';
+
+    panelHTML += `
+    <div style="font-weight:bold;margin-bottom:6px;">Ancestor contributions</div>
+    <div class="contributors-grid">
+    `;
+
+    contributors.forEach(c => {
+
+        const color = getColorByDominance(c.dominance);
+
+        panelHTML += `
+        <div class="c-perc">${c.perc}%</div>
+        <div class="c-dot" style="background:${color};"></div>
+        <div class="c-name">${c.name}</div>
+        `;
+    });
+
+    panelHTML += `</div>`;
 }
 
 // --- Determine panel position below variants ---
 const pillHeight = nodePillHeight;
 const variantCount = nodes.filter(n => n.variant === d.name).length;
 const gap = 20 + variantCount * pillHeight; // 20px base gap + space for variant pills
-const panelWidth = 240;
+const panelWidth = 400;
 
 const foreign = g.append('foreignObject')
     .attr('class', 'info-panel')
@@ -1232,7 +1276,7 @@ const div = foreign.append('xhtml:div')
     .style('border', '0px')
     .style('border-radius', '8px')
     .style('padding', '18px')
-    .style('white-space', 'pre-line')
+    .style('white-space', 'nowrap')
     .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
     .html(panelHTML);
 
