@@ -8,6 +8,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1263,13 +1264,13 @@ const pillHeight = nodePillHeight;
 const variantCount = nodes.filter(n => n.variant === d.name).length;
 const gap = 20 + variantCount * pillHeight;
 
-const minPanelWidth = 240;
+const panelWidth = 320; // slightly wider so long names fit better
 
 const foreign = g.append('foreignObject')
     .attr('class', 'info-panel')
-    .attr('x', d.x - minPanelWidth / 2)
+    .attr('x', d.x - panelWidth / 2)
     .attr('y', d.y + gap)
-    .attr('width', minPanelWidth);
+    .attr('width', panelWidth);
 
 const div = foreign.append('xhtml:div')
     .style('font-family', "'Roboto', Arial, sans-serif")
@@ -1277,19 +1278,12 @@ const div = foreign.append('xhtml:div')
     .style('background', 'rgba(255,255,255,0.95)')
     .style('border-radius', '8px')
     .style('padding', '0')
-    .style('white-space', 'nowrap')
     .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
-    .style('display', 'inline-block')
     .html(panelHTML);
 
-// Resize panel to fit content
-const divNode = div.node();
-
-foreign
-    .attr('width', Math.max(minPanelWidth, divNode.scrollWidth))
-    .attr('height', divNode.scrollHeight);
-
-
+// Set panel height
+const divHeight = div.node().scrollHeight;
+foreign.attr('height', divHeight);
 
 
     
