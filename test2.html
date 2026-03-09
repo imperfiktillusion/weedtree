@@ -1,60 +1,41 @@
-
-
-
-
 <!DOCTYPE html> 
 <html>
 <head>
 <base href="https://www.weedtree.fyi">
 
-<script src="https://cdn.counter.dev/script.js" data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" data-utcoffset="13">
-function copyStrainURL(strainName){
-    const url = "https://weedtree.fyi/test2.html?strain=" + strainName.replace(/\s+/g,'_');
-    navigator.clipboard.writeText(url);
-}
+<script src="https://cdn.counter.dev/script.js" data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" data-utcoffset="13"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"></script>
+<script> window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-8527SLLPYV'); </script>
+<script src="https://d3js.org/d3.v6.min.js"></script>
 
-function copyStrainContributors(strainName, contributors){
-    const line = strainName + ", " + contributors.join(", ");
-    navigator.clipboard.writeText(line);
-}
 
-</script>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV">
-function copyStrainURL(strainName){
-    const url = "https://weedtree.fyi/?focus=" + strainName.replace(/\s+/g,'_');
-    navigator.clipboard.writeText(url);
-}
-
-function copyStrainContributors(strainName, contributors){
-    const line = strainName + ", " + contributors.join(", ");
-    navigator.clipboard.writeText(line);
-}
-
-</script>
-<script> window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-8527SLLPYV'); 
+    
+<script> 
 function copyStrainURL(strainName){
     const url = "https://weedtree.fyi/?strain=" + strainName.replace(/\s+/g,'_');
     navigator.clipboard.writeText(url);
 }
 
-function copyStrainContributors(strainName, contributors){
-    const line = strainName + ", " + contributors.join(", ");
-    navigator.clipboard.writeText(line);
+function copyStrainContributors(strainName){
+
+    const table = document.getElementById("contributors-table");
+    if(!table) return;
+
+    let text = "Strain\tPercent\tContributor\n";
+
+    const percs = table.querySelectorAll(".c-perc");
+    const names = table.querySelectorAll(".c-name");
+
+    percs.forEach((p,i)=>{
+        text += strainName + "\t" + p.innerText + "\t" + names[i].innerText + "\n";
+    });
+
+    navigator.clipboard.writeText(text);
 }
 
 </script>
-<script src="https://d3js.org/d3.v6.min.js">
-function copyStrainURL(strainName){
-    const url = "https://weedtree.fyi/?strain=" + strainName.replace(/\s+/g,'_');
-    navigator.clipboard.writeText(url);
-}
 
-function copyStrainContributors(strainName, contributors){
-    const line = strainName + ", " + contributors.join(", ");
-    navigator.clipboard.writeText(line);
-}
 
-</script>
 
 <title>WeedTree Strain Lineage Chart</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1282,7 +1263,7 @@ if (contributors.length) {
 
     panelHTML += `
     <div style="font-weight:bold;margin-bottom:6px;">Ancestor contributions</div>
-    <div class="contributors-grid">
+    <div id="contributors-table" class="contributors-grid">
     `;
 
     contributors.forEach(c => {
@@ -1297,13 +1278,12 @@ if (contributors.length) {
     });
 
     panelHTML += `</div>`;
-    const contributorsCSV = contributors.map(c => `${c.perc}% ${c.name}`);
 
     panelHTML += `<br>
     <div style="margin-top:6px;">
         <a href="#" onclick="copyStrainURL('${d.name}');return false;">Copy strain URL</a><br>
-        <a href="#" onclick="copyStrainContributors('${d.name}', ${JSON.stringify(contributors.map(c => c.perc + '% ' + c.name))});return false;">Copy strain contributors</a>
-    </div>
+        <a href="#" onclick="copyStrainContributors('${d.name}');return false;">Copy strain contributors</a>
+        </div>
     `;
 
 }
