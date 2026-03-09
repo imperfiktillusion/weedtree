@@ -6,8 +6,107 @@
 
 <script src="https://cdn.counter.dev/script.js" data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" data-utcoffset="13"></script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"></script>
-<script> window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-8527SLLPYV'); </script>
 <script src="https://d3js.org/d3.v6.min.js"></script>
+
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-8527SLLPYV');
+
+
+function copyStrainURL(strainName){
+
+    const url = "https://weedtree.fyi/test2.html?focus=" + strainName.replace(/\s+/g,'_');
+
+    navigator.clipboard.writeText(url)
+        .then(()=>console.log("URL copied"))
+        .catch(err=>console.error("Clipboard error",err));
+}
+
+
+function copyStrainContributors(strainName){
+
+    const table = document.getElementById("contributors-table");
+    if(!table) return;
+
+    let text = "";
+
+    const percs = table.querySelectorAll(".c-perc");
+    const names = table.querySelectorAll(".c-name");
+
+    percs.forEach((p,i)=>{
+        text += strainName + "\t" + p.textContent + "\t" + names[i].textContent + "\n";
+    });
+
+    navigator.clipboard.writeText(text)
+        .then(()=>console.log("Contributors copied"))
+        .catch(err=>console.error("Clipboard error",err));
+}
+
+function showCopiedPopup() {
+
+    let copypopup = document.getElementById("copy-popup");
+
+    if (!copypopup) {
+        copypopup = document.createElement("div");
+        copypopup.id = "copy-popup";
+        copypopup.style.position = "fixed";
+        copypopup.style.bottom = "20px";
+        copypopup.style.left = "50%";
+        copypopup.style.transform = "translateX(-50%)";
+        copypopup.style.background = "#333";
+        copypopup.style.color = "#fff";
+        copypopup.style.padding = "6px 14px";
+        copypopup.style.borderRadius = "6px";
+        copypopup.style.fontSize = "13px";
+        copypopup.style.zIndex = "9999";
+        copypopup.style.opacity = "0";
+        copypopup.style.transition = "opacity 0.2s";
+        document.body.appendChild(copypopup);
+    }
+
+    copypopup.textContent = "Copied";
+    copypopup.style.opacity = "1";
+
+    setTimeout(() => {
+        copypopup.style.opacity = "0";
+    }, 900);
+}
+
+
+function copyStrainURL(strainName, event) {
+
+    if(event) event.preventDefault();
+
+    const url = "https://weedtree.fyi/test2.html?focus=" + strainName.replace(/\s+/g,'_');
+
+    navigator.clipboard.writeText(url).then(showCopiedPopup);
+}
+
+
+function copyStrainContributors(strainName, event) {
+
+    if(event) event.preventDefault();
+
+    const table = document.getElementById("contributors-table");
+    if(!table) return;
+
+   let text = ""; 
+
+    const percs = table.querySelectorAll(".c-perc");
+    const names = table.querySelectorAll(".c-name");
+
+    percs.forEach((p,i)=>{
+        text += strainName + "\t" + p.textContent + "\t" + names[i].textContent + "\n";
+    });
+
+    navigator.clipboard.writeText(text).then(showCopiedPopup);
+}
+
+    
+</script>
+
 
 <title>WeedTree Strain Lineage Chart</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -254,18 +353,17 @@ white-space:nowrap;
     
     <p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself.</p>
     
-    <p>I don't claim that the chart is completely accurate. It is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously, it is far from complete.</p>
+    <p>I don't claim that the chart is completely accurate. It is based on what I could interpret from the multitude of often contradictory strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously, it is far from complete.</p>
+  
+    <p>Ancestor contribution percentages are calculated from the lineage chart and will be inaccurate as the chart cannot account for the nuances and realities of gene expression and selective breeding.</p>
     
+    <p>Sorry it's a bit hard to use on mobile; best on a large screen. </p>   
     <p>
+        <b>Controls</b><br>
         Push F11 to toggle full screen.<br>
         Use the mouse or controls to zoom in and out.<br>
-        Nodes are draggable within their column (press shift / long press on mobile).<br>
-        Click on a strain to isolate its lineage.
-    </p>
-    
-    <p>Isolation mode shows rough percentage of contribution based on lineage, but will be inaccurate as it does not account for the realities and nuances of selective breeding.</p>
-    
-    <p>Sorry it's a bit hard to use on mobile; best on a large screen. Strain search isn't working on mobile at the moment either.</p>
+        Nodes are draggable within their column (press shift / long press on mobile).</p>
+
 </div>
 
 <div id="strainDropdown"></div>
@@ -856,7 +954,7 @@ node.on("mouseover", function(event, d) {
 
     if (d.hoverTimer) clearTimeout(d.hoverTimer);
     d.hoverTimer = setTimeout(() => {
-        d.currentScale = 1.7;
+        d.currentScale = 1.4;
         d3.select(this)
             .interrupt(true)
             .raise()
@@ -1232,7 +1330,7 @@ if (contributors.length) {
 
     panelHTML += `
     <div style="font-weight:bold;margin-bottom:6px;">Ancestor contributions</div>
-    <div class="contributors-grid">
+    <div id="contributors-table" class="contributors-grid">
     `;
 
     contributors.forEach(c => {
@@ -1247,6 +1345,17 @@ if (contributors.length) {
     });
 
     panelHTML += `</div>`;
+
+    // escape strain name safely
+    const safeName = d.name.replace(/'/g,"\\'");
+
+    panelHTML += `
+    <br>
+    <div style="margin-top:6px;">
+        <a href="#" onclick="copyStrainURL('${safeName}', event)">Copy strain URL</a><br>
+        <a href="#" onclick="copyStrainContributors('${safeName}', event)">Copy strain contributors</a>
+    </div>
+    `;
 }
 
 // --- Determine panel position below variants ---
@@ -1331,7 +1440,7 @@ foreign.attr('height', divHeight);
         const maxY = d3.max(activeNodes, n => n.y) + pillHeight / 2;
         const padding = 50;
 
-        const scale = 0.8 * Math.min(
+        const scale = 0.9 * Math.min(
             width / (maxX - minX + 2 * padding),
             height / (maxY - minY + 2 * padding)
         );
@@ -1756,7 +1865,8 @@ document.querySelectorAll('.popup').forEach(popup =>
 
 
 
-    
+  
+
 </script>
 </body>
 </html>
