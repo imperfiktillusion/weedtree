@@ -46,6 +46,67 @@ function copyStrainContributors(strainName){
         .catch(err=>console.error("Clipboard error",err));
 }
 
+function showCopiedPopup() {
+
+    let popup = document.getElementById("copy-popup");
+
+    if (!copypopup) {
+        copypopup = document.createElement("div");
+        copypopup.id = "copy-popup";
+        copypopup.style.position = "fixed";
+        copypopup.style.bottom = "20px";
+        copypopup.style.left = "50%";
+        copypopup.style.transform = "translateX(-50%)";
+        copypopup.style.background = "#333";
+        copypopup.style.color = "#fff";
+        copypopup.style.padding = "6px 14px";
+        copypopup.style.borderRadius = "6px";
+        copypopup.style.fontSize = "13px";
+        copypopup.style.zIndex = "9999";
+        copypopup.style.opacity = "0";
+        copypopup.style.transition = "opacity 0.2s";
+        document.body.appendChild(popup);
+    }
+
+    copypopup.textContent = "Copied";
+    copypopup.style.opacity = "1";
+
+    setTimeout(() => {
+        copypopup.style.opacity = "0";
+    }, 900);
+}
+
+
+function copyStrainURL(strainName, event) {
+
+    if(event) event.preventDefault();
+
+    const url = "https://weedtree.fyi/test2.html?focus=" + strainName.replace(/\s+/g,'_');
+
+    navigator.clipboard.writeText(url).then(showCopiedPopup);
+}
+
+
+function copyStrainContributors(strainName, event) {
+
+    if(event) event.preventDefault();
+
+    const table = document.getElementById("contributors-table");
+    if(!table) return;
+
+    let text = "Strain\tPercent\tContributor\n";
+
+    const percs = table.querySelectorAll(".c-perc");
+    const names = table.querySelectorAll(".c-name");
+
+    percs.forEach((p,i)=>{
+        text += strainName + "\t" + p.textContent + "\t" + names[i].textContent + "\n";
+    });
+
+    navigator.clipboard.writeText(text).then(showCopiedPopup);
+}
+
+    
 </script>
 
 
@@ -1297,8 +1358,8 @@ if (contributors.length) {
     panelHTML += `
     <br>
     <div style="margin-top:6px;">
-        <a href="javascript:void(0)" onclick="copyStrainURL('${safeName}')">Copy strain URL</a><br>
-        <a href="javascript:void(0)" onclick="copyStrainContributors('${safeName}')">Copy strain contributors</a>
+        <a href="#" onclick="copyStrainURL('${safeName}', event)">Copy strain URL</a><br>
+        <a href="#" onclick="copyStrainContributors('${safeName}', event)">Copy strain contributors</a>
     </div>
     `;
 }
