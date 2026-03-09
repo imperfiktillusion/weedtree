@@ -6,6 +6,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -37,7 +38,7 @@ function copyStrainContributors(strainName){
     const table = document.getElementById("contributors-table");
     if(!table) return;
 
-    let text = "Strain\tPercent\tContributor\n";
+    let text = "";
 
     const percs = table.querySelectorAll(".c-perc");
     const names = table.querySelectorAll(".c-name");
