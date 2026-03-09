@@ -1,12 +1,103 @@
+
+
+
 <!DOCTYPE html> 
 <html>
 <head>
 <base href="https://www.weedtree.fyi">
 
-<script src="https://cdn.counter.dev/script.js" data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" data-utcoffset="13"></script>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"></script>
-<script> window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-8527SLLPYV'); </script>
-<script src="https://d3js.org/d3.v6.min.js"></script>
+<script src="https://cdn.counter.dev/script.js" data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" data-utcoffset="13">
+function copyStrainURL(strainName){
+    const url = "https://weedtree.fyi/?strain=" + strainName.replace(/\s+/g,'_');
+    navigator.clipboard.writeText(url);
+}
+
+
+function copyStrainContributors(strainName, contributors){
+    // contributors = array like ["40% ParentA", ...]
+    let rows = [["Strain","Contributor %","Contributor"]];
+    contributors.forEach(c=>{
+        const parts = c.split(" ");
+        const perc = parts.shift();
+        const name = parts.join(" ");
+        rows.push([strainName, perc.replace("%",""), name]);
+    });
+    const tsv = rows.map(r=>r.join("	")).join("
+");
+    navigator.clipboard.writeText(tsv);
+}
+
+
+</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV">
+function copyStrainURL(strainName){
+    const url = "https://weedtree.fyi/?strain=" + strainName.replace(/\s+/g,'_');
+    navigator.clipboard.writeText(url);
+}
+
+
+function copyStrainContributors(strainName, contributors){
+    // contributors = array like ["40% ParentA", ...]
+    let rows = [["Strain","Contributor %","Contributor"]];
+    contributors.forEach(c=>{
+        const parts = c.split(" ");
+        const perc = parts.shift();
+        const name = parts.join(" ");
+        rows.push([strainName, perc.replace("%",""), name]);
+    });
+    const tsv = rows.map(r=>r.join("	")).join("
+");
+    navigator.clipboard.writeText(tsv);
+}
+
+
+</script>
+<script> window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-8527SLLPYV'); 
+function copyStrainURL(strainName){
+    const url = "https://weedtree.fyi/?strain=" + strainName.replace(/\s+/g,'_');
+    navigator.clipboard.writeText(url);
+}
+
+
+function copyStrainContributors(strainName, contributors){
+    // contributors = array like ["40% ParentA", ...]
+    let rows = [["Strain","Contributor %","Contributor"]];
+    contributors.forEach(c=>{
+        const parts = c.split(" ");
+        const perc = parts.shift();
+        const name = parts.join(" ");
+        rows.push([strainName, perc.replace("%",""), name]);
+    });
+    const tsv = rows.map(r=>r.join("	")).join("
+");
+    navigator.clipboard.writeText(tsv);
+}
+
+
+</script>
+<script src="https://d3js.org/d3.v6.min.js">
+function copyStrainURL(strainName){
+    const url = "https://weedtree.fyi/?strain=" + strainName.replace(/\s+/g,'_');
+    navigator.clipboard.writeText(url);
+}
+
+
+function copyStrainContributors(strainName, contributors){
+    // contributors = array like ["40% ParentA", ...]
+    let rows = [["Strain","Contributor %","Contributor"]];
+    contributors.forEach(c=>{
+        const parts = c.split(" ");
+        const perc = parts.shift();
+        const name = parts.join(" ");
+        rows.push([strainName, perc.replace("%",""), name]);
+    });
+    const tsv = rows.map(r=>r.join("	")).join("
+");
+    navigator.clipboard.writeText(tsv);
+}
+
+
+</script>
 
 <title>WeedTree Strain Lineage Chart</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -32,7 +123,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     width: 75vw;               /* 75% of viewport width */
     max-width: none;
     min-width: 400px;           /* optional minimum width */
-    z-index: 1001;
+    z-index: 1011;
     display: none;
     background: transparent;
     flex-direction: column;
@@ -94,13 +185,13 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 /* Dropdown styling */
 /* Popup2 dropdown should flow outside the popup */
 #strainDropdown {
-    position: fixed;        /* fixed so it floats over everything */
+        position: fixed;        /* fixed so it floats over everything */
     top: 0;
     left: 0;
     width: 90%;             /* adjusted dynamically in JS anyway */
     max-width: 80%;
-    max-height: 300px;
-    overflow-y: auto;
+    max-height: none;
+    overflow-y: visible;
     z-index: 9999;          /* high so it floats above everything */
     background-color: #f8f8f8;
     border: 0px solid #434343;
@@ -122,8 +213,8 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     background-color: #f0f0f0;
 }
 
-#popup3 { padding:20px; z-index: 1002}
-#loading-message { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:10px; z-index:1001; display:none; }
+#popup3 { padding:20px; z-index: 1012}
+#loading-message { position:fixed; top:40%; left:50%; transform:translate(-50%, -50%); background-color:rgba(255,255,255,0.8); padding:20px; border-radius:50px; z-index:1001; display:none; }
 .container { height:calc(100vh - 50px); display:flex; flex-direction:column; }
 .close-button { position:absolute; top:15px; right:15px; width:40px; height:40px; border:none; background:#434343; color:white; border-radius:50%; font-size:40px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color 0.3s; }
 .close-button:hover { background-color:#666; }
@@ -168,6 +259,28 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     /* We'll dynamically append the blinking underscore via JS */
 }
 
+    .contributors-grid{
+display:grid;
+grid-template-columns:30px 10px auto;
+column-gap:4px;
+row-gap:4px;
+align-items:center;
+}
+
+.c-perc{
+text-align:left;
+font-weight:600;
+}
+
+.c-dot{
+width:10px;
+height:10px;
+border-radius:50%;
+}
+
+.c-name{
+white-space:nowrap;
+}
     
 </style>
 
@@ -231,23 +344,28 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     
     <p>I've always wondered how strain lineage correlated with the strains I personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I haven't been able to find much of a lineage chart anywhere online so decided to create one myself.</p>
     
-    <p>I don't claim that the chart is completely accurate. It is based on what I could interpret from the multitude of, often contradictory, strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously, it is far from complete.</p>
+    <p>I don't claim that the chart is completely accurate. It is based on what I could interpret from the multitude of often contradictory strain database sites internationally, and I've made some simplifications around phenotype/cultivar/clone/variant pedigree. Obviously, it is far from complete.</p>
     
+    <p>Sorry it's a bit hard to use on mobile; best on a large screen. </p>
+  
     <p>
+       <b>Strain Lineage Isoltaion Mode</b><br>
+       Isolation mode shows rough percentage of contribution based on lineage and is intended as a guide only. <br>
+       Percentage contributions will be inaccurate as the chart does not account for the nuances and realities of selective breeding.</p>
+    <p>
+       Isolated strains can also be accessed and shared from the url using the format - https://weedtree.fyi?focus=strain_name<br>  </p>
+
+    <p>
+        <b>Controls</b><br>
         Push F11 to toggle full screen.<br>
         Use the mouse or controls to zoom in and out.<br>
-        Nodes are draggable within their column (press shift / long press on mobile).<br>
-        Click on a strain to isolate its lineage.
-    </p>
-    
-    <p>Isolation mode shows rough percentage of contribution based on lineage, but will be inaccurate as it does not account for the realities and nuances of selective breeding.</p>
-    
-    <p>Sorry it's a bit hard to use on mobile; best on a large screen. Strain search isn't working on mobile at the moment either.</p>
+        Nodes are draggable within their column (press shift / long press on mobile).</p>
+
 </div>
 
 <div id="strainDropdown"></div>
 
-<div id="loading-message">Loading strain data, please wait...</div>
+<div id="loading-message">chart loading...</div>
   
 <svg id="nzIconTemplate" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" style="display: none;">
   <symbol id="nzIcon">
@@ -289,6 +407,9 @@ const indicaOrder = [
     'Purple Afghan Indica Landraces',
     'Hindu Kush Landraces',
     'Nepalese Indica Landraces',
+    'India Indica Landraces',
+    'Thailand Indica Landraces',
+    'African Indica Landraces',
     'North American Indica Landraces'
 ];
 
@@ -300,6 +421,7 @@ const sativaOrder = [
     'Chocolate Thai Sativa Landraces',
     'Purple Thai Sativa Landraces',
     'Indonesia Sativa Landraces',
+    'African Sativa Landraces',
     'North African Sativa Landraces',
     'East African Sativa landraces',
     'South African Sativa Landraces',
@@ -318,7 +440,9 @@ const showError = (message) => {
     document.getElementById('loading-message').style.display = 'none';
     alert(message);
 };
-
+    
+document.getElementById('loading-message').style.display='block';
+    
 // --- Fetch and parse CSV data ---
 fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978')
     .then(response => {
@@ -342,6 +466,9 @@ fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_
         document.getElementById('loading-message').style.display = 'none';
         createLineageChart();
         setupStrainSearch();
+        setTimeout(()=>{
+        document.getElementById('loading-message').style.display='none';
+        },50);
     })
     .catch(error => {
         showError("Error fetching data: " + error.message);
@@ -727,6 +854,87 @@ calculateColumn1Positions();
 let dragging = false; // global flag to prevent hover while dragging
 const hoverDelay = 200; // ms before node enlarges
 
+const node = g.append("g")
+    .selectAll("g")
+    .data(nodes)
+    .join("g")
+    .attr("class", "node")
+    .attr("transform", d => `translate(${d.x},${d.y})`)
+    .each(function(d) { 
+        if (d.product) d3.select(this).raise(); 
+        d.baseTransform = `translate(${d.x},${d.y})`;
+        d.currentScale = 1;
+        d.hoverTimer = null;
+    });
+
+// --- Append rect background ---
+node.append("rect")
+    .attr("rx", pillHeight / 2)
+    .attr("ry", pillHeight / 2)
+    .attr("width", d => d.variant ? standardPillWidth * 0.85 : standardPillWidth)
+    .attr("height", pillHeight)
+    .attr("fill", d => {
+        if (d.variant) {
+            const parentNode = nodes.find(n => n.name === d.variant);
+            if (parentNode) return blendToWhite(getColorByDominance(parentNode.dominance), 0.5);
+        }
+        return getColorByDominance(d.dominance);
+    })
+    .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 : -standardPillWidth / 2)
+    .attr("y", -pillHeight / 2)
+    .attr("stroke", d => d.product ? "black" : getColorByDominance(d.dominance))
+    .attr("stroke-width", 3);
+
+// --- Append strain text ---
+node.append("text")
+    .attr("class", "strain-name")
+    .text(d => d.displayName)
+    .attr("x", d => d.variant ? -(standardPillWidth * 0.85) / 2 + 12 : -standardPillWidth / 2 + 12)
+    .attr("y", 1)
+    .attr("dominant-baseline", "middle")
+    .attr("fill", "black")
+    .style("font-size", "15px")
+    .style("font-family", "'Roboto', Arial, sans-serif")
+    .style("font-weight", "bold")
+    .each(function(d) {
+        const textWidth = this.getComputedTextLength();
+        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const availableWidth = nodeWidth - 24;
+        if (textWidth > availableWidth) {
+            d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
+        }
+    });
+
+// --- Append product text ---
+node.append("text")
+    .filter(d => d.product)
+    .text(d => d.product)
+    .attr("class", "product")
+    .attr("x", function(d) {
+        const strainNameText = this.parentNode.querySelector('.strain-name');
+        const strainNameWidth = strainNameText.getComputedTextLength();
+        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        return -nodeWidth / 2 + 5 + strainNameWidth + 10;
+    })
+    .attr("y", 1.6)
+    .attr("dominant-baseline", "middle")
+    .attr("fill", "black")
+    .style("font-size", "10px")
+    .style("font-family", "'Roboto', Arial, sans-serif")
+    .style("font-weight", "normal")
+    .each(function(d) {
+        const textWidth = this.getComputedTextLength();
+        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+        const strainNameText = this.parentNode.querySelector('.strain-name');
+        const remainingWidth = nodeWidth - strainNameText.getComputedTextLength() - 40;
+        if (textWidth > remainingWidth) {
+            d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
+            d3.select(this.parentNode).select('.strain-name')
+                .style("font-family", "'Roboto Condensed', Arial, sans-serif");
+            const newWidth = strainNameText.getComputedTextLength();
+            d3.select(this).attr("x", -nodeWidth / 2 + 5 + newWidth + 10);
+        }
+    });
 
 // --- Append product icon ---
 node.filter(d => d.product)
@@ -941,49 +1149,6 @@ function dragNode(event, d, nodeElement) {
         .attr("y", -14);
 
 
-function relayoutText() {
-    node.each(function(d) {
-        const g = d3.select(this);
-        const strain = g.select('.strain-name').node();
-        const product = g.select('.product').node();
-
-        if (!strain) return;
-
-        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-        const availableWidth = nodeWidth - 24;
-
-        // --- strain name first ---
-        strain.style.fontFamily = "'Roboto', Arial, sans-serif";
-        let strainWidth = strain.getComputedTextLength();
-
-        if (strainWidth > availableWidth) {
-            strain.style.fontFamily = "'Roboto Condensed', Arial, sans-serif";
-            strainWidth = strain.getComputedTextLength();
-        }
-
-        // --- product text ---
-        if (product) {
-            product.style.fontFamily = "'Roboto', Arial, sans-serif";
-
-            let xPos = -nodeWidth / 2 + 5 + strainWidth + 10;
-            let remainingWidth = nodeWidth - strainWidth - 40;
-
-            if (product.getComputedTextLength() > remainingWidth) {
-                product.style.fontFamily = "'Roboto Condensed', Arial, sans-serif";
-            }
-
-            product.setAttribute("x", xPos);
-        }
-    });
-}
-
-// run immediately (first paint)
-relayoutText();
-
-// run again once fonts are loaded (this fixes first-load bug)
-if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(relayoutText);
-}
 
 
     
@@ -1098,10 +1263,8 @@ function highlightLineage(event, d) {
       .filter(n => contributionsMap.has(n.id) && n.id !== d.id)
       .each(function(n) {
           const pct = contributionsMap.get(n.id);
-          const label = Math.round(pct) + '%';
-
+          const label = pct < 1 ? '<1%' : Math.round(pct) + '%';
           const group = d3.select(this);
-
           const nodeWidth = n.variant ? standardPillWidth * 0.85 : standardPillWidth;
           const pillHeight = nodePillHeight;
           const pillPaddingX = 10;
@@ -1138,13 +1301,18 @@ const alsoKnownAs = d.alsoKnownAs
 
 const contributors = Array.from(ancestorContrib.entries())
     .filter(([id, perc]) => id !== d.id && perc >= 5)
-    .map(([id, perc]) => ({ id, perc }))
-    .sort((a, b) => b.perc - a.perc)
-    .map(c => {
-        const nodeData = nodes.find(n => n.id === c.id);
-        return nodeData ? `${Math.round(c.perc)}% ${nodeData.name}` : null;
+    .map(([id, perc]) => {
+        const nodeData = nodes.find(n => n.id === id);
+        if (!nodeData) return null;
+
+        return {
+            name: nodeData.name,
+            perc: Math.round(perc),
+            dominance: nodeData.dominance
+        };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a,b)=>b.perc-a.perc);
 
 let panelHTML = '';
 
@@ -1156,19 +1324,44 @@ if (alsoKnownAs.length) {
 
 // Add Contributors section
 if (contributors.length) {
-    panelHTML += '<div style="font-weight:bold;">Contributors</div>';
-    panelHTML += '<div>' + contributors.join('<br>') + '</div>';
+
+    panelHTML += `
+    <div style="font-weight:bold;margin-bottom:6px;">Ancestor contributions</div>
+    <div class="contributors-grid">
+    `;
+
+    contributors.forEach(c => {
+
+        const color = getColorByDominance(c.dominance);
+
+        panelHTML += `
+        <div class="c-perc">${c.perc}%</div>
+        <div class="c-dot" style="background:${color};"></div>
+        <div class="c-name">${c.name}</div>
+        `;
+    });
+
+    panelHTML += `</div>`;
+    const contributorsCSV = contributors.map(c => `${c.perc}% ${c.name}`);
+
+    panelHTML += `<br>
+    <div style="margin-top:6px;">
+        <a href="#" onclick="copyStrainURL('${d.name}');return false;">Copy strain URL</a><br>
+        <a href="#" onclick="copyStrainContributors('${d.name}', ${JSON.stringify(contributors.map(c => c.perc + '% ' + c.name))});return false;">Copy strain contributors</a>
+    </div>
+    `;
+
 }
 
 // --- Determine panel position below variants ---
-const pillHeight = nodePillHeight;
+const pillHeight = nodePillHeight+1;
 const variantCount = nodes.filter(n => n.variant === d.name).length;
 const gap = 20 + variantCount * pillHeight; // 20px base gap + space for variant pills
-const panelWidth = 240;
+const panelWidth = 220;
 
 const foreign = g.append('foreignObject')
     .attr('class', 'info-panel')
-    .attr('x', d.x - panelWidth / 2)
+    .attr('x', d.x + 10 - panelWidth / 2)
     .attr('y', d.y + gap)
     .attr('width', panelWidth);
 
@@ -1178,9 +1371,8 @@ const div = foreign.append('xhtml:div')
     .style('background', 'rgba(255,255,255,0.95)')
     .style('border', '0px')
     .style('border-radius', '8px')
-    .style('padding', '18px')
-    .style('white-space', 'pre-line')
-    .style('box-shadow', '2px 2px 6px rgba(0,0,0,0.3)')
+    .style('padding', '8px')
+    .style('white-space', 'nowrap')
     .html(panelHTML);
 
 // Set panel height to show all content
@@ -1243,7 +1435,7 @@ foreign.attr('height', divHeight);
         const maxY = d3.max(activeNodes, n => n.y) + pillHeight / 2;
         const padding = 50;
 
-        const scale = Math.min(
+        const scale = 0.9 * Math.min(
             width / (maxX - minX + 2 * padding),
             height / (maxY - minY + 2 * padding)
         );
@@ -1669,6 +1861,28 @@ document.querySelectorAll('.popup').forEach(popup =>
 
 
     
+
+function copyStrainURL(strainName){
+    const url = "https://weedtree.fyi/?strain=" + strainName.replace(/\s+/g,'_');
+    navigator.clipboard.writeText(url);
+}
+
+
+function copyStrainContributors(strainName, contributors){
+    // contributors = array like ["40% ParentA", ...]
+    let rows = [["Strain","Contributor %","Contributor"]];
+    contributors.forEach(c=>{
+        const parts = c.split(" ");
+        const perc = parts.shift();
+        const name = parts.join(" ");
+        rows.push([strainName, perc.replace("%",""), name]);
+    });
+    const tsv = rows.map(r=>r.join("	")).join("
+");
+    navigator.clipboard.writeText(tsv);
+}
+
+
 </script>
 </body>
 </html>
