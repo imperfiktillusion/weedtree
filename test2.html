@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -12,21 +13,10 @@ function copyStrainURL(strainName){
     navigator.clipboard.writeText(url);
 }
 
-
 function copyStrainContributors(strainName, contributors){
-    // contributors = array like ["40% ParentA", ...]
-    let rows = [["Strain","Contributor %","Contributor"]];
-    contributors.forEach(c=>{
-        const parts = c.split(" ");
-        const perc = parts.shift();
-        const name = parts.join(" ");
-        rows.push([strainName, perc.replace("%",""), name]);
-    });
-    const tsv = rows.map(r=>r.join("	")).join("
-");
-    navigator.clipboard.writeText(tsv);
+    const line = strainName + ", " + contributors.join(", ");
+    navigator.clipboard.writeText(line);
 }
-
 
 </script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV">
@@ -35,21 +25,10 @@ function copyStrainURL(strainName){
     navigator.clipboard.writeText(url);
 }
 
-
 function copyStrainContributors(strainName, contributors){
-    // contributors = array like ["40% ParentA", ...]
-    let rows = [["Strain","Contributor %","Contributor"]];
-    contributors.forEach(c=>{
-        const parts = c.split(" ");
-        const perc = parts.shift();
-        const name = parts.join(" ");
-        rows.push([strainName, perc.replace("%",""), name]);
-    });
-    const tsv = rows.map(r=>r.join("	")).join("
-");
-    navigator.clipboard.writeText(tsv);
+    const line = strainName + ", " + contributors.join(", ");
+    navigator.clipboard.writeText(line);
 }
-
 
 </script>
 <script> window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-8527SLLPYV'); 
@@ -58,21 +37,10 @@ function copyStrainURL(strainName){
     navigator.clipboard.writeText(url);
 }
 
-
 function copyStrainContributors(strainName, contributors){
-    // contributors = array like ["40% ParentA", ...]
-    let rows = [["Strain","Contributor %","Contributor"]];
-    contributors.forEach(c=>{
-        const parts = c.split(" ");
-        const perc = parts.shift();
-        const name = parts.join(" ");
-        rows.push([strainName, perc.replace("%",""), name]);
-    });
-    const tsv = rows.map(r=>r.join("	")).join("
-");
-    navigator.clipboard.writeText(tsv);
+    const line = strainName + ", " + contributors.join(", ");
+    navigator.clipboard.writeText(line);
 }
-
 
 </script>
 <script src="https://d3js.org/d3.v6.min.js">
@@ -81,21 +49,10 @@ function copyStrainURL(strainName){
     navigator.clipboard.writeText(url);
 }
 
-
 function copyStrainContributors(strainName, contributors){
-    // contributors = array like ["40% ParentA", ...]
-    let rows = [["Strain","Contributor %","Contributor"]];
-    contributors.forEach(c=>{
-        const parts = c.split(" ");
-        const perc = parts.shift();
-        const name = parts.join(" ");
-        rows.push([strainName, perc.replace("%",""), name]);
-    });
-    const tsv = rows.map(r=>r.join("	")).join("
-");
-    navigator.clipboard.writeText(tsv);
+    const line = strainName + ", " + contributors.join(", ");
+    navigator.clipboard.writeText(line);
 }
-
 
 </script>
 
@@ -1867,21 +1824,10 @@ function copyStrainURL(strainName){
     navigator.clipboard.writeText(url);
 }
 
-
 function copyStrainContributors(strainName, contributors){
-    // contributors = array like ["40% ParentA", ...]
-    let rows = [["Strain","Contributor %","Contributor"]];
-    contributors.forEach(c=>{
-        const parts = c.split(" ");
-        const perc = parts.shift();
-        const name = parts.join(" ");
-        rows.push([strainName, perc.replace("%",""), name]);
-    });
-    const tsv = rows.map(r=>r.join("	")).join("
-");
-    navigator.clipboard.writeText(tsv);
+    const line = strainName + ", " + contributors.join(", ");
+    navigator.clipboard.writeText(line);
 }
-
 
 </script>
 </body>
