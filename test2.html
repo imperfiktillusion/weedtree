@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -234,6 +235,7 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     flex-direction:column;
     gap:8px;
     position:absolute;
+    top:70px;
     right:10px;
     z-index:997;
 }
@@ -263,6 +265,10 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
     flex:1;
     font-size:clamp(18px,2vw,24px);
     font-weight:bold;
+}
+
+    .fullscreen-button-container button {
+    min-height:42px;
 }
 
 .chart-container { flex-grow:1; width:100%; overflow:hidden; }
@@ -1868,7 +1874,6 @@ function adjustButtonFontSize() {
     
     buttons.forEach(button => {
         if (button) {
-            button.style.fontSize = '0.9em'; // Reset to original size
             totalButtonWidth += button.offsetWidth;
         }
     });
