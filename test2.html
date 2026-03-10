@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -227,12 +228,43 @@ body, html { font-family:'Poppins', Arial, sans-serif; background-color:#fff; ma
 .container { height:calc(100vh - 50px); display:flex; flex-direction:column; }
 .close-button { position:absolute; top:15px; right:15px; width:40px; height:40px; border:none; background:#434343; color:white; border-radius:50%; font-size:40px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color 0.3s; }
 .close-button:hover { background-color:#666; }
-.fullscreen-button-container { display:flex; flex-direction:column; gap:5px; position:absolute; top:70px; right:10px; z-index:997; }
-.fullscreen-button-container button { width:100%; padding:3px 5px; border:2px solid #cccccc; border-radius:0; cursor:pointer; font-size:0.3em; font-family:'Poppins', Arial, sans-serif; transition:all 0.3s ease; color:#cccccc; background-color:white; }
-.zoom-button-container { display:flex; width:100%; gap:5px; }
-#zoomInButton, #zoomOutButton { flex:1; padding:0px 5px; font-size:16px; font-weight:bold; }
-#zoomInButton { border-right:2px solid #cccccc; border-top-right-radius:0; border-bottom-right-radius:0; }
-#zoomOutButton { border-left:2px solid #cccccc; border-top-left-radius:0; border-bottom-left-radius:0; }
+    
+.fullscreen-button-container {
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    position:absolute;
+    right:10px;
+    z-index:997;
+}
+
+.fullscreen-button-container button {
+    width:100%;
+    min-height:38px;
+    padding:6px 10px;
+    border:2px solid #cccccc;
+    border-radius:4px;
+    cursor:pointer;
+    font-size:clamp(13px,1.2vw,16px);
+    font-family:'Poppins', Arial, sans-serif;
+    transition:all 0.2s ease;
+    color:#cccccc;
+    background-color:white;
+}
+
+.zoom-button-container {
+    display:flex;
+    width:100%;
+    gap:6px;
+}
+
+#zoomInButton,
+#zoomOutButton {
+    flex:1;
+    font-size:clamp(18px,2vw,24px);
+    font-weight:bold;
+}
+
 .chart-container { flex-grow:1; width:100%; overflow:hidden; }
 #lineageChart { width:100%; height:100%; }
 .node { transition: transform 0.0s ease; }
