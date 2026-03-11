@@ -1,4 +1,3 @@
-
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1095,13 +1094,22 @@ node.append("text")
     .style("font-family", "'Roboto', Arial, sans-serif")
     .style("font-weight", "bold")
     .each(function(d) {
-        const textWidth = this.getComputedTextLength();
-        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-        const availableWidth = nodeWidth - 24;
-        if (textWidth > availableWidth) {
-            d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
-        }
-    });
+    const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+    const availableWidth = nodeWidth - 24;
+
+    let textWidth = this.getComputedTextLength();
+
+    if (textWidth > availableWidth) {
+        d3.select(this).style("font-family", "'Roboto Condensed', Arial, sans-serif");
+
+        // recompute width after font change
+        textWidth = this.getComputedTextLength();
+    }
+
+    // store stable width for later
+    d.strainWidth = textWidth;
+});
+
 
 // --- Append product text ---
 node.append("text")
@@ -1109,11 +1117,9 @@ node.append("text")
     .text(d => d.product)
     .attr("class", "product")
     .attr("x", function(d) {
-        const strainNameText = this.parentNode.querySelector('.strain-name');
-        const strainNameWidth = strainNameText.getComputedTextLength();
-        const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
-        return -nodeWidth / 2 + 5 + strainNameWidth + 10;
-    })
+    const nodeWidth = d.variant ? standardPillWidth * 0.85 : standardPillWidth;
+    return -nodeWidth / 2 + 5 + d.strainWidth + 10;
+})
     .attr("y", 1.6)
     .attr("dominant-baseline", "middle")
     .attr("fill", "black")
