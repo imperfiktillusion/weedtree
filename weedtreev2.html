@@ -755,7 +755,7 @@ const createLineageChart = () => {
     assignGenerations();
 
     const maxWidth = Math.max(...nodes.map(d => d.displayName.length * 7));
-    const standardPillWidth = Math.max(maxWidth, 150);
+    const standardPillWidth = Math.max(maxWidth, 160);
     const pillHeight = 30; 
     const maxGeneration = Math.max(...nodes.map(n => n.generation));
     const columnWidth = Math.max(width / (maxGeneration + 1), standardPillWidth * 1.6);
