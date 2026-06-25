@@ -171,7 +171,6 @@
         transform: translate(-50%, -50%);
       }
 
-      #popup1 { padding: 20px; }
       #popup3 { z-index: 1012; padding: 20px; }
 
       #popup2 {
@@ -304,7 +303,10 @@
         border-radius: 4px;
         background: #fff;
         color: #f0f0f0;
-        font: 600 12px/1.2 "Poppins", Arial, sans-serif !important;
+        font-family: "Poppins", Arial, sans-serif;
+        font-size: clamp(10px, 1vw, 12px);
+        font-weight: 600;
+        line-height: 1.2;
         cursor: pointer;
         transition: all 0.2s ease;
       }
@@ -315,12 +317,8 @@
 
       .chart-container { flex-grow: 1; width: 100%; overflow: hidden; }
       #lineageChart { width: 100%; height: 100%; }
-      #nzIconTemplate { display: none; }
-
-      .node use { z-index: 1000; pointer-events: none; }
       .node text { z-index: 999; fill: #000; text-anchor: start; dominant-baseline: middle; }
       .strain-name { font: 700 15px "Roboto", Arial, sans-serif; }
-      .product { font: 400 10px "Roboto", Arial, sans-serif; }
       .is-condensed { font-family: "Roboto Condensed", Arial, sans-serif; }
 
       .node.clicked rect { stroke: var(--chart-selected); stroke-width: 8px; }
@@ -329,7 +327,6 @@
       .link.highlighted { stroke: var(--chart-hover-highlight) !important; stroke-width: 3px; }
       .node.dimmed rect,
       .node.dimmed text,
-      .node.dimmed use,
       .link.dimmed { opacity: var(--chart-dimmed-opacity); }
 
       .pct-pill {
@@ -337,7 +334,7 @@
         stroke: var(--chart-node-stroke);
       }
 
-      .pct-pill-text {
+      .node .pct-pill-text {
         fill: var(--chart-percentage-text);
         font-size: 9px;
         font-weight: 700;
@@ -355,6 +352,10 @@
       }
 
       .info-panel-heading { font-weight: 700; }
+      .info-panel-heading--products {
+        line-height: 1.2;
+        white-space: normal;
+      }
       .info-panel-heading--contributors { margin-bottom: 6px; }
       .info-panel-actions { margin-top: 6px; }
 
@@ -425,10 +426,6 @@
     <div class="popup-overlay"></div>
 
     <!-- Strain List Popup -->
-    <div id="popup1" class="popup">
-      <div id="strainList" class="strain-list"></div>
-    </div>
-
     <div id="popup2" class="popup">
       <button class="close-button">×</button>
       <div class="popup2-center">
@@ -479,76 +476,6 @@
 
     <div id="loading-message">chart loading...</div>
 
-    <svg
-      id="nzIconTemplate"
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 28 28"
-    >
-      <symbol id="nzIcon">
-        <circle
-          cx="14"
-          cy="14"
-          r="12.5"
-          fill="white"
-          stroke="black"
-          stroke-width="3"
-        />
-        <line
-          x1="7"
-          y1="9"
-          x2="7"
-          y2="19"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-        <line
-          x1="7"
-          y1="9"
-          x2="13"
-          y2="19"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-        <line
-          x1="13"
-          y1="9"
-          x2="13"
-          y2="19"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-        <line
-          x1="16"
-          y1="9"
-          x2="20.5"
-          y2="9"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-        <line
-          x1="16"
-          y1="19"
-          x2="21.5"
-          y2="19"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-        <line
-          x1="21.5"
-          y1="9"
-          x2="16"
-          y2="19"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-      </symbol>
-    </svg>
 
     <script>
       // -----------------------------------------------------------------------
@@ -597,9 +524,6 @@
         percentagePillWidth: 80,
         percentagePillPadding: 10,
         percentageTextYOffset: 1,
-        productIconSize: 30,
-        productIconRightOffset: 20,
-        productIconYOffset: -14,
         infoPanelWidth: 220,
         infoPanelXOffset: 10,
         infoPanelBaseGap: 20,
@@ -638,11 +562,23 @@
         height: 0,
         standardNodeWidth: CHART_SIZING.minimumNodeWidth,
         isDragging: false,
+        isPrepared: false,
+        indexes: {
+          nodesById: new Map(),
+          nodesByName: new Map(),
+          nodesByNormalisedName: new Map(),
+          childrenByParentId: new Map(),
+          variantsByBaseName: new Map(),
+        },
       };
 
       const searchState = {
         blinkInterval: null,
         showingUnderscore: true,
+      };
+
+      const pageState = {
+        resizeTimer: null,
       };
 
       const DOMINANCE_ORDER = Object.freeze({
@@ -731,6 +667,15 @@
           .filter((row) => Object.values(row).some((value) => value !== ""));
       }
 
+      function parseSemicolonSeparatedValues(value) {
+        return value
+          ? value
+              .split(";")
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [];
+      }
+
       function convertSpreadsheetRowsToNodes(rows) {
         const convertedNodes = rows.map((strain) => ({
           id: strain.Strain,
@@ -770,14 +715,160 @@
           }));
       }
 
-      function buildLinks(nodes) {
+      function buildGraphIndexes(nodes) {
+        const indexes = {
+          nodesById: new Map(),
+          nodesByName: new Map(),
+          nodesByNormalisedName: new Map(),
+          childrenByParentId: new Map(),
+          variantsByBaseName: new Map(),
+        };
+
+        nodes.forEach((node) => {
+          indexes.nodesById.set(node.id, node);
+          indexes.nodesByName.set(node.name, node);
+          indexes.nodesByNormalisedName.set(
+            normaliseStrainName(node.name),
+            node,
+          );
+
+          node.parents.forEach((parentId) => {
+            if (!indexes.childrenByParentId.has(parentId)) {
+              indexes.childrenByParentId.set(parentId, []);
+            }
+            indexes.childrenByParentId.get(parentId).push(node);
+          });
+
+          if (node.variant) {
+            if (!indexes.variantsByBaseName.has(node.variant)) {
+              indexes.variantsByBaseName.set(node.variant, []);
+            }
+            indexes.variantsByBaseName.get(node.variant).push(node);
+          }
+        });
+
+        indexes.variantsByBaseName.forEach((variants) => {
+          variants.sort((a, b) => a.name.localeCompare(b.name));
+        });
+
+        return indexes;
+      }
+
+      function getParentNodes(node, indexes) {
+        const parents = node.parents
+          .map((parentId) => indexes.nodesById.get(parentId))
+          .filter(Boolean);
+
+        if (node.variant) {
+          const baseNode = indexes.nodesByName.get(node.variant);
+          if (baseNode) parents.push(baseNode);
+        }
+
+        return [...new Set(parents)];
+      }
+
+      function getChildNodes(node, indexes) {
+        return [
+          ...new Set([
+            ...(indexes.childrenByParentId.get(node.id) || []),
+            ...(indexes.variantsByBaseName.get(node.name) || []),
+          ]),
+        ];
+      }
+
+      function validateGraphData(nodes, indexes) {
+        const errors = [];
+        const warnings = [];
+        const seenIds = new Set();
+        const duplicateIds = new Set();
+
+        nodes.forEach((node) => {
+          if (!node.id || !node.name) {
+            errors.push("A spreadsheet row has no strain name.");
+            return;
+          }
+
+          if (seenIds.has(node.id)) duplicateIds.add(node.id);
+          seenIds.add(node.id);
+
+          if (node.parents.includes(node.id)) {
+            errors.push(`${node.name} lists itself as a parent.`);
+          }
+
+          if (node.variant === node.name) {
+            errors.push(`${node.name} lists itself as its variant base.`);
+          }
+
+          node.parents.forEach((parentId) => {
+            if (!indexes.nodesById.has(parentId)) {
+              warnings.push(`${node.name} references missing parent ${parentId}.`);
+            }
+          });
+
+          if (node.variant && !indexes.nodesByName.has(node.variant)) {
+            warnings.push(
+              `${node.name} references missing variant base ${node.variant}.`,
+            );
+          }
+        });
+
+        duplicateIds.forEach((id) => {
+          errors.push(`Duplicate strain name/ID: ${id}.`);
+        });
+
+        const visiting = new Set();
+        const visited = new Set();
+        const path = [];
+        const reportedCycles = new Set();
+
+        function visit(node) {
+          if (visited.has(node)) return;
+
+          if (visiting.has(node)) {
+            const cycleStart = path.indexOf(node);
+            const cycleNodes = [...path.slice(cycleStart), node];
+            const cycleLabel = cycleNodes.map((item) => item.name).join(" → ");
+            if (!reportedCycles.has(cycleLabel)) {
+              reportedCycles.add(cycleLabel);
+              errors.push(`Circular lineage detected: ${cycleLabel}.`);
+            }
+            return;
+          }
+
+          visiting.add(node);
+          path.push(node);
+
+          getParentNodes(node, indexes).forEach(visit);
+          path.pop();
+          visiting.delete(node);
+          visited.add(node);
+        }
+
+        nodes.forEach(visit);
+
+        if (warnings.length) {
+          console.warn(
+            `Graph validation found ${warnings.length} incomplete reference(s):`,
+            warnings,
+          );
+        }
+
+        if (errors.length) {
+          const visibleErrors = errors.slice(0, 8).join("\n");
+          const remainder =
+            errors.length > 8 ? `\n…and ${errors.length - 8} more.` : "";
+          throw new Error(`Invalid lineage data:\n${visibleErrors}${remainder}`);
+        }
+
+        return { errors, warnings };
+      }
+
+      function buildLinks(nodes, indexes) {
         const links = [];
-        const nodeIds = new Set(nodes.map((node) => node.id));
-        const nodesByName = new Map(nodes.map((node) => [node.name, node]));
 
         nodes.forEach((node) => {
           if (node.variant) {
-            const parentNode = nodesByName.get(node.variant);
+            const parentNode = indexes.nodesByName.get(node.variant);
             if (parentNode) {
               links.push({ source: parentNode.id, target: node.id });
             }
@@ -785,13 +876,22 @@
           }
 
           node.parents.forEach((parentId) => {
-            if (nodeIds.has(parentId)) {
+            if (indexes.nodesById.has(parentId)) {
               links.push({ source: parentId, target: node.id });
             }
           });
         });
 
         return links;
+      }
+
+      function prepareGraphData() {
+        chartState.nodes = convertSpreadsheetRowsToNodes(chartState.strainData);
+        chartState.indexes = buildGraphIndexes(chartState.nodes);
+        validateGraphData(chartState.nodes, chartState.indexes);
+        assignGenerations(chartState.nodes, chartState.indexes);
+        chartState.links = buildLinks(chartState.nodes, chartState.indexes);
+        chartState.isPrepared = true;
       }
 
       async function initialiseChart() {
@@ -806,6 +906,7 @@
             throw new Error("Not enough data in the spreadsheet.");
           }
 
+          prepareGraphData();
           createLineageChart();
           setupStrainSearch();
         } catch (error) {
@@ -821,11 +922,14 @@
       // Global generation, lineage, contribution, and sorting calculations
       // -----------------------------------------------------------------------
 
-      function assignGenerations(nodes) {
+      function assignGenerations(nodes, indexes = buildGraphIndexes(nodes)) {
+        const maximumPasses = Math.max(nodes.length * 4, 20);
         let changed = true;
+        let pass = 0;
 
-        while (changed) {
+        while (changed && pass < maximumPasses) {
           changed = false;
+          pass += 1;
 
           nodes.forEach((node) => {
             const lowerName = node.name.toLowerCase();
@@ -856,9 +960,7 @@
             }
 
             if (node.variant) {
-              const parentNode = nodes.find(
-                (candidate) => candidate.name === node.variant,
-              );
+              const parentNode = indexes.nodesByName.get(node.variant);
               if (parentNode && node.generation !== parentNode.generation) {
                 node.generation = parentNode.generation;
                 changed = true;
@@ -875,11 +977,7 @@
             }
 
             const parentGenerations = node.parents
-              .map(
-                (parentId) =>
-                  nodes.find((candidate) => candidate.id === parentId)
-                    ?.generation ?? -1,
-              )
+              .map((parentId) => indexes.nodesById.get(parentId)?.generation ?? -1)
               .filter((generation) => generation !== -1);
 
             if (!parentGenerations.length) return;
@@ -892,10 +990,18 @@
           });
         }
 
-        let specialCaseChanged = true;
+        if (changed) {
+          throw new Error(
+            "Generation assignment did not converge. Check the spreadsheet for circular or contradictory lineage data.",
+          );
+        }
 
-        while (specialCaseChanged) {
+        let specialCaseChanged = true;
+        pass = 0;
+
+        while (specialCaseChanged && pass < maximumPasses) {
           specialCaseChanged = false;
+          pass += 1;
 
           nodes.forEach((node) => {
             const lowerName = node.name.toLowerCase();
@@ -903,20 +1009,18 @@
 
             const hasOnlyUnknownParents =
               node.parents.length > 0 &&
-              node.parents.every((parentId) => {
-                const parent = nodes.find(
-                  (candidate) => candidate.id === parentId,
-                );
-                return parent?.name.toLowerCase().includes("unknown");
-              });
+              node.parents.every((parentId) =>
+                indexes.nodesById
+                  .get(parentId)
+                  ?.name.toLowerCase()
+                  .includes("unknown"),
+              );
 
             if (!lowerName.includes("unknown") && !hasOnlyUnknownParents) {
               return;
             }
 
-            const children = nodes.filter((candidate) =>
-              candidate.parents.includes(node.id),
-            );
+            const children = indexes.childrenByParentId.get(node.id) || [];
             if (!children.length) return;
 
             const generation = Math.max(
@@ -929,6 +1033,12 @@
               specialCaseChanged = true;
             }
           });
+        }
+
+        if (specialCaseChanged) {
+          throw new Error(
+            "Unknown-lineage generation adjustment did not converge.",
+          );
         }
       }
 
@@ -961,17 +1071,20 @@
         return a.name.localeCompare(b.name);
       }
 
-      function barycentricSort(generationNodes, allNodes, direction = "parents") {
+      function barycentricSort(
+        generationNodes,
+        allNodes,
+        direction = "parents",
+        indexes = buildGraphIndexes(allNodes),
+      ) {
         return generationNodes
           .map((node) => {
             const references =
               direction === "parents"
                 ? node.parents
-                    .map((parentId) =>
-                      allNodes.find((parent) => parent.id === parentId),
-                    )
+                    .map((parentId) => indexes.nodesById.get(parentId))
                     .filter(Boolean)
-                : allNodes.filter((child) => child.parents.includes(node.id));
+                : indexes.childrenByParentId.get(node.id) || [];
 
             return {
               node,
@@ -987,55 +1100,58 @@
           .map(({ node }) => node);
       }
 
-      function calculateOriginPositions(nodes) {
+      function calculateOriginPositions(
+        nodes,
+        indexes = buildGraphIndexes(nodes),
+      ) {
         nodes
           .filter((node) => node.generation === 0)
           .forEach((node) => {
-            const children = nodes.filter((candidate) =>
-              candidate.parents.includes(node.id),
-            );
+            const children = indexes.childrenByParentId.get(node.id) || [];
             if (children.length) {
               node.y = d3.mean(children, (child) => child.y);
             }
           });
       }
 
-      function calculateAncestorContributions(startNode, nodes) {
+      function calculateAncestorContributions(
+        startNode,
+        nodes,
+        indexes = buildGraphIndexes(nodes),
+      ) {
         const contributions = new Map();
 
-        function walk(node, amount) {
+        function walk(node, amount, activePath = new Set()) {
+          if (activePath.has(node.id)) return;
+
           contributions.set(
             node.id,
             (contributions.get(node.id) || 0) + amount,
           );
 
-          const parents = (node.parents || [])
-            .map((parentId) =>
-              nodes.find((candidate) => candidate.id === parentId),
-            )
-            .filter(Boolean);
-
-          if (node.variant) {
-            const baseNode = nodes.find(
-              (candidate) => candidate.name === node.variant,
-            );
-            if (baseNode) parents.push(baseNode);
-          }
-
+          const parents = getParentNodes(node, indexes);
           if (!parents.length) return;
 
+          activePath.add(node.id);
           const splitAmount = amount / parents.length;
-          parents.forEach((parent) => walk(parent, splitAmount));
+          parents.forEach((parent) => walk(parent, splitAmount, activePath));
+          activePath.delete(node.id);
         }
 
         walk(startNode, 100);
         return contributions;
       }
 
-      function calculateDescendantContributions(startNode, nodes) {
+      function calculateDescendantContributions(
+        startNode,
+        nodes,
+        indexes = buildGraphIndexes(nodes),
+      ) {
         const contributions = new Map();
 
-        function walk(node, amount) {
+        function walk(node, amount, activePath = new Set()) {
+          if (activePath.has(node.id)) return;
+
           if (node.id !== startNode.id) {
             contributions.set(
               node.id,
@@ -1043,24 +1159,26 @@
             );
           }
 
-          const children = nodes.filter(
-            (candidate) =>
-              candidate.parents.includes(node.id) ||
-              candidate.variant === node.name,
-          );
+          const children = getChildNodes(node, indexes);
 
+          activePath.add(node.id);
           children.forEach((child) => {
             const parentCount =
               (child.parents?.length || 0) + (child.variant ? 1 : 0);
-            if (parentCount) walk(child, amount / parentCount);
+            if (parentCount) walk(child, amount / parentCount, activePath);
           });
+          activePath.delete(node.id);
         }
 
         walk(startNode, 100);
         return contributions;
       }
 
-      function collectLineage(startNode, nodes) {
+      function collectLineage(
+        startNode,
+        nodes,
+        indexes = buildGraphIndexes(nodes),
+      ) {
         const lineage = new Set();
 
         function addAncestors(node) {
@@ -1068,38 +1186,28 @@
           lineage.add(node.id);
 
           if (node.variant) {
-            addAncestors(
-              nodes.find((candidate) => candidate.name === node.variant),
-            );
+            addAncestors(indexes.nodesByName.get(node.variant));
             return;
           }
 
           node.parents.forEach((parentId) => {
-            addAncestors(
-              nodes.find((candidate) => candidate.id === parentId),
-            );
+            addAncestors(indexes.nodesById.get(parentId));
           });
         }
 
-        function addDescendants(nodeId) {
-          lineage.add(nodeId);
+        addAncestors(startNode);
 
-          const node = nodes.find((candidate) => candidate.id === nodeId);
-          if (!node) return;
+        const descendantLineage = new Set();
+        function collectDescendants(node) {
+          if (!node || descendantLineage.has(node.id)) return;
+          descendantLineage.add(node.id);
+          lineage.add(node.id);
 
-          nodes
-            .filter(
-              (candidate) =>
-                candidate.parents.includes(nodeId) ||
-                candidate.variant === node.name,
-            )
-            .forEach((child) => {
-              if (!lineage.has(child.id)) addDescendants(child.id);
-            });
+          const children = getChildNodes(node, indexes);
+          children.forEach(collectDescendants);
         }
 
-        addAncestors(startNode);
-        addDescendants(startNode.id);
+        collectDescendants(startNode);
         return lineage;
       }
 
@@ -1135,12 +1243,8 @@
       }
 
       function getLinkPath(link) {
-        const sourceNode = chartState.nodes.find(
-          (node) => node.id === link.source,
-        );
-        const targetNode = chartState.nodes.find(
-          (node) => node.id === link.target,
-        );
+        const sourceNode = chartState.indexes.nodesById.get(link.source);
+        const targetNode = chartState.indexes.nodesById.get(link.target);
 
         if (!sourceNode || !targetNode) return "";
 
@@ -1206,7 +1310,12 @@
 
             generationNodes = dominanceGroups
               .map(([, groupNodes]) =>
-                barycentricSort(groupNodes, nodes, "parents"),
+                barycentricSort(
+                  groupNodes,
+                  nodes,
+                  "parents",
+                  chartState.indexes,
+                ),
               )
               .flat();
           }
@@ -1234,9 +1343,8 @@
             node.y = startY + yOffset;
             yOffset += CHART_SIZING.nodeHeight + spacing;
 
-            const variants = nodes
-              .filter((candidate) => candidate.variant === node.name)
-              .sort((a, b) => a.name.localeCompare(b.name));
+            const variants =
+              chartState.indexes.variantsByBaseName.get(node.name) || [];
 
             variants.forEach((variant, index) => {
               variant.x = node.x;
@@ -1252,7 +1360,7 @@
           });
         }
 
-        calculateOriginPositions(nodes);
+        calculateOriginPositions(nodes, chartState.indexes);
       }
 
       function createChartCanvas() {
@@ -1291,8 +1399,8 @@
           .join("path")
           .attr("class", "link")
           .attr("stroke", (link) => {
-            const sourceNode = chartState.nodes.find(
-              (node) => node.id === link.source,
+            const sourceNode = chartState.indexes.nodesById.get(
+              link.source,
             );
             return darkenColour(
               getDominanceColour(sourceNode?.dominance),
@@ -1321,8 +1429,6 @@
 
         renderNodeBackgrounds();
         renderNodeLabels();
-        renderProductLabels();
-        renderProductIcons();
         attachNodeInteractions();
       }
 
@@ -1337,8 +1443,8 @@
           .attr("y", -CHART_SIZING.nodeHeight / 2)
           .attr("fill", (node) => {
             if (node.variant) {
-              const parentNode = chartState.nodes.find(
-                (candidate) => candidate.name === node.variant,
+              const parentNode = chartState.indexes.nodesByName.get(
+                node.variant,
               );
               if (parentNode) {
                 return blendToWhite(
@@ -1377,64 +1483,15 @@
           });
       }
 
-      function renderProductLabels() {
-        chartState.nodeSelection
-          .append("text")
-          .filter((node) => node.product)
-          .attr("class", "product")
-          .text((node) => node.product)
-          .attr("x", positionProductLabel)
-          .attr("y", 1.6)
-          .each(function (node) {
-            const nodeWidth = getNodeWidth(node);
-            const strainLabel = this.parentNode.querySelector(".strain-name");
-            const remainingWidth =
-              nodeWidth - strainLabel.getComputedTextLength() - 40;
-
-            if (this.getComputedTextLength() > remainingWidth) {
-              d3.select(this).classed("is-condensed", true);
-              d3.select(strainLabel).classed("is-condensed", true);
-              d3.select(this).attr("x", positionProductLabel.call(this, node));
-            }
-          });
-      }
-
-      function positionProductLabel(node) {
-        const strainLabel = this.parentNode.querySelector(".strain-name");
-        return (
-          -getNodeWidth(node) / 2 +
-          5 +
-          strainLabel.getComputedTextLength() +
-          10
-        );
-      }
-
-      function renderProductIcons() {
-        chartState.nodeSelection
-          .filter((node) => node.product)
-          .append("use")
-          .attr("href", "#nzIcon")
-          .attr("width", CHART_SIZING.productIconSize)
-          .attr("height", CHART_SIZING.productIconSize)
-          .attr(
-            "x",
-            (node) =>
-              getNodeWidth(node) / 2 - CHART_SIZING.productIconRightOffset,
-          )
-          .attr("y", CHART_SIZING.productIconYOffset);
-      }
-
       function createLineageChart() {
+        if (!chartState.isPrepared) return;
+
         createChartCanvas();
-        chartState.nodes = convertSpreadsheetRowsToNodes(chartState.strainData);
-        assignGenerations(chartState.nodes);
-        chartState.links = buildLinks(chartState.nodes);
         calculateChartLayout();
         renderLinks();
         renderNodes();
         attachChartCanvasInteractions();
         applyInitialZoom();
-        populateStrainList();
         focusStrainFromUrl();
       }
 
@@ -1508,9 +1565,9 @@
         chartState.isDragging = true;
         node.dragging = true;
         d3.select(this).raise();
-        node.variantOffsets = chartState.nodes
-          .filter((candidate) => candidate.variant === node.name)
-          .map((variant) => ({
+        node.variantOffsets = (
+          chartState.indexes.variantsByBaseName.get(node.name) || []
+        ).map((variant) => ({
             id: variant.id,
             offsetY: variant.y - node.y,
           }));
@@ -1523,9 +1580,7 @@
         d3.select(this).attr("transform", `translate(${node.x},${node.y})`);
 
         node.variantOffsets?.forEach(({ id, offsetY }) => {
-          const variant = chartState.nodes.find(
-            (candidate) => candidate.id === id,
-          );
+          const variant = chartState.indexes.nodesById.get(id);
           if (!variant) return;
 
           variant.y = node.y + offsetY;
@@ -1577,7 +1632,7 @@
           return;
         }
 
-        const lineage = collectLineage(node, chartState.nodes);
+        const lineage = collectLineage(node, chartState.nodes, chartState.indexes);
 
         chartState.nodeSelection
           .classed("dimmed", (candidate) => !lineage.has(candidate.id))
@@ -1601,10 +1656,12 @@
         const ancestorContributions = calculateAncestorContributions(
           node,
           chartState.nodes,
+          chartState.indexes,
         );
         const descendantContributions = calculateDescendantContributions(
           node,
           chartState.nodes,
+          chartState.indexes,
         );
         const allContributions = combineContributions(
           node,
@@ -1649,7 +1706,7 @@
       }
 
       function highlightHoverLineage(node) {
-        const lineage = collectLineage(node, chartState.nodes);
+        const lineage = collectLineage(node, chartState.nodes, chartState.indexes);
         chartState.nodeSelection.classed("highlighted", (candidate) =>
           lineage.has(candidate.id),
         );
@@ -1705,21 +1762,15 @@
       }
 
       function getInfoPanelData(node, ancestorContributions) {
-        const alsoKnownAs = node.alsoKnownAs
-          ? node.alsoKnownAs
-              .split(";")
-              .map((name) => name.trim())
-              .filter(Boolean)
-          : [];
+        const alsoKnownAs = parseSemicolonSeparatedValues(node.alsoKnownAs);
+        const products = parseSemicolonSeparatedValues(node.product);
 
         const contributors = Array.from(ancestorContributions.entries())
           .filter(([nodeId, percentage]) =>
             nodeId !== node.id && percentage >= 5,
           )
           .map(([nodeId, percentage]) => {
-            const contributor = chartState.nodes.find(
-              (candidate) => candidate.id === nodeId,
-            );
+            const contributor = chartState.indexes.nodesById.get(nodeId);
             if (!contributor) return null;
 
             return {
@@ -1731,16 +1782,16 @@
           .filter(Boolean)
           .sort((a, b) => b.percentage - a.percentage);
 
-        return { alsoKnownAs, contributors };
+        return { alsoKnownAs, products, contributors };
       }
 
       function renderInfoPanel(node, ancestorContributions) {
-        const { alsoKnownAs, contributors } = getInfoPanelData(
+        const { alsoKnownAs, products, contributors } = getInfoPanelData(
           node,
           ancestorContributions,
         );
-        const variantCount = chartState.nodes.filter(
-          (candidate) => candidate.variant === node.name,
+        const variantCount = (
+          chartState.indexes.variantsByBaseName.get(node.name) || []
         ).length;
         const panelGap =
           CHART_SIZING.infoPanelBaseGap +
@@ -1767,7 +1818,27 @@
             .append("div")
             .attr("class", "info-panel-heading")
             .text("Also known as");
-          panel.append("div").html(alsoKnownAs.join("<br>"));
+          const aliases = panel.append("div");
+          alsoKnownAs.forEach((alias, index) => {
+            if (index) aliases.append("br");
+            aliases.append("span").text(alias);
+          });
+          panel.append("br");
+        }
+
+        if (products.length) {
+          panel
+            .append("div")
+            .attr(
+              "class",
+              "info-panel-heading info-panel-heading--products",
+            )
+            .text("New Zealand Medical Cannabis Products");
+          const productList = panel.append("div");
+          products.forEach((product, index) => {
+            if (index) productList.append("br");
+            productList.append("span").text(product);
+          });
           panel.append("br");
         }
 
@@ -1932,9 +2003,7 @@
       }
 
       function findNodeByNormalisedName(name) {
-        return chartState.nodes.find(
-          (node) => normaliseStrainName(node.name) === name,
-        );
+        return chartState.indexes.nodesByNormalisedName.get(name);
       }
 
       function focusStrainFromUrl() {
@@ -1945,33 +2014,6 @@
           const targetNode = findNodeByNormalisedName(requestedName);
           if (targetNode) selectNode(targetNode);
         });
-      }
-
-      function populateStrainList() {
-        const strainList = document.getElementById("strainList");
-        strainList.innerHTML = "";
-
-        chartState.nodes
-          .filter((strain) => !strain.name.toLowerCase().includes("unknown"))
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .forEach((strain) => {
-            const strainItem = document.createElement("div");
-            strainItem.className = "strain-item";
-
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.id = `strain-${strain.id}`;
-            checkbox.className = "strain-checkbox";
-
-            const label = document.createElement("label");
-            label.htmlFor = checkbox.id;
-            label.className = "strain-label";
-            label.textContent =
-              strain.name + (strain.product ? ` (${strain.product})` : "");
-
-            strainItem.append(checkbox, label);
-            strainList.appendChild(strainItem);
-          });
       }
 
       function startSearchPlaceholderBlink() {
@@ -2023,14 +2065,25 @@
 
       function renderStrainDropdown(matches) {
         const dropdown = document.getElementById("strainDropdown");
-        dropdown.innerHTML = "";
+        dropdown.replaceChildren();
 
         matches.forEach((strain) => {
           const item = document.createElement("div");
-          item.innerHTML =
-            strain.name +
-            (strain.product ? `<br>(${strain.product})` : "") +
-            (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : "");
+          item.append(document.createTextNode(strain.name));
+
+          if (strain.product) {
+            item.append(
+              document.createElement("br"),
+              document.createTextNode(`(${strain.product})`),
+            );
+          }
+
+          if (strain.alsoKnownAs) {
+            item.append(
+              document.createTextNode(` [${strain.alsoKnownAs}]`),
+            );
+          }
+
           item.addEventListener("click", () => chooseSearchResult(strain));
           dropdown.appendChild(item);
         });
@@ -2159,32 +2212,12 @@
         }
       }
 
-      function adjustButtonFontSize() {
-        const buttons = document.querySelectorAll(".btn:not(#btn3):not(#btn2)");
-        const headerButtons = document.querySelector(".header-buttons");
-        if (!buttons.length || !headerButtons) return;
-
-        const aboutButton = document.getElementById("btn3");
-        const availableWidth =
-          headerButtons.offsetWidth - (aboutButton?.offsetWidth || 0);
-        const totalButtonWidth = Array.from(buttons).reduce(
-          (total, button) => total + button.offsetWidth,
-          0,
-        );
-
-        if (totalButtonWidth <= availableWidth) return;
-
-        const scaleFactor = availableWidth / totalButtonWidth;
-        buttons.forEach((button) => {
-          const fontSize = parseFloat(getComputedStyle(button).fontSize);
-          button.style.fontSize = `${fontSize * scaleFactor}px`;
-        });
-      }
-
       function handleWindowResize() {
-        if (chartState.strainData.length) createLineageChart();
-        adjustFullscreenButtonPosition();
-        adjustButtonFontSize();
+        window.clearTimeout(pageState.resizeTimer);
+        pageState.resizeTimer = window.setTimeout(() => {
+          if (chartState.isPrepared) createLineageChart();
+          adjustFullscreenButtonPosition();
+        }, 120);
       }
 
       function setupPageControls() {
@@ -2221,7 +2254,6 @@
       window.addEventListener("load", () => {
         setupPopups();
         adjustFullscreenButtonPosition();
-        adjustButtonFontSize();
       });
     </script>
   </body>
