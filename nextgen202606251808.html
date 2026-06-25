@@ -322,7 +322,11 @@
       .is-condensed { font-family: "Roboto Condensed", Arial, sans-serif; }
 
       .node.clicked rect { stroke: var(--chart-selected); stroke-width: 8px; }
-      .node.highlighted rect { stroke: var(--chart-hover-highlight); stroke-width: 3px; }
+      .node.highlighted:not(.has-product) rect {
+        stroke: var(--chart-hover-highlight);
+        stroke-width: 3px;
+      }
+      .node.has-product:not(.clicked) rect { stroke: var(--chart-product-stroke); }
       .node.highlighted-search .highlight-arrow { fill: var(--chart-search-highlight); }
       .link.highlighted { stroke: var(--chart-hover-highlight) !important; stroke-width: 3px; }
       .node.dimmed rect,
@@ -336,8 +340,9 @@
 
       .node .pct-pill-text {
         fill: var(--chart-percentage-text);
-        font-size: 9px;
-        font-weight: 700;
+        font: 700 15px "Roboto", Arial, sans-serif;
+        text-anchor: middle;
+        dominant-baseline: middle;
         pointer-events: none;
       }
 
@@ -356,7 +361,11 @@
         line-height: 1.2;
         white-space: normal;
       }
-      .info-panel-heading--contributors { margin-bottom: 6px; }
+      .info-panel-heading--contributors {
+        margin-bottom: 6px;
+        line-height: 1.2;
+        white-space: normal;
+      }
       .info-panel-actions { margin-top: 6px; }
 
       .contributors-grid {
@@ -524,8 +533,8 @@
         percentagePillWidth: 80,
         percentagePillPadding: 10,
         percentageTextYOffset: 1,
-        infoPanelWidth: 220,
-        infoPanelXOffset: 10,
+        infoPanelWidth: 242,
+        infoPanelLeftOffset: -100,
         infoPanelBaseGap: 20,
         viewportPadding: 50,
       });
@@ -558,6 +567,9 @@
         nodeSelection: null,
         linkSelection: null,
         focusedNode: null,
+        focusedLineage: null,
+        currentTransform: null,
+        leftEdgeScreenX: null,
         width: 0,
         height: 0,
         standardNodeWidth: CHART_SIZING.minimumNodeWidth,
@@ -625,6 +637,7 @@
         const root = document.documentElement;
         const properties = {
           "--chart-node-stroke": CHART_COLOURS.nodeStroke,
+          "--chart-product-stroke": CHART_COLOURS.productStroke,
           "--chart-selected": CHART_COLOURS.selected,
           "--chart-hover-highlight": CHART_COLOURS.hoverHighlight,
           "--chart-search-highlight": CHART_COLOURS.searchHighlight,
@@ -1368,6 +1381,9 @@
         chartState.width = chartContainer.clientWidth;
         chartState.height = chartContainer.clientHeight;
         chartState.focusedNode = null;
+        chartState.focusedLineage = null;
+        chartState.currentTransform = null;
+        chartState.leftEdgeScreenX = null;
 
         d3.select("#lineageChart").selectAll("*").remove();
 
@@ -1384,8 +1400,26 @@
             CHART_BEHAVIOUR.zoomMinimum,
             CHART_BEHAVIOUR.zoomMaximum,
           ])
-          .on("zoom", (event) => {
-            chartState.group.attr("transform", event.transform);
+          .on("zoom", function (event) {
+            let transform = event.transform;
+            const previousScale = chartState.currentTransform?.k ?? transform.k;
+            const scaleChanged = Math.abs(transform.k - previousScale) > 1e-9;
+
+            if (scaleChanged && Number.isFinite(chartState.leftEdgeScreenX)) {
+              const referenceNodes = getZoomReferenceNodes();
+              const { minimumX } = getChartBounds(referenceNodes);
+              transform = d3.zoomIdentity
+                .translate(
+                  chartState.leftEdgeScreenX - transform.k * minimumX,
+                  transform.y,
+                )
+                .scale(transform.k);
+
+              d3.select(this).property("__zoom", transform);
+            }
+
+            chartState.currentTransform = transform;
+            chartState.group.attr("transform", transform);
           });
 
         chartState.svg.call(chartState.zoom);
@@ -1420,6 +1454,7 @@
           .data(chartState.nodes)
           .join("g")
           .attr("class", "node")
+          .classed("has-product", (node) => Boolean(node.product?.trim()))
           .attr("transform", (node) => `translate(${node.x},${node.y})`)
           .each(function (node) {
             node.currentScale = 1;
@@ -1651,6 +1686,7 @@
           );
 
         chartState.focusedNode = node;
+        chartState.focusedLineage = new Set(lineage);
         zoomToLineage(lineage);
 
         const ancestorContributions = calculateAncestorContributions(
@@ -1688,6 +1724,7 @@
 
       function clearChartFocus({ resetView = true } = {}) {
         chartState.focusedNode = null;
+        chartState.focusedLineage = null;
         chartState.nodeSelection
           ?.classed("dimmed", false)
           .classed("clicked", false);
@@ -1767,7 +1804,7 @@
 
         const contributors = Array.from(ancestorContributions.entries())
           .filter(([nodeId, percentage]) =>
-            nodeId !== node.id && percentage >= 5,
+            nodeId !== node.id && percentage >= 10,
           )
           .map(([nodeId, percentage]) => {
             const contributor = chartState.indexes.nodesById.get(nodeId);
@@ -1802,9 +1839,7 @@
           .attr("class", "info-panel")
           .attr(
             "x",
-            node.x +
-              CHART_SIZING.infoPanelXOffset -
-              CHART_SIZING.infoPanelWidth / 2,
+            node.x + CHART_SIZING.infoPanelLeftOffset,
           )
           .attr("y", node.y + panelGap)
           .attr("width", CHART_SIZING.infoPanelWidth);
@@ -1849,7 +1884,7 @@
               "class",
               "info-panel-heading info-panel-heading--contributors",
             )
-            .text("Ancestor contributions");
+            .text("www.weedtree.fyi Calculated Ancestor Contributions*");
 
           const table = panel
             .append("div")
@@ -1896,47 +1931,82 @@
         foreignObject.attr("height", panel.node().scrollHeight);
       }
 
-      function getChartTransform(nodes, scaleMultiplier = 1) {
-        const minimumX =
-          d3.min(nodes, (node) => node.x) - chartState.standardNodeWidth / 2;
-        const maximumX =
-          d3.max(nodes, (node) => node.x) + chartState.standardNodeWidth / 2;
-        const minimumY =
-          d3.min(nodes, (node) => node.y) - CHART_SIZING.nodeHeight / 2;
-        const maximumY =
-          d3.max(nodes, (node) => node.y) + CHART_SIZING.nodeHeight / 2;
-        const horizontalSpan =
-          maximumX - minimumX + CHART_SIZING.viewportPadding * 2;
+      function getChartBounds(nodes) {
+        return {
+          minimumX:
+            d3.min(nodes, (node) => node.x) - chartState.standardNodeWidth / 2,
+          maximumX:
+            d3.max(nodes, (node) => node.x) + chartState.standardNodeWidth / 2,
+          minimumY:
+            d3.min(nodes, (node) => node.y) - CHART_SIZING.nodeHeight / 2,
+          maximumY:
+            d3.max(nodes, (node) => node.y) + CHART_SIZING.nodeHeight / 2,
+        };
+      }
+
+      function getZoomReferenceNodes() {
+        if (!chartState.focusedLineage) return chartState.nodes;
+        return chartState.nodes.filter((node) =>
+          chartState.focusedLineage.has(node.id),
+        );
+      }
+
+      function getChartTransform(
+        nodes,
+        scaleMultiplier = 1,
+        { anchorLeft = Number.isFinite(chartState.leftEdgeScreenX) } = {},
+      ) {
+        const { minimumX, maximumX, minimumY, maximumY } =
+          getChartBounds(nodes);
+        const horizontalRange = maximumX - minimumX;
         const verticalSpan =
           maximumY - minimumY + CHART_SIZING.viewportPadding * 2;
+        const availableWidth = anchorLeft
+          ? chartState.width -
+            chartState.leftEdgeScreenX -
+            CHART_SIZING.viewportPadding
+          : chartState.width;
+        const horizontalSpan = anchorLeft
+          ? horizontalRange + CHART_SIZING.viewportPadding
+          : horizontalRange + CHART_SIZING.viewportPadding * 2;
         const scale =
           scaleMultiplier *
           Math.min(
-            chartState.width / horizontalSpan,
+            availableWidth / horizontalSpan,
             chartState.height / verticalSpan,
           );
         const centreX = (minimumX + maximumX) / 2;
         const centreY = (minimumY + maximumY) / 2;
+        const translateX = anchorLeft
+          ? chartState.leftEdgeScreenX - scale * minimumX
+          : chartState.width / 2 - scale * centreX;
 
         return d3.zoomIdentity
           .translate(
-            chartState.width / 2 - scale * centreX,
+            translateX,
             chartState.height / 2 - scale * centreY,
           )
           .scale(scale);
       }
 
       function applyInitialZoom() {
-        chartState.svg.call(
-          chartState.zoom.transform,
-          getChartTransform(chartState.nodes),
+        const initialTransform = getChartTransform(
+          chartState.nodes,
+          1,
+          { anchorLeft: false },
         );
+        const { minimumX } = getChartBounds(chartState.nodes);
+
+        chartState.leftEdgeScreenX = initialTransform.applyX(minimumX);
+        chartState.currentTransform = initialTransform;
+        chartState.svg.call(chartState.zoom.transform, initialTransform);
       }
 
       function zoomToLineage(lineage) {
         const activeNodes = chartState.nodes.filter((node) =>
           lineage.has(node.id),
         );
+        chartState.focusedLineage = new Set(lineage);
 
         chartState.svg
           .transition()
@@ -1946,6 +2016,7 @@
             getChartTransform(
               activeNodes,
               CHART_BEHAVIOUR.lineageZoomScale,
+              { anchorLeft: true },
             ),
           );
       }
@@ -1955,12 +2026,13 @@
           return;
         }
 
+        chartState.focusedLineage = null;
         chartState.svg
           .transition()
           .duration(CHART_BEHAVIOUR.zoomTransitionDuration)
           .call(
             chartState.zoom.transform,
-            getChartTransform(chartState.nodes),
+            getChartTransform(chartState.nodes, 1, { anchorLeft: true }),
           );
       }
 
@@ -1972,13 +2044,16 @@
         const [minimumScale, maximumScale] = chartState.zoom.scaleExtent();
         if (scale < minimumScale || scale > maximumScale) return;
 
+        const { minimumX } = getChartBounds(getZoomReferenceNodes());
+        const translateX = chartState.leftEdgeScreenX - scale * minimumX;
+
         chartState.svg
           .transition()
           .duration(CHART_BEHAVIOUR.zoomButtonDuration)
           .call(
             chartState.zoom.transform,
             d3.zoomIdentity
-              .translate(currentTransform.x, currentTransform.y)
+              .translate(translateX, currentTransform.y)
               .scale(scale),
           );
       }
@@ -2160,6 +2235,14 @@
         const overlay = document.querySelector(".popup-overlay");
         const searchPopup = document.getElementById("popup2");
         const aboutPopup = document.getElementById("popup3");
+        const suppressAutomaticSearchPopup = Boolean(
+          getRequestedFocusStrain(),
+        );
+
+        function closeAboutPopup() {
+          hidePopup(aboutPopup);
+          if (!suppressAutomaticSearchPopup) showPopup(searchPopup);
+        }
 
         document
           .getElementById("btn3")
@@ -2170,18 +2253,14 @@
 
         aboutPopup
           .querySelector(".close-button")
-          .addEventListener("click", () => {
-            hidePopup(aboutPopup);
-            showPopup(searchPopup);
-          });
+          .addEventListener("click", closeAboutPopup);
         searchPopup
           .querySelector(".close-button")
           .addEventListener("click", () => hidePopup(searchPopup));
 
         overlay.addEventListener("click", () => {
           if (aboutPopup.style.display !== "none") {
-            hidePopup(aboutPopup);
-            showPopup(searchPopup);
+            closeAboutPopup();
           } else if (searchPopup.style.display !== "none") {
             hidePopup(searchPopup);
           }
