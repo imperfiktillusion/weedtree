@@ -1281,7 +1281,7 @@
         return contributions;
       }
 
-      function collectLineage(
+      function collectAncestorLineage(
         startNode,
         nodes,
         indexes = buildGraphIndexes(nodes),
@@ -1303,8 +1303,17 @@
         }
 
         addAncestors(startNode);
+        return lineage;
+      }
 
+      function collectLineage(
+        startNode,
+        nodes,
+        indexes = buildGraphIndexes(nodes),
+      ) {
+        const lineage = collectAncestorLineage(startNode, nodes, indexes);
         const descendantLineage = new Set();
+
         function collectDescendants(node) {
           if (!node || descendantLineage.has(node.id)) return;
           descendantLineage.add(node.id);
@@ -1829,12 +1838,12 @@
         removeChartOverlays();
         clearHoverHighlight();
 
-        const firstLineage = collectLineage(
+        const firstLineage = collectAncestorLineage(
           firstNode,
           chartState.nodes,
           chartState.indexes,
         );
-        const secondLineage = collectLineage(
+        const secondLineage = collectAncestorLineage(
           secondNode,
           chartState.nodes,
           chartState.indexes,
@@ -1936,7 +1945,15 @@
       }
 
       function highlightHoverLineage(node) {
-        const lineage = collectLineage(node, chartState.nodes, chartState.indexes);
+        const lineage =
+          pageState.selectionMode === "compare"
+            ? collectAncestorLineage(
+                node,
+                chartState.nodes,
+                chartState.indexes,
+              )
+            : collectLineage(node, chartState.nodes, chartState.indexes);
+
         chartState.nodeSelection.classed("highlighted", (candidate) =>
           lineage.has(candidate.id),
         );
@@ -2016,6 +2033,21 @@
 
         if (selections.length === 1 && selections[0].id === node.id) {
           clearChartFocus({ resetView: false });
+          return;
+        }
+
+        if (selections.length === 2) {
+          const clickedIndex = selections.findIndex(
+            (selectedNode) => selectedNode.id === node.id,
+          );
+
+          if (clickedIndex !== -1) {
+            const remainingNode = selections[clickedIndex === 0 ? 1 : 0];
+            showPendingComparisonSelection(remainingNode);
+            return;
+          }
+
+          showPendingComparisonSelection(node);
           return;
         }
 
