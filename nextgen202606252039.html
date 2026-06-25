@@ -834,7 +834,7 @@
         hoverTransitionDuration: 150,
         linkDarkenAmount: 2,
         variantBlendAmount: 0.5,
-        infoPanelZoomMinimum: 0.75,
+        infoPanelZoomMinimum: 0.35,
         infoPanelZoomMaximum: 1.75,
         infoPanelZoomStep: 0.1,
       });
@@ -2574,12 +2574,20 @@
         );
 
         return [...firstContributions.keys()]
-          .filter(
-            (nodeId) =>
-              secondContributions.has(nodeId) &&
-              nodeId !== firstNode.id &&
-              nodeId !== secondNode.id,
-          )
+          .filter((nodeId) => {
+            if (
+              !secondContributions.has(nodeId) ||
+              nodeId === firstNode.id ||
+              nodeId === secondNode.id
+            ) {
+              return false;
+            }
+
+            return (
+              firstContributions.get(nodeId) >= 20 &&
+              secondContributions.get(nodeId) >= 20
+            );
+          })
           .map((nodeId) => {
             const ancestor = chartState.indexes.nodesById.get(nodeId);
             if (!ancestor) return null;
@@ -2593,8 +2601,7 @@
           .filter(Boolean)
           .sort(
             (a, b) =>
-              b.firstPercentage + b.secondPercentage -
-                (a.firstPercentage + a.secondPercentage) ||
+              b.firstPercentage - a.firstPercentage ||
               a.ancestor.name.localeCompare(b.ancestor.name),
           );
       }
@@ -2672,7 +2679,7 @@
           [firstColumn, secondColumn].forEach((column) => {
             const empty = document.createElement("div");
             empty.className = "comparison-panel-empty";
-            empty.textContent = "No shared ancestors recorded.";
+            empty.textContent = "No shared ancestors at 20% or above.";
             column.appendChild(empty);
           });
         }
