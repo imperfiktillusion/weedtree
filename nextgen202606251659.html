@@ -1,0 +1,2228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="https://www.weedtree.fyi" />
+
+    <script
+      src="https://cdn.counter.dev/script.js"
+      data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993"
+      data-utcoffset="13"
+    ></script>
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"
+    ></script>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-8527SLLPYV");
+
+      const APP_CONFIG = Object.freeze({
+        dataUrl:
+          "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978",
+        strainUrlBase: "https://weedtree.fyi/test2.html?focus=",
+      });
+
+      function showCopiedPopup() {
+        let popup = document.getElementById("copy-popup");
+
+        if (!popup) {
+          popup = document.createElement("div");
+          popup.id = "copy-popup";
+          document.body.appendChild(popup);
+        }
+
+        popup.textContent = "Copied";
+        popup.classList.add("is-visible");
+
+        window.clearTimeout(showCopiedPopup.timeoutId);
+        showCopiedPopup.timeoutId = window.setTimeout(() => {
+          popup.classList.remove("is-visible");
+        }, 900);
+      }
+
+      function copyTextToClipboard(text) {
+        navigator.clipboard
+          .writeText(text)
+          .then(showCopiedPopup)
+          .catch((error) => console.error("Clipboard error", error));
+      }
+
+      function copyStrainURL(strainName, event) {
+        event?.preventDefault();
+        const url = APP_CONFIG.strainUrlBase + strainName.replace(/\s+/g, "_");
+        copyTextToClipboard(url);
+      }
+
+      function copyStrainContributors(strainName, event) {
+        event?.preventDefault();
+
+        const table = document.getElementById("contributors-table");
+        if (!table) return;
+
+        const percentages = table.querySelectorAll(".c-perc");
+        const names = table.querySelectorAll(".c-name");
+        const rows = Array.from(percentages, (percentage, index) =>
+          [
+            strainName,
+            percentage.textContent,
+            names[index]?.textContent || "",
+          ].join("\t"),
+        );
+
+        copyTextToClipboard(rows.join("\n") + "\n");
+      }
+    </script>
+
+    <title>WeedTree Strain Lineage Chart</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 850"%3E%3Cpath fill="%2391C83E" d="M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/%3E%3Cpath fill="%236FAC43" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7z"/%3E%3Cpath fill="none" stroke="%23444" stroke-width="79.2" d="M503.2 266c0-18.6 17.8-33.7 39.7-33.7 22 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-22 0-39.7-15.1-39.7-33.7zm-244.2 0c0-18.6 17.8-33.7 39.7-33.7 21.9 0 39.7 15.1 39.7 33.7 0 18.6-17.8 33.7-39.7 33.7-21.9 0-39.7-15.1-39.7-33.7zm-44.8 237.5c137.8 80.2 275.3 80.2 412.7 0M39.6 362.6C39.6 184.2 210.3 39.6 420.9 39.6c210.5 0 381.2 144.6 381.2 323 0 178.4-170.7 323-381.2 323-210.6 0-381.3-144.6-381.3-323z"/%3E%3C/svg%3E'
+    />
+
+    <style>
+      :root {
+        --chart-node-stroke: #000;
+        --chart-selected: #f0f;
+        --chart-hover-highlight: #f0f;
+        --chart-search-highlight: #f00;
+        --chart-percentage-background: #000;
+        --chart-percentage-text: #fff;
+        --chart-panel-background: rgba(255, 255, 255, 0.95);
+        --chart-dimmed-opacity: 0.05;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #fff;
+        font: 14px "Poppins", Arial, sans-serif;
+      }
+
+      .header-ribbon {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px;
+        background: #434343;
+        color: #fff;
+      }
+
+      .header-ribbon h1 { margin: 0 0 0 6px; color: #fff; font-size: 1.8em; }
+      .subhead { margin-left: 3px; font-size: 0.4em; font-weight: 400; }
+      .header-buttons { display: flex; align-items: center; gap: 10px; }
+
+      .btn {
+        padding: 5px 15px;
+        overflow: hidden;
+        border: 2px solid #fff;
+        border-radius: 18px;
+        background: transparent;
+        color: #fff;
+        font: 0.9em "Poppins", Arial, sans-serif;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .btn:hover { background: rgba(255, 255, 255, 0.1); }
+      .header-buttons .btn { min-width: max-content; padding: 5px 15px; font-size: 0.9em; }
+
+      .popup-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+        display: none;
+        background: rgba(0, 0, 0, 0.5);
+      }
+
+      .popup {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        z-index: 1000;
+        display: none;
+        max-width: 80%;
+        max-height: 80%;
+        padding: 20px;
+        overflow-y: auto;
+        border-radius: 10px;
+        background: #fff;
+        transform: translate(-50%, -50%);
+      }
+
+      #popup1 { padding: 20px; }
+      #popup3 { z-index: 1012; padding: 20px; }
+
+      #popup2 {
+        top: 25vh;
+        left: 50%;
+        z-index: 1011;
+        display: none;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        width: 75vw;
+        min-width: 400px;
+        max-width: none;
+        padding: 20px;
+        background: transparent;
+        transform: translateX(-50%);
+      }
+
+      #popup2 .popup2-center {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: 20px;
+      }
+
+      #popup2 .search-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 80%;
+        margin: 0 auto;
+      }
+
+      #popup2 #strainSearch {
+        box-sizing: border-box;
+        flex: 1 1 auto;
+        width: 100%;
+        min-width: 0;
+        padding: 0.3em 0.81em;
+        border: 4px solid #434343;
+        border-radius: 70px;
+        background: #fff;
+        color: #434343;
+        font: 3em "Roboto", Arial, sans-serif;
+        transition: all 0.3s ease;
+      }
+
+      #popup2 #strainSearch::placeholder { padding-left: 0; color: #777; }
+      #popup2 #strainSearch:focus { outline: none; background: #f8f8f8; }
+      #popup2 #strainSearch.hidden-cursor { caret-color: transparent; }
+
+      #strainDropdown {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 9999;
+        display: none;
+        width: 90%;
+        max-width: 80%;
+        max-height: none;
+        overflow-y: visible;
+        border: 0;
+        border-radius: 0 0 8px 8px;
+        background: #f8f8f8;
+        box-shadow: none;
+      }
+
+      #strainDropdown div {
+        padding: 10px 15px;
+        color: #434343;
+        font: 2.5em/1 "Roboto", Arial, sans-serif;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      #strainDropdown div:hover { background: #f0f0f0; }
+
+      #loading-message {
+        position: fixed;
+        top: 40%;
+        left: 50%;
+        z-index: 1001;
+        display: none;
+        padding: 20px;
+        border-radius: 50px;
+        background: rgba(255, 255, 255, 0.8);
+        transform: translate(-50%, -50%);
+      }
+
+      .container { display: flex; flex-direction: column; height: calc(100vh - 50px); }
+
+      .close-button {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 50%;
+        background: #434343;
+        color: #fff;
+        font-size: 40px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .close-button:hover { background: #666; }
+
+      .fullscreen-button-container {
+        position: absolute;
+        top: 70px;
+        right: 10px;
+        z-index: 997;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .fullscreen-button-container .btn {
+        width: 100%;
+        min-height: 42px;
+        padding: 6px 12px;
+        border: 2px solid #f0f0f0;
+        border-radius: 4px;
+        background: #fff;
+        color: #f0f0f0;
+        font: 600 12px/1.2 "Poppins", Arial, sans-serif !important;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .zoom-button-container { display: flex; width: 100%; gap: 8px; }
+      #zoomInButton,
+      #zoomOutButton { flex: 1; font-size: 30px; font-weight: 700; }
+
+      .chart-container { flex-grow: 1; width: 100%; overflow: hidden; }
+      #lineageChart { width: 100%; height: 100%; }
+      #nzIconTemplate { display: none; }
+
+      .node use { z-index: 1000; pointer-events: none; }
+      .node text { z-index: 999; fill: #000; text-anchor: start; dominant-baseline: middle; }
+      .strain-name { font: 700 15px "Roboto", Arial, sans-serif; }
+      .product { font: 400 10px "Roboto", Arial, sans-serif; }
+      .is-condensed { font-family: "Roboto Condensed", Arial, sans-serif; }
+
+      .node.clicked rect { stroke: var(--chart-selected); stroke-width: 8px; }
+      .node.highlighted rect { stroke: var(--chart-hover-highlight); stroke-width: 3px; }
+      .node.highlighted-search .highlight-arrow { fill: var(--chart-search-highlight); }
+      .link.highlighted { stroke: var(--chart-hover-highlight) !important; stroke-width: 3px; }
+      .node.dimmed rect,
+      .node.dimmed text,
+      .node.dimmed use,
+      .link.dimmed { opacity: var(--chart-dimmed-opacity); }
+
+      .pct-pill {
+        fill: var(--chart-percentage-background);
+        stroke: var(--chart-node-stroke);
+      }
+
+      .pct-pill-text {
+        fill: var(--chart-percentage-text);
+        font-size: 9px;
+        font-weight: 700;
+        pointer-events: none;
+      }
+
+      .info-panel-content {
+        box-sizing: border-box;
+        padding: 8px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--chart-panel-background);
+        font: 13px "Roboto", Arial, sans-serif;
+        white-space: nowrap;
+      }
+
+      .info-panel-heading { font-weight: 700; }
+      .info-panel-heading--contributors { margin-bottom: 6px; }
+      .info-panel-actions { margin-top: 6px; }
+
+      .contributors-grid {
+        display: grid;
+        grid-template-columns: 30px 10px auto;
+        align-items: center;
+        column-gap: 4px;
+        row-gap: 4px;
+      }
+
+      .c-perc { text-align: left; font-weight: 600; }
+      .c-dot { width: 10px; height: 10px; border-radius: 50%; }
+      .c-name { white-space: nowrap; }
+
+      #copy-popup {
+        position: fixed;
+        bottom: 100px;
+        left: 50%;
+        z-index: 9999;
+        padding: 6px 14px;
+        border-radius: 6px;
+        background: #333;
+        color: #fff;
+        font-size: 13px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-50%);
+        transition: opacity 0.2s;
+      }
+
+      #copy-popup.is-visible { opacity: 1; }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <div class="header-ribbon">
+      <h1>
+        WeedTree.fyi Strain Lineage Chart
+        <span class="subhead">Work in progress, errors probable</span>
+      </h1>
+      <div class="header-buttons">
+        <button id="btn2" class="btn">Go to strain</button>
+        <button id="btn3" class="btn">About</button>
+      </div>
+    </div>
+
+    <!-- Fullscreen & Zoom Controls -->
+    <div class="fullscreen-button-container">
+      <button id="fullscreenToggle" class="btn">Toggle Full Screen</button>
+
+      <div class="zoom-button-container">
+        <button id="zoomInButton" class="btn">+</button>
+        <button id="zoomOutButton" class="btn">-</button>
+      </div>
+
+      <button id="deselectButton" class="btn">De-select</button>
+    </div>
+
+    <!-- Chart Container -->
+    <div class="container">
+      <div class="chart-container">
+        <div id="lineageChart"></div>
+      </div>
+    </div>
+
+    <!-- Popups -->
+    <div class="popup-overlay"></div>
+
+    <!-- Strain List Popup -->
+    <div id="popup1" class="popup">
+      <div id="strainList" class="strain-list"></div>
+    </div>
+
+    <div id="popup2" class="popup">
+      <button class="close-button">×</button>
+      <div class="popup2-center">
+        <div class="search-container">
+          <input type="text" id="strainSearch" placeholder="go to strain_" />
+        </div>
+      </div>
+    </div>
+
+    <!-- About / Welcome Popup -->
+    <div id="popup3" class="popup">
+      <button class="close-button">×</button>
+
+      <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
+
+      <p>
+        I've always wondered how strain lineage correlated with the strains I
+        personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I
+        haven't been able to find much of a lineage chart anywhere online so
+        decided to create one myself.
+      </p>
+
+      <p>
+        I don't claim that the chart is completely accurate. It is based on what
+        I could interpret from the multitude of often contradictory strain
+        database sites internationally, and I've made some simplifications
+        around phenotype/cultivar/clone/variant pedigree. Obviously, it is far
+        from complete.
+      </p>
+
+      <p>
+        Ancestor contribution percentages are calculated from the lineage chart
+        and will be inaccurate as the chart cannot account for the nuances and
+        realities of gene expression and selective breeding.
+      </p>
+
+      <p>Sorry it's a bit hard to use on mobile; best on a large screen.</p>
+      <p>
+        <b>Controls</b><br />
+        Push F11 to toggle full screen.<br />
+        Use the mouse or controls to zoom in and out.<br />
+        Nodes are draggable within their column (press shift / long press on
+        mobile).
+      </p>
+    </div>
+
+    <div id="strainDropdown"></div>
+
+    <div id="loading-message">chart loading...</div>
+
+    <svg
+      id="nzIconTemplate"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 28 28"
+    >
+      <symbol id="nzIcon">
+        <circle
+          cx="14"
+          cy="14"
+          r="12.5"
+          fill="white"
+          stroke="black"
+          stroke-width="3"
+        />
+        <line
+          x1="7"
+          y1="9"
+          x2="7"
+          y2="19"
+          stroke="black"
+          stroke-width="3"
+          stroke-linecap="round"
+        />
+        <line
+          x1="7"
+          y1="9"
+          x2="13"
+          y2="19"
+          stroke="black"
+          stroke-width="3"
+          stroke-linecap="round"
+        />
+        <line
+          x1="13"
+          y1="9"
+          x2="13"
+          y2="19"
+          stroke="black"
+          stroke-width="3"
+          stroke-linecap="round"
+        />
+        <line
+          x1="16"
+          y1="9"
+          x2="20.5"
+          y2="9"
+          stroke="black"
+          stroke-width="3"
+          stroke-linecap="round"
+        />
+        <line
+          x1="16"
+          y1="19"
+          x2="21.5"
+          y2="19"
+          stroke="black"
+          stroke-width="3"
+          stroke-linecap="round"
+        />
+        <line
+          x1="21.5"
+          y1="9"
+          x2="16"
+          y2="19"
+          stroke="black"
+          stroke-width="3"
+          stroke-linecap="round"
+        />
+      </symbol>
+    </svg>
+
+    <script>
+      // -----------------------------------------------------------------------
+      // Global chart configuration
+      // -----------------------------------------------------------------------
+
+      window.DOMINANCE_COLOURS = Object.freeze({
+        "sativa dominant": "#ffea8a",
+        "indica dominant": "#9be7f5",
+        "ruderalis dominant": "#d9d2e9",
+        "balanced hybrid": "#bee8a6",
+        unknown: "#d1e6cb",
+        default: "#eaeaea",
+      });
+
+      const DOMINANCE_COLOURS = window.DOMINANCE_COLOURS;
+
+      window.CHART_COLOURS = Object.freeze({
+        nodeStroke: "#000",
+        productStroke: "#000",
+        selected: "#f0f",
+        hoverHighlight: "#f0f",
+        searchHighlight: "#f00",
+        percentageBackground: "#000",
+        percentageText: "#fff",
+        panelBackground: "rgba(255, 255, 255, 0.95)",
+        variantBlendTarget: "#fff",
+        dimmedOpacity: 0.05,
+      });
+
+      window.CHART_SIZING = Object.freeze({
+        nodeHeight: 30,
+        minimumNodeWidth: 150,
+        variantWidthRatio: 0.85,
+        nodeStrokeWidth: 3,
+        selectedStrokeWidth: 8,
+        nodeHorizontalPadding: 12,
+        estimatedCharacterWidth: 7,
+        columnWidthRatio: 1.6,
+        columnSpacing: 16,
+        sparseColumnMaximumNodes: 5,
+        sparseColumnSpacingMultiplier: 2,
+        variantSpacing: 2,
+        linkWidth: 3,
+        focusedLinkWidth: 4,
+        percentagePillWidth: 80,
+        percentagePillPadding: 10,
+        percentageTextYOffset: 1,
+        productIconSize: 30,
+        productIconRightOffset: 20,
+        productIconYOffset: -14,
+        infoPanelWidth: 220,
+        infoPanelXOffset: 10,
+        infoPanelBaseGap: 20,
+        viewportPadding: 50,
+      });
+
+      window.CHART_BEHAVIOUR = Object.freeze({
+        zoomMinimum: 0.1,
+        zoomMaximum: 4,
+        zoomButtonFactor: 1.05,
+        zoomButtonDuration: 250,
+        zoomTransitionDuration: 750,
+        lineageZoomScale: 0.9,
+        hoverDelay: 200,
+        hoverScale: 1.4,
+        hoverTransitionDuration: 150,
+        linkDarkenAmount: 2,
+        variantBlendAmount: 0.5,
+      });
+
+      const CHART_COLOURS = window.CHART_COLOURS;
+      const CHART_SIZING = window.CHART_SIZING;
+      const CHART_BEHAVIOUR = window.CHART_BEHAVIOUR;
+
+      const chartState = {
+        strainData: [],
+        nodes: [],
+        links: [],
+        svg: null,
+        group: null,
+        zoom: null,
+        nodeSelection: null,
+        linkSelection: null,
+        focusedNode: null,
+        width: 0,
+        height: 0,
+        standardNodeWidth: CHART_SIZING.minimumNodeWidth,
+        isDragging: false,
+      };
+
+      const searchState = {
+        blinkInterval: null,
+        showingUnderscore: true,
+      };
+
+      const DOMINANCE_ORDER = Object.freeze({
+        "indica dominant": 0,
+        "ruderalis dominant": 1,
+        "balanced hybrid": 2,
+        unknown: 3,
+        "sativa dominant": 4,
+      });
+
+      const INDICA_ORDER = Object.freeze([
+        "Afghan/Pakistan Indica Landraces",
+        "Purple Afghan Indica Landraces",
+        "Hindu Kush Landraces",
+        "Nepalese Indica Landraces",
+        "India Indica Landraces",
+        "Thailand Indica Landraces",
+        "African Indica Landraces",
+        "North American Indica Landraces",
+      ]);
+
+      const SATIVA_ORDER = Object.freeze([
+        "South India Sativa Landraces",
+        "Burmese Sativa Landraces",
+        "Cambodia Sativa Landraces",
+        "Thai Sativa Landraces",
+        "Chocolate Thai Sativa Landraces",
+        "Purple Thai Sativa Landraces",
+        "Indonesia Sativa Landraces",
+        "African Sativa Landraces",
+        "North African Sativa Landraces",
+        "East African Sativa landraces",
+        "South African Sativa Landraces",
+        "Jamaican Sativa Landraces",
+        "California Sativa Landraces",
+        "Mexico Sativa Landraces",
+        "Panama Sativa Landraces",
+        "Colombian Sativa Landraces",
+        "Brazil Sativa Landraces",
+        "Hawaiian Sativa Landraces",
+      ]);
+
+      function applyChartTheme() {
+        const root = document.documentElement;
+        const properties = {
+          "--chart-node-stroke": CHART_COLOURS.nodeStroke,
+          "--chart-selected": CHART_COLOURS.selected,
+          "--chart-hover-highlight": CHART_COLOURS.hoverHighlight,
+          "--chart-search-highlight": CHART_COLOURS.searchHighlight,
+          "--chart-percentage-background": CHART_COLOURS.percentageBackground,
+          "--chart-percentage-text": CHART_COLOURS.percentageText,
+          "--chart-panel-background": CHART_COLOURS.panelBackground,
+          "--chart-dimmed-opacity": CHART_COLOURS.dimmedOpacity,
+        };
+
+        Object.entries(properties).forEach(([name, value]) => {
+          root.style.setProperty(name, value);
+        });
+      }
+
+      // -----------------------------------------------------------------------
+      // Spreadsheet conversion and data preparation
+      // -----------------------------------------------------------------------
+
+      function setLoading(isLoading) {
+        document.getElementById("loading-message").style.display = isLoading
+          ? "block"
+          : "none";
+      }
+
+      function showError(message) {
+        setLoading(false);
+        alert(message);
+      }
+
+      function parseStrainCsv(csvText) {
+        return d3
+          .csvParse(csvText, (row) =>
+            Object.fromEntries(
+              Object.entries(row).map(([key, value]) => [
+                key.trim(),
+                value.trim(),
+              ]),
+            ),
+          )
+          .filter((row) => Object.values(row).some((value) => value !== ""));
+      }
+
+      function convertSpreadsheetRowsToNodes(rows) {
+        const convertedNodes = rows.map((strain) => ({
+          id: strain.Strain,
+          name: strain.Strain,
+          displayName: strain.Strain,
+          dominance: strain.Dominance,
+          parents: [
+            strain.Parent1,
+            strain.Parent2,
+            strain.Parent3,
+            strain.Parent4,
+          ].filter(Boolean),
+          generation: 0,
+          special: strain.Special,
+          product: strain.Product,
+          variant: strain.Variant,
+          alsoKnownAs: strain["Also Known As"],
+        }));
+
+        const parentNames = new Set(
+          convertedNodes.flatMap((node) => node.parents),
+        );
+
+        return convertedNodes
+          .filter(
+            (node) =>
+              parentNames.has(node.name) ||
+              node.parents.length > 0 ||
+              node.special ||
+              node.variant,
+          )
+          .map((node) => ({
+            ...node,
+            displayName: node.name.toLowerCase().includes("unknown")
+              ? node.name.replace(/\d+/g, "")
+              : node.name,
+          }));
+      }
+
+      function buildLinks(nodes) {
+        const links = [];
+        const nodeIds = new Set(nodes.map((node) => node.id));
+        const nodesByName = new Map(nodes.map((node) => [node.name, node]));
+
+        nodes.forEach((node) => {
+          if (node.variant) {
+            const parentNode = nodesByName.get(node.variant);
+            if (parentNode) {
+              links.push({ source: parentNode.id, target: node.id });
+            }
+            return;
+          }
+
+          node.parents.forEach((parentId) => {
+            if (nodeIds.has(parentId)) {
+              links.push({ source: parentId, target: node.id });
+            }
+          });
+        });
+
+        return links;
+      }
+
+      async function initialiseChart() {
+        setLoading(true);
+
+        try {
+          const response = await fetch(APP_CONFIG.dataUrl);
+          if (!response.ok) throw new Error("Network response was not ok");
+
+          chartState.strainData = parseStrainCsv(await response.text());
+          if (!chartState.strainData.length) {
+            throw new Error("Not enough data in the spreadsheet.");
+          }
+
+          createLineageChart();
+          setupStrainSearch();
+        } catch (error) {
+          showError(`Error fetching data: ${error.message}`);
+          console.error("Fetch error:", error);
+          return;
+        }
+
+        setLoading(false);
+      }
+
+      // -----------------------------------------------------------------------
+      // Global generation, lineage, contribution, and sorting calculations
+      // -----------------------------------------------------------------------
+
+      function assignGenerations(nodes) {
+        let changed = true;
+
+        while (changed) {
+          changed = false;
+
+          nodes.forEach((node) => {
+            const lowerName = node.name.toLowerCase();
+            const lowerSpecial = node.special?.toLowerCase();
+
+            if (lowerName.includes("unknown lineages")) {
+              if (node.generation !== 2) {
+                node.generation = 2;
+                changed = true;
+              }
+              return;
+            }
+
+            if (lowerSpecial === "origin") {
+              if (node.generation !== 0) {
+                node.generation = 0;
+                changed = true;
+              }
+              return;
+            }
+
+            if (lowerSpecial === "landrace") {
+              if (node.generation !== 1) {
+                node.generation = 1;
+                changed = true;
+              }
+              return;
+            }
+
+            if (node.variant) {
+              const parentNode = nodes.find(
+                (candidate) => candidate.name === node.variant,
+              );
+              if (parentNode && node.generation !== parentNode.generation) {
+                node.generation = parentNode.generation;
+                changed = true;
+              }
+              return;
+            }
+
+            if (lowerName.includes("unknown")) {
+              if (node.generation < 2) {
+                node.generation = 2;
+                changed = true;
+              }
+              return;
+            }
+
+            const parentGenerations = node.parents
+              .map(
+                (parentId) =>
+                  nodes.find((candidate) => candidate.id === parentId)
+                    ?.generation ?? -1,
+              )
+              .filter((generation) => generation !== -1);
+
+            if (!parentGenerations.length) return;
+
+            const generation = Math.max(...parentGenerations) + 1;
+            if (node.generation !== generation) {
+              node.generation = generation;
+              changed = true;
+            }
+          });
+        }
+
+        let specialCaseChanged = true;
+
+        while (specialCaseChanged) {
+          specialCaseChanged = false;
+
+          nodes.forEach((node) => {
+            const lowerName = node.name.toLowerCase();
+            if (lowerName.includes("unknown lineages")) return;
+
+            const hasOnlyUnknownParents =
+              node.parents.length > 0 &&
+              node.parents.every((parentId) => {
+                const parent = nodes.find(
+                  (candidate) => candidate.id === parentId,
+                );
+                return parent?.name.toLowerCase().includes("unknown");
+              });
+
+            if (!lowerName.includes("unknown") && !hasOnlyUnknownParents) {
+              return;
+            }
+
+            const children = nodes.filter((candidate) =>
+              candidate.parents.includes(node.id),
+            );
+            if (!children.length) return;
+
+            const generation = Math.max(
+              2,
+              Math.min(...children.map((child) => child.generation)) - 1,
+            );
+
+            if (node.generation !== generation) {
+              node.generation = generation;
+              specialCaseChanged = true;
+            }
+          });
+        }
+      }
+
+      function sortByDominanceAndLandrace(a, b) {
+        const aDominance = a.dominance?.toLowerCase() || "unknown";
+        const bDominance = b.dominance?.toLowerCase() || "unknown";
+
+        if (aDominance !== bDominance) {
+          return (
+            (DOMINANCE_ORDER[aDominance] ?? 99) -
+            (DOMINANCE_ORDER[bDominance] ?? 99)
+          );
+        }
+
+        const orderedNames =
+          aDominance === "indica dominant"
+            ? INDICA_ORDER
+            : aDominance === "sativa dominant"
+              ? SATIVA_ORDER
+              : null;
+
+        if (orderedNames) {
+          const aIndex = orderedNames.indexOf(a.name);
+          const bIndex = orderedNames.indexOf(b.name);
+          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+          if (aIndex !== -1) return -1;
+          if (bIndex !== -1) return 1;
+        }
+
+        return a.name.localeCompare(b.name);
+      }
+
+      function barycentricSort(generationNodes, allNodes, direction = "parents") {
+        return generationNodes
+          .map((node) => {
+            const references =
+              direction === "parents"
+                ? node.parents
+                    .map((parentId) =>
+                      allNodes.find((parent) => parent.id === parentId),
+                    )
+                    .filter(Boolean)
+                : allNodes.filter((child) => child.parents.includes(node.id));
+
+            return {
+              node,
+              averageY: references.length
+                ? d3.mean(references, (reference) => reference.y)
+                : node.y,
+            };
+          })
+          .sort(
+            (a, b) =>
+              (a.averageY ?? Infinity) - (b.averageY ?? Infinity),
+          )
+          .map(({ node }) => node);
+      }
+
+      function calculateOriginPositions(nodes) {
+        nodes
+          .filter((node) => node.generation === 0)
+          .forEach((node) => {
+            const children = nodes.filter((candidate) =>
+              candidate.parents.includes(node.id),
+            );
+            if (children.length) {
+              node.y = d3.mean(children, (child) => child.y);
+            }
+          });
+      }
+
+      function calculateAncestorContributions(startNode, nodes) {
+        const contributions = new Map();
+
+        function walk(node, amount) {
+          contributions.set(
+            node.id,
+            (contributions.get(node.id) || 0) + amount,
+          );
+
+          const parents = (node.parents || [])
+            .map((parentId) =>
+              nodes.find((candidate) => candidate.id === parentId),
+            )
+            .filter(Boolean);
+
+          if (node.variant) {
+            const baseNode = nodes.find(
+              (candidate) => candidate.name === node.variant,
+            );
+            if (baseNode) parents.push(baseNode);
+          }
+
+          if (!parents.length) return;
+
+          const splitAmount = amount / parents.length;
+          parents.forEach((parent) => walk(parent, splitAmount));
+        }
+
+        walk(startNode, 100);
+        return contributions;
+      }
+
+      function calculateDescendantContributions(startNode, nodes) {
+        const contributions = new Map();
+
+        function walk(node, amount) {
+          if (node.id !== startNode.id) {
+            contributions.set(
+              node.id,
+              (contributions.get(node.id) || 0) + amount,
+            );
+          }
+
+          const children = nodes.filter(
+            (candidate) =>
+              candidate.parents.includes(node.id) ||
+              candidate.variant === node.name,
+          );
+
+          children.forEach((child) => {
+            const parentCount =
+              (child.parents?.length || 0) + (child.variant ? 1 : 0);
+            if (parentCount) walk(child, amount / parentCount);
+          });
+        }
+
+        walk(startNode, 100);
+        return contributions;
+      }
+
+      function collectLineage(startNode, nodes) {
+        const lineage = new Set();
+
+        function addAncestors(node) {
+          if (!node || lineage.has(node.id)) return;
+          lineage.add(node.id);
+
+          if (node.variant) {
+            addAncestors(
+              nodes.find((candidate) => candidate.name === node.variant),
+            );
+            return;
+          }
+
+          node.parents.forEach((parentId) => {
+            addAncestors(
+              nodes.find((candidate) => candidate.id === parentId),
+            );
+          });
+        }
+
+        function addDescendants(nodeId) {
+          lineage.add(nodeId);
+
+          const node = nodes.find((candidate) => candidate.id === nodeId);
+          if (!node) return;
+
+          nodes
+            .filter(
+              (candidate) =>
+                candidate.parents.includes(nodeId) ||
+                candidate.variant === node.name,
+            )
+            .forEach((child) => {
+              if (!lineage.has(child.id)) addDescendants(child.id);
+            });
+        }
+
+        addAncestors(startNode);
+        addDescendants(startNode.id);
+        return lineage;
+      }
+
+      // -----------------------------------------------------------------------
+      // Global colour and geometry helpers
+      // -----------------------------------------------------------------------
+
+      function getDominanceColour(dominance = "unknown") {
+        return (
+          DOMINANCE_COLOURS[dominance.toLowerCase()] ??
+          DOMINANCE_COLOURS.default
+        );
+      }
+
+      function darkenColour(colour, amount) {
+        return d3
+          .color(colour)
+          .darker(amount / 10)
+          .toString();
+      }
+
+      function blendToWhite(colour, amount) {
+        return d3.interpolateRgb(
+          d3.color(colour),
+          d3.color(CHART_COLOURS.variantBlendTarget),
+        )(amount);
+      }
+
+      function getNodeWidth(node) {
+        return node.variant
+          ? chartState.standardNodeWidth * CHART_SIZING.variantWidthRatio
+          : chartState.standardNodeWidth;
+      }
+
+      function getLinkPath(link) {
+        const sourceNode = chartState.nodes.find(
+          (node) => node.id === link.source,
+        );
+        const targetNode = chartState.nodes.find(
+          (node) => node.id === link.target,
+        );
+
+        if (!sourceNode || !targetNode) return "";
+
+        const sourceX = sourceNode.x + getNodeWidth(sourceNode) / 2;
+        const targetX = targetNode.x - getNodeWidth(targetNode) / 2;
+        const middleX = (sourceX + targetX) / 2;
+
+        return `M${sourceX},${sourceNode.y} C${middleX},${sourceNode.y} ${middleX},${targetNode.y} ${targetX},${targetNode.y}`;
+      }
+
+      // -----------------------------------------------------------------------
+      // Core chart layout and construction
+      // -----------------------------------------------------------------------
+
+      function calculateChartLayout() {
+        const { nodes, width, height } = chartState;
+
+        chartState.standardNodeWidth = Math.max(
+          ...nodes.map(
+            (node) =>
+              node.displayName.length * CHART_SIZING.estimatedCharacterWidth,
+          ),
+          CHART_SIZING.minimumNodeWidth,
+        );
+
+        const maximumGeneration = Math.max(
+          ...nodes.map((node) => node.generation),
+        );
+        const columnWidth = Math.max(
+          width / (maximumGeneration + 1),
+          chartState.standardNodeWidth * CHART_SIZING.columnWidthRatio,
+        );
+
+        for (
+          let generation = 0;
+          generation <= maximumGeneration + 1;
+          generation += 1
+        ) {
+          let generationNodes = nodes.filter(
+            (node) =>
+              node.generation === generation ||
+              (generation === 1 &&
+                node.special?.toLowerCase() === "landrace"),
+          );
+
+          generationNodes.forEach((node) => {
+            node.x = generation * columnWidth;
+          });
+
+          if (generation === 1) {
+            generationNodes.sort(sortByDominanceAndLandrace);
+          } else if (generation >= 2) {
+            const dominanceGroups = d3.groups(
+              generationNodes,
+              (node) => node.dominance?.toLowerCase() || "unknown",
+            );
+
+            dominanceGroups.sort(
+              ([aDominance], [bDominance]) =>
+                (DOMINANCE_ORDER[aDominance] ?? 99) -
+                (DOMINANCE_ORDER[bDominance] ?? 99),
+            );
+
+            generationNodes = dominanceGroups
+              .map(([, groupNodes]) =>
+                barycentricSort(groupNodes, nodes, "parents"),
+              )
+              .flat();
+          }
+
+          const nonVariantNodes = generationNodes.filter(
+            (node) => !node.variant,
+          );
+          const variantCount = generationNodes.length - nonVariantNodes.length;
+          const sparseColumn =
+            generation >= 2 &&
+            nonVariantNodes.length <= CHART_SIZING.sparseColumnMaximumNodes;
+          const spacing = sparseColumn
+            ? CHART_SIZING.nodeHeight *
+              CHART_SIZING.sparseColumnSpacingMultiplier
+            : CHART_SIZING.columnSpacing;
+
+          const totalHeight =
+            nonVariantNodes.length * (CHART_SIZING.nodeHeight + spacing) +
+            variantCount *
+              (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
+          const startY = (height - totalHeight) / 2;
+          let yOffset = 0;
+
+          nonVariantNodes.forEach((node) => {
+            node.y = startY + yOffset;
+            yOffset += CHART_SIZING.nodeHeight + spacing;
+
+            const variants = nodes
+              .filter((candidate) => candidate.variant === node.name)
+              .sort((a, b) => a.name.localeCompare(b.name));
+
+            variants.forEach((variant, index) => {
+              variant.x = node.x;
+              variant.y =
+                node.y +
+                (index + 1) *
+                  (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
+            });
+
+            yOffset +=
+              variants.length *
+              (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
+          });
+        }
+
+        calculateOriginPositions(nodes);
+      }
+
+      function createChartCanvas() {
+        const chartContainer = document.querySelector(".chart-container");
+        chartState.width = chartContainer.clientWidth;
+        chartState.height = chartContainer.clientHeight;
+        chartState.focusedNode = null;
+
+        d3.select("#lineageChart").selectAll("*").remove();
+
+        chartState.svg = d3
+          .select("#lineageChart")
+          .append("svg")
+          .attr("width", chartState.width)
+          .attr("height", chartState.height);
+
+        chartState.group = chartState.svg.append("g");
+        chartState.zoom = d3
+          .zoom()
+          .scaleExtent([
+            CHART_BEHAVIOUR.zoomMinimum,
+            CHART_BEHAVIOUR.zoomMaximum,
+          ])
+          .on("zoom", (event) => {
+            chartState.group.attr("transform", event.transform);
+          });
+
+        chartState.svg.call(chartState.zoom);
+      }
+
+      function renderLinks() {
+        chartState.linkSelection = chartState.group
+          .append("g")
+          .selectAll("path")
+          .data(chartState.links)
+          .join("path")
+          .attr("class", "link")
+          .attr("stroke", (link) => {
+            const sourceNode = chartState.nodes.find(
+              (node) => node.id === link.source,
+            );
+            return darkenColour(
+              getDominanceColour(sourceNode?.dominance),
+              CHART_BEHAVIOUR.linkDarkenAmount,
+            );
+          })
+          .attr("stroke-opacity", 1)
+          .attr("stroke-width", CHART_SIZING.linkWidth)
+          .attr("fill", "none")
+          .attr("d", getLinkPath);
+      }
+
+      function renderNodes() {
+        chartState.nodeSelection = chartState.group
+          .append("g")
+          .selectAll("g")
+          .data(chartState.nodes)
+          .join("g")
+          .attr("class", "node")
+          .attr("transform", (node) => `translate(${node.x},${node.y})`)
+          .each(function (node) {
+            node.currentScale = 1;
+            node.hoverTimer = null;
+            if (node.product) d3.select(this).raise();
+          });
+
+        renderNodeBackgrounds();
+        renderNodeLabels();
+        renderProductLabels();
+        renderProductIcons();
+        attachNodeInteractions();
+      }
+
+      function renderNodeBackgrounds() {
+        chartState.nodeSelection
+          .append("rect")
+          .attr("rx", CHART_SIZING.nodeHeight / 2)
+          .attr("ry", CHART_SIZING.nodeHeight / 2)
+          .attr("width", getNodeWidth)
+          .attr("height", CHART_SIZING.nodeHeight)
+          .attr("x", (node) => -getNodeWidth(node) / 2)
+          .attr("y", -CHART_SIZING.nodeHeight / 2)
+          .attr("fill", (node) => {
+            if (node.variant) {
+              const parentNode = chartState.nodes.find(
+                (candidate) => candidate.name === node.variant,
+              );
+              if (parentNode) {
+                return blendToWhite(
+                  getDominanceColour(parentNode.dominance),
+                  CHART_BEHAVIOUR.variantBlendAmount,
+                );
+              }
+            }
+            return getDominanceColour(node.dominance);
+          })
+          .attr("stroke", (node) =>
+            node.product
+              ? CHART_COLOURS.productStroke
+              : getDominanceColour(node.dominance),
+          )
+          .attr("stroke-width", CHART_SIZING.nodeStrokeWidth);
+      }
+
+      function renderNodeLabels() {
+        chartState.nodeSelection
+          .append("text")
+          .attr("class", "strain-name")
+          .text((node) => node.displayName)
+          .attr(
+            "x",
+            (node) =>
+              -getNodeWidth(node) / 2 + CHART_SIZING.nodeHorizontalPadding,
+          )
+          .attr("y", 1)
+          .each(function (node) {
+            const availableWidth =
+              getNodeWidth(node) - CHART_SIZING.nodeHorizontalPadding * 2;
+            if (this.getComputedTextLength() > availableWidth) {
+              d3.select(this).classed("is-condensed", true);
+            }
+          });
+      }
+
+      function renderProductLabels() {
+        chartState.nodeSelection
+          .append("text")
+          .filter((node) => node.product)
+          .attr("class", "product")
+          .text((node) => node.product)
+          .attr("x", positionProductLabel)
+          .attr("y", 1.6)
+          .each(function (node) {
+            const nodeWidth = getNodeWidth(node);
+            const strainLabel = this.parentNode.querySelector(".strain-name");
+            const remainingWidth =
+              nodeWidth - strainLabel.getComputedTextLength() - 40;
+
+            if (this.getComputedTextLength() > remainingWidth) {
+              d3.select(this).classed("is-condensed", true);
+              d3.select(strainLabel).classed("is-condensed", true);
+              d3.select(this).attr("x", positionProductLabel.call(this, node));
+            }
+          });
+      }
+
+      function positionProductLabel(node) {
+        const strainLabel = this.parentNode.querySelector(".strain-name");
+        return (
+          -getNodeWidth(node) / 2 +
+          5 +
+          strainLabel.getComputedTextLength() +
+          10
+        );
+      }
+
+      function renderProductIcons() {
+        chartState.nodeSelection
+          .filter((node) => node.product)
+          .append("use")
+          .attr("href", "#nzIcon")
+          .attr("width", CHART_SIZING.productIconSize)
+          .attr("height", CHART_SIZING.productIconSize)
+          .attr(
+            "x",
+            (node) =>
+              getNodeWidth(node) / 2 - CHART_SIZING.productIconRightOffset,
+          )
+          .attr("y", CHART_SIZING.productIconYOffset);
+      }
+
+      function createLineageChart() {
+        createChartCanvas();
+        chartState.nodes = convertSpreadsheetRowsToNodes(chartState.strainData);
+        assignGenerations(chartState.nodes);
+        chartState.links = buildLinks(chartState.nodes);
+        calculateChartLayout();
+        renderLinks();
+        renderNodes();
+        attachChartCanvasInteractions();
+        applyInitialZoom();
+        populateStrainList();
+        focusStrainFromUrl();
+      }
+
+      // -----------------------------------------------------------------------
+      // Auxiliary selection, highlighting, dragging, zoom, and info panel
+      // -----------------------------------------------------------------------
+
+      function attachNodeInteractions() {
+        chartState.nodeSelection
+          .on("mouseover", handleNodeMouseOver)
+          .on("mouseout", handleNodeMouseOut)
+          .on("click", handleNodeClick)
+          .call(createNodeDragBehaviour());
+      }
+
+      function handleNodeMouseOver(event, node) {
+        if (chartState.isDragging) return;
+
+        window.clearTimeout(node.hoverTimer);
+        node.hoverTimer = window.setTimeout(() => {
+          node.currentScale = CHART_BEHAVIOUR.hoverScale;
+          d3.select(this)
+            .interrupt(true)
+            .raise()
+            .transition()
+            .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
+            .attr(
+              "transform",
+              `translate(${node.x},${node.y}) scale(${node.currentScale})`,
+            );
+          highlightHoverLineage(node);
+        }, CHART_BEHAVIOUR.hoverDelay);
+      }
+
+      function handleNodeMouseOut(event, node) {
+        if (chartState.isDragging) return;
+
+        window.clearTimeout(node.hoverTimer);
+        node.hoverTimer = null;
+        if (node.currentScale === 1) return;
+
+        node.currentScale = 1;
+        d3.select(this)
+          .interrupt(true)
+          .transition()
+          .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
+          .attr("transform", `translate(${node.x},${node.y}) scale(1)`)
+          .on("end", raiseProductNodes);
+
+        clearHoverHighlight();
+      }
+
+      function handleNodeClick(event, node) {
+        event.stopPropagation();
+        selectNode(node);
+      }
+
+      function createNodeDragBehaviour() {
+        return d3
+          .drag()
+          .filter(
+            (event) =>
+              event.shiftKey || event.sourceEvent.type.startsWith("touch"),
+          )
+          .on("start", startNodeDrag)
+          .on("drag", dragNode)
+          .on("end", finishNodeDrag);
+      }
+
+      function startNodeDrag(event, node) {
+        chartState.isDragging = true;
+        node.dragging = true;
+        d3.select(this).raise();
+        node.variantOffsets = chartState.nodes
+          .filter((candidate) => candidate.variant === node.name)
+          .map((variant) => ({
+            id: variant.id,
+            offsetY: variant.y - node.y,
+          }));
+      }
+
+      function dragNode(event, node) {
+        if (!node.dragging) return;
+
+        node.y = event.y;
+        d3.select(this).attr("transform", `translate(${node.x},${node.y})`);
+
+        node.variantOffsets?.forEach(({ id, offsetY }) => {
+          const variant = chartState.nodes.find(
+            (candidate) => candidate.id === id,
+          );
+          if (!variant) return;
+
+          variant.y = node.y + offsetY;
+          chartState.nodeSelection
+            .filter((candidate) => candidate.id === variant.id)
+            .attr("transform", `translate(${variant.x},${variant.y})`);
+        });
+
+        chartState.linkSelection.attr("d", getLinkPath);
+      }
+
+      function finishNodeDrag(event, node) {
+        if (!node.dragging) return;
+        node.dragging = false;
+        chartState.isDragging = false;
+      }
+
+      function raiseProductNodes() {
+        chartState.nodeSelection.each(function (node) {
+          if (node.product) d3.select(this).raise();
+        });
+      }
+
+      function attachChartCanvasInteractions() {
+        chartState.svg.on("click", (event) => {
+          if (!event.defaultPrevented) clearChartFocus();
+        });
+
+        chartState.svg.on("mouseleave", () => {
+          chartState.nodeSelection
+            .each((node) => {
+              window.clearTimeout(node.hoverTimer);
+              node.currentScale = 1;
+            })
+            .transition()
+            .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
+            .attr("transform", (node) =>
+              `translate(${node.x},${node.y}) scale(1)`,
+            );
+          clearHoverHighlight();
+        });
+      }
+
+      function selectNode(node) {
+        removeChartOverlays();
+
+        if (chartState.focusedNode === node) {
+          clearChartFocus();
+          return;
+        }
+
+        const lineage = collectLineage(node, chartState.nodes);
+
+        chartState.nodeSelection
+          .classed("dimmed", (candidate) => !lineage.has(candidate.id))
+          .classed("clicked", (candidate) => candidate.id === node.id);
+
+        chartState.linkSelection
+          .classed(
+            "dimmed",
+            (link) =>
+              !lineage.has(link.source) || !lineage.has(link.target),
+          )
+          .attr("stroke-width", (link) =>
+            lineage.has(link.source) && lineage.has(link.target)
+              ? CHART_SIZING.focusedLinkWidth
+              : CHART_SIZING.linkWidth,
+          );
+
+        chartState.focusedNode = node;
+        zoomToLineage(lineage);
+
+        const ancestorContributions = calculateAncestorContributions(
+          node,
+          chartState.nodes,
+        );
+        const descendantContributions = calculateDescendantContributions(
+          node,
+          chartState.nodes,
+        );
+        const allContributions = combineContributions(
+          node,
+          ancestorContributions,
+          descendantContributions,
+        );
+
+        renderContributionPills(node, allContributions);
+        renderInfoPanel(node, ancestorContributions);
+      }
+
+      function combineContributions(
+        focusedNode,
+        ancestorContributions,
+        descendantContributions,
+      ) {
+        const combined = new Map(ancestorContributions);
+        descendantContributions.forEach((amount, nodeId) => {
+          combined.set(nodeId, (combined.get(nodeId) || 0) + amount);
+        });
+        combined.set(focusedNode.id, 100);
+        return combined;
+      }
+
+      function clearChartFocus({ resetView = true } = {}) {
+        chartState.focusedNode = null;
+        chartState.nodeSelection
+          ?.classed("dimmed", false)
+          .classed("clicked", false);
+        chartState.linkSelection
+          ?.classed("dimmed", false)
+          .attr("stroke-width", CHART_SIZING.linkWidth);
+        removeChartOverlays();
+
+        if (resetView) resetZoom();
+      }
+
+      function removeChartOverlays() {
+        chartState.group
+          ?.selectAll(".pct-pill, .pct-pill-text, .info-panel")
+          .remove();
+      }
+
+      function highlightHoverLineage(node) {
+        const lineage = collectLineage(node, chartState.nodes);
+        chartState.nodeSelection.classed("highlighted", (candidate) =>
+          lineage.has(candidate.id),
+        );
+        chartState.linkSelection.classed(
+          "highlighted",
+          (link) => lineage.has(link.source) && lineage.has(link.target),
+        );
+      }
+
+      function clearHoverHighlight() {
+        chartState.nodeSelection?.classed("highlighted", false);
+        chartState.linkSelection?.classed("highlighted", false);
+      }
+
+      function renderContributionPills(focusedNode, contributions) {
+        chartState.nodeSelection
+          .filter(
+            (node) =>
+              node.id !== focusedNode.id && contributions.has(node.id),
+          )
+          .each(function (node) {
+            const amount = contributions.get(node.id);
+            const label = amount < 1 ? "<1%" : `${Math.round(amount)}%`;
+            const nodeWidth = getNodeWidth(node);
+            const pillX = nodeWidth / 2;
+            const group = d3.select(this);
+
+            group
+              .insert("rect", ":first-child")
+              .attr("class", "pct-pill")
+              .attr(
+                "x",
+                pillX - CHART_SIZING.percentagePillPadding * 2 - 4,
+              )
+              .attr("y", -CHART_SIZING.nodeHeight / 2)
+              .attr("rx", CHART_SIZING.nodeHeight / 2)
+              .attr("ry", CHART_SIZING.nodeHeight / 2)
+              .attr("width", CHART_SIZING.percentagePillWidth)
+              .attr("height", CHART_SIZING.nodeHeight)
+              .attr("stroke-width", CHART_SIZING.nodeStrokeWidth);
+
+            group
+              .append("text")
+              .attr("class", "pct-pill-text")
+              .attr(
+                "x",
+                nodeWidth / 2 + CHART_SIZING.percentagePillPadding,
+              )
+              .attr("y", CHART_SIZING.percentageTextYOffset)
+              .attr("text-anchor", "middle")
+              .text(label);
+          });
+      }
+
+      function getInfoPanelData(node, ancestorContributions) {
+        const alsoKnownAs = node.alsoKnownAs
+          ? node.alsoKnownAs
+              .split(";")
+              .map((name) => name.trim())
+              .filter(Boolean)
+          : [];
+
+        const contributors = Array.from(ancestorContributions.entries())
+          .filter(([nodeId, percentage]) =>
+            nodeId !== node.id && percentage >= 5,
+          )
+          .map(([nodeId, percentage]) => {
+            const contributor = chartState.nodes.find(
+              (candidate) => candidate.id === nodeId,
+            );
+            if (!contributor) return null;
+
+            return {
+              name: contributor.name,
+              percentage: Math.round(percentage),
+              dominance: contributor.dominance,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => b.percentage - a.percentage);
+
+        return { alsoKnownAs, contributors };
+      }
+
+      function renderInfoPanel(node, ancestorContributions) {
+        const { alsoKnownAs, contributors } = getInfoPanelData(
+          node,
+          ancestorContributions,
+        );
+        const variantCount = chartState.nodes.filter(
+          (candidate) => candidate.variant === node.name,
+        ).length;
+        const panelGap =
+          CHART_SIZING.infoPanelBaseGap +
+          variantCount * (CHART_SIZING.nodeHeight + 1);
+
+        const foreignObject = chartState.group
+          .append("foreignObject")
+          .attr("class", "info-panel")
+          .attr(
+            "x",
+            node.x +
+              CHART_SIZING.infoPanelXOffset -
+              CHART_SIZING.infoPanelWidth / 2,
+          )
+          .attr("y", node.y + panelGap)
+          .attr("width", CHART_SIZING.infoPanelWidth);
+
+        const panel = foreignObject
+          .append("xhtml:div")
+          .attr("class", "info-panel-content");
+
+        if (alsoKnownAs.length) {
+          panel
+            .append("div")
+            .attr("class", "info-panel-heading")
+            .text("Also known as");
+          panel.append("div").html(alsoKnownAs.join("<br>"));
+          panel.append("br");
+        }
+
+        if (contributors.length) {
+          panel
+            .append("div")
+            .attr(
+              "class",
+              "info-panel-heading info-panel-heading--contributors",
+            )
+            .text("Ancestor contributions");
+
+          const table = panel
+            .append("div")
+            .attr("id", "contributors-table")
+            .attr("class", "contributors-grid");
+
+          contributors.forEach((contributor) => {
+            table
+              .append("div")
+              .attr("class", "c-perc")
+              .text(`${contributor.percentage}%`);
+            table
+              .append("div")
+              .attr("class", "c-dot")
+              .style(
+                "background-color",
+                getDominanceColour(contributor.dominance),
+              );
+            table
+              .append("div")
+              .attr("class", "c-name")
+              .text(contributor.name);
+          });
+
+          const actions = panel
+            .append("div")
+            .attr("class", "info-panel-actions");
+
+          actions
+            .append("a")
+            .attr("href", "#")
+            .text("Copy strain URL")
+            .on("click", (event) => copyStrainURL(node.name, event));
+          actions.append("br");
+          actions
+            .append("a")
+            .attr("href", "#")
+            .text("Copy strain contributors")
+            .on("click", (event) =>
+              copyStrainContributors(node.name, event),
+            );
+        }
+
+        foreignObject.attr("height", panel.node().scrollHeight);
+      }
+
+      function getChartTransform(nodes, scaleMultiplier = 1) {
+        const minimumX =
+          d3.min(nodes, (node) => node.x) - chartState.standardNodeWidth / 2;
+        const maximumX =
+          d3.max(nodes, (node) => node.x) + chartState.standardNodeWidth / 2;
+        const minimumY =
+          d3.min(nodes, (node) => node.y) - CHART_SIZING.nodeHeight / 2;
+        const maximumY =
+          d3.max(nodes, (node) => node.y) + CHART_SIZING.nodeHeight / 2;
+        const horizontalSpan =
+          maximumX - minimumX + CHART_SIZING.viewportPadding * 2;
+        const verticalSpan =
+          maximumY - minimumY + CHART_SIZING.viewportPadding * 2;
+        const scale =
+          scaleMultiplier *
+          Math.min(
+            chartState.width / horizontalSpan,
+            chartState.height / verticalSpan,
+          );
+        const centreX = (minimumX + maximumX) / 2;
+        const centreY = (minimumY + maximumY) / 2;
+
+        return d3.zoomIdentity
+          .translate(
+            chartState.width / 2 - scale * centreX,
+            chartState.height / 2 - scale * centreY,
+          )
+          .scale(scale);
+      }
+
+      function applyInitialZoom() {
+        chartState.svg.call(
+          chartState.zoom.transform,
+          getChartTransform(chartState.nodes),
+        );
+      }
+
+      function zoomToLineage(lineage) {
+        const activeNodes = chartState.nodes.filter((node) =>
+          lineage.has(node.id),
+        );
+
+        chartState.svg
+          .transition()
+          .duration(CHART_BEHAVIOUR.zoomTransitionDuration)
+          .call(
+            chartState.zoom.transform,
+            getChartTransform(
+              activeNodes,
+              CHART_BEHAVIOUR.lineageZoomScale,
+            ),
+          );
+      }
+
+      function resetZoom() {
+        if (!chartState.svg || !chartState.zoom || !chartState.nodes.length) {
+          return;
+        }
+
+        chartState.svg
+          .transition()
+          .duration(CHART_BEHAVIOUR.zoomTransitionDuration)
+          .call(
+            chartState.zoom.transform,
+            getChartTransform(chartState.nodes),
+          );
+      }
+
+      function zoomByFactor(factor) {
+        if (!chartState.svg || !chartState.zoom) return;
+
+        const currentTransform = d3.zoomTransform(chartState.svg.node());
+        const scale = currentTransform.k * factor;
+        const [minimumScale, maximumScale] = chartState.zoom.scaleExtent();
+        if (scale < minimumScale || scale > maximumScale) return;
+
+        chartState.svg
+          .transition()
+          .duration(CHART_BEHAVIOUR.zoomButtonDuration)
+          .call(
+            chartState.zoom.transform,
+            d3.zoomIdentity
+              .translate(currentTransform.x, currentTransform.y)
+              .scale(scale),
+          );
+      }
+
+      // -----------------------------------------------------------------------
+      // Auxiliary URL focus and strain search
+      // -----------------------------------------------------------------------
+
+      function normaliseStrainName(name) {
+        return name
+          .replace(/_/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+      }
+
+      function getRequestedFocusStrain() {
+        const requestedName = new URLSearchParams(window.location.search).get(
+          "focus",
+        );
+        return requestedName ? normaliseStrainName(requestedName) : null;
+      }
+
+      function findNodeByNormalisedName(name) {
+        return chartState.nodes.find(
+          (node) => normaliseStrainName(node.name) === name,
+        );
+      }
+
+      function focusStrainFromUrl() {
+        const requestedName = getRequestedFocusStrain();
+        if (!requestedName) return;
+
+        requestAnimationFrame(() => {
+          const targetNode = findNodeByNormalisedName(requestedName);
+          if (targetNode) selectNode(targetNode);
+        });
+      }
+
+      function populateStrainList() {
+        const strainList = document.getElementById("strainList");
+        strainList.innerHTML = "";
+
+        chartState.nodes
+          .filter((strain) => !strain.name.toLowerCase().includes("unknown"))
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .forEach((strain) => {
+            const strainItem = document.createElement("div");
+            strainItem.className = "strain-item";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.id = `strain-${strain.id}`;
+            checkbox.className = "strain-checkbox";
+
+            const label = document.createElement("label");
+            label.htmlFor = checkbox.id;
+            label.className = "strain-label";
+            label.textContent =
+              strain.name + (strain.product ? ` (${strain.product})` : "");
+
+            strainItem.append(checkbox, label);
+            strainList.appendChild(strainItem);
+          });
+      }
+
+      function startSearchPlaceholderBlink() {
+        const searchInput = document.getElementById("strainSearch");
+        window.clearInterval(searchState.blinkInterval);
+        searchInput.classList.add("hidden-cursor");
+        searchState.showingUnderscore = true;
+
+        searchState.blinkInterval = window.setInterval(() => {
+          searchInput.placeholder = searchState.showingUnderscore
+            ? "go to strain_"
+            : "go to strain ";
+          searchState.showingUnderscore = !searchState.showingUnderscore;
+        }, 500);
+      }
+
+      function stopSearchPlaceholderBlink() {
+        const searchInput = document.getElementById("strainSearch");
+        window.clearInterval(searchState.blinkInterval);
+        searchState.blinkInterval = null;
+        searchInput.placeholder = "go to strain";
+        searchInput.classList.remove("hidden-cursor");
+      }
+
+      function updateStrainDropdownPosition() {
+        const searchInput = document.getElementById("strainSearch");
+        const dropdown = document.getElementById("strainDropdown");
+        const inputBounds = searchInput.getBoundingClientRect();
+        const dropdownWidth = inputBounds.width * 0.9;
+
+        dropdown.style.width = `${dropdownWidth}px`;
+        dropdown.style.top = `${inputBounds.bottom + 5}px`;
+        dropdown.style.left = `${inputBounds.left + inputBounds.width / 2 - dropdownWidth / 2}px`;
+      }
+
+      function getMatchingStrains(searchText) {
+        const normalisedSearch = searchText.toLowerCase();
+
+        return chartState.nodes
+          .filter(
+            (node) =>
+              !node.name.toLowerCase().includes("unknown") &&
+              (node.name.toLowerCase().includes(normalisedSearch) ||
+                node.product?.toLowerCase().includes(normalisedSearch) ||
+                node.alsoKnownAs?.toLowerCase().includes(normalisedSearch)),
+          )
+          .sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      function renderStrainDropdown(matches) {
+        const dropdown = document.getElementById("strainDropdown");
+        dropdown.innerHTML = "";
+
+        matches.forEach((strain) => {
+          const item = document.createElement("div");
+          item.innerHTML =
+            strain.name +
+            (strain.product ? `<br>(${strain.product})` : "") +
+            (strain.alsoKnownAs ? ` [${strain.alsoKnownAs}]` : "");
+          item.addEventListener("click", () => chooseSearchResult(strain));
+          dropdown.appendChild(item);
+        });
+
+        dropdown.style.display = matches.length ? "block" : "none";
+      }
+
+      function chooseSearchResult(strain) {
+        const searchInput = document.getElementById("strainSearch");
+        const dropdown = document.getElementById("strainDropdown");
+        const searchPopup = document.getElementById("popup2");
+
+        selectNode(strain);
+        dropdown.style.display = "none";
+        searchInput.value = "";
+        searchPopup.style.display = "none";
+        document.querySelector(".popup-overlay").style.display = "none";
+        startSearchPlaceholderBlink();
+      }
+
+      function handleStrainSearchInput(event) {
+        const searchText = event.currentTarget.value;
+        if (searchText) stopSearchPlaceholderBlink();
+
+        if (!searchText) {
+          document.getElementById("strainDropdown").style.display = "none";
+          return;
+        }
+
+        updateStrainDropdownPosition();
+        renderStrainDropdown(getMatchingStrains(searchText));
+      }
+
+      function setupStrainSearch() {
+        const searchInput = document.getElementById("strainSearch");
+        const dropdown = document.getElementById("strainDropdown");
+
+        startSearchPlaceholderBlink();
+        searchInput.addEventListener("focus", updateStrainDropdownPosition);
+        searchInput.addEventListener("input", handleStrainSearchInput);
+
+        document.addEventListener("click", (event) => {
+          if (
+            !searchInput.contains(event.target) &&
+            !dropdown.contains(event.target)
+          ) {
+            dropdown.style.display = "none";
+          }
+        });
+      }
+
+      // -----------------------------------------------------------------------
+      // Page controls and responsive behaviour
+      // -----------------------------------------------------------------------
+
+      function showPopup(popup) {
+        const overlay = document.querySelector(".popup-overlay");
+        const searchPopup = document.getElementById("popup2");
+
+        popup.style.display = popup === searchPopup ? "flex" : "block";
+        overlay.style.display = "block";
+
+        if (popup === searchPopup) {
+          document.getElementById("strainSearch").focus();
+        }
+      }
+
+      function hidePopup(popup) {
+        popup.style.display = "none";
+        document.querySelector(".popup-overlay").style.display = "none";
+      }
+
+      function setupPopups() {
+        const overlay = document.querySelector(".popup-overlay");
+        const searchPopup = document.getElementById("popup2");
+        const aboutPopup = document.getElementById("popup3");
+
+        document
+          .getElementById("btn3")
+          .addEventListener("click", () => showPopup(aboutPopup));
+        document
+          .getElementById("btn2")
+          .addEventListener("click", () => showPopup(searchPopup));
+
+        aboutPopup
+          .querySelector(".close-button")
+          .addEventListener("click", () => {
+            hidePopup(aboutPopup);
+            showPopup(searchPopup);
+          });
+        searchPopup
+          .querySelector(".close-button")
+          .addEventListener("click", () => hidePopup(searchPopup));
+
+        overlay.addEventListener("click", () => {
+          if (aboutPopup.style.display !== "none") {
+            hidePopup(aboutPopup);
+            showPopup(searchPopup);
+          } else if (searchPopup.style.display !== "none") {
+            hidePopup(searchPopup);
+          }
+        });
+
+        document.querySelectorAll(".popup").forEach((popup) => {
+          popup.addEventListener("click", (event) => event.stopPropagation());
+        });
+
+        showPopup(aboutPopup);
+      }
+
+      function toggleFullScreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen();
+        } else if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+
+      function adjustFullscreenButtonPosition() {
+        const ribbon = document.querySelector(".header-ribbon");
+        const controls = document.querySelector(
+          ".fullscreen-button-container",
+        );
+        if (ribbon && controls) {
+          controls.style.top = `${ribbon.offsetHeight + 10}px`;
+        }
+      }
+
+      function adjustButtonFontSize() {
+        const buttons = document.querySelectorAll(".btn:not(#btn3):not(#btn2)");
+        const headerButtons = document.querySelector(".header-buttons");
+        if (!buttons.length || !headerButtons) return;
+
+        const aboutButton = document.getElementById("btn3");
+        const availableWidth =
+          headerButtons.offsetWidth - (aboutButton?.offsetWidth || 0);
+        const totalButtonWidth = Array.from(buttons).reduce(
+          (total, button) => total + button.offsetWidth,
+          0,
+        );
+
+        if (totalButtonWidth <= availableWidth) return;
+
+        const scaleFactor = availableWidth / totalButtonWidth;
+        buttons.forEach((button) => {
+          const fontSize = parseFloat(getComputedStyle(button).fontSize);
+          button.style.fontSize = `${fontSize * scaleFactor}px`;
+        });
+      }
+
+      function handleWindowResize() {
+        if (chartState.strainData.length) createLineageChart();
+        adjustFullscreenButtonPosition();
+        adjustButtonFontSize();
+      }
+
+      function setupPageControls() {
+        document
+          .getElementById("fullscreenToggle")
+          .addEventListener("click", toggleFullScreen);
+        document
+          .getElementById("zoomInButton")
+          .addEventListener("click", () =>
+            zoomByFactor(CHART_BEHAVIOUR.zoomButtonFactor),
+          );
+        document
+          .getElementById("zoomOutButton")
+          .addEventListener("click", () =>
+            zoomByFactor(1 / CHART_BEHAVIOUR.zoomButtonFactor),
+          );
+        document
+          .getElementById("deselectButton")
+          .addEventListener("click", () => {
+            if (chartState.focusedNode) clearChartFocus();
+          });
+
+        window.addEventListener("resize", handleWindowResize);
+      }
+
+      // -----------------------------------------------------------------------
+      // Startup
+      // -----------------------------------------------------------------------
+
+      applyChartTheme();
+      setupPageControls();
+      initialiseChart();
+
+      window.addEventListener("load", () => {
+        setupPopups();
+        adjustFullscreenButtonPosition();
+        adjustButtonFontSize();
+      });
+    </script>
+  </body>
+</html>
