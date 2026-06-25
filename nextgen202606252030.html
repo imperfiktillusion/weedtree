@@ -451,7 +451,7 @@
         height: 28px;
         padding: 0;
         border: 1px solid #555;
-        border-radius: 5px;
+        border-radius: 50%;
         background: #fff;
         color: #222;
         font: 600 18px/1 "Roboto", Arial, sans-serif;
@@ -460,6 +460,11 @@
 
       .info-panel-zoom-button:hover { background: #eee; }
       .info-panel-zoom-button:disabled { opacity: 0.4; cursor: default; }
+
+      .info-panel-close-button {
+        font-size: 20px;
+        font-weight: 400;
+      }
 
       .info-panel-body {
         flex: 1 1 auto;
@@ -535,6 +540,42 @@
         min-width: 0;
         white-space: normal;
         overflow-wrap: anywhere;
+      }
+
+      .comparison-panel-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: calc(18px * var(--info-panel-scale));
+        width: max-content;
+        min-width: 100%;
+        max-width: 100%;
+      }
+
+      .comparison-panel-column {
+        min-width: 0;
+      }
+
+      .comparison-panel-column-title {
+        margin-bottom: calc(8px * var(--info-panel-scale));
+        padding-bottom: calc(5px * var(--info-panel-scale));
+        border-bottom: 1px solid #888;
+        font-size: calc(16px * var(--info-panel-scale));
+        font-weight: 400;
+        line-height: 1.2;
+        overflow-wrap: anywhere;
+      }
+
+      .comparison-contributors-grid {
+        display: grid;
+        grid-template-columns: max-content calc(10px * var(--info-panel-scale)) minmax(0, 1fr);
+        align-items: center;
+        column-gap: calc(5px * var(--info-panel-scale));
+        row-gap: calc(5px * var(--info-panel-scale));
+      }
+
+      .comparison-panel-empty {
+        grid-column: 1 / -1;
+        white-space: normal;
       }
 
       #copy-popup {
@@ -631,9 +672,46 @@
             aria-label="Zoom info panel in"
             title="Zoom info panel in"
           >+</button>
+          <button
+            id="infoPanelClose"
+            class="info-panel-zoom-button info-panel-close-button"
+            type="button"
+            aria-label="Deselect strain"
+            title="Deselect strain"
+          >×</button>
         </div>
       </div>
       <div id="infoPanelBody" class="info-panel-body"></div>
+    </aside>
+
+    <aside id="comparisonPanel" class="info-panel" aria-live="polite" hidden>
+      <div class="info-panel-topbar">
+        <div id="comparisonPanelTitle" class="info-panel-title">Shared Ancestor Contributions</div>
+        <div class="info-panel-zoom-controls" aria-label="Comparison panel controls">
+          <button
+            id="comparisonPanelZoomOut"
+            class="info-panel-zoom-button"
+            type="button"
+            aria-label="Zoom comparison panel out"
+            title="Zoom comparison panel out"
+          >−</button>
+          <button
+            id="comparisonPanelZoomIn"
+            class="info-panel-zoom-button"
+            type="button"
+            aria-label="Zoom comparison panel in"
+            title="Zoom comparison panel in"
+          >+</button>
+          <button
+            id="comparisonPanelClose"
+            class="info-panel-zoom-button info-panel-close-button"
+            type="button"
+            aria-label="Clear comparison"
+            title="Clear comparison"
+          >×</button>
+        </div>
+      </div>
+      <div id="comparisonPanelBody" class="info-panel-body"></div>
     </aside>
 
     <!-- Popups -->
@@ -804,6 +882,7 @@
         resizeTimer: null,
         selectionMode: "single",
         infoPanelZoom: 1,
+        comparisonPanelZoom: 1,
       };
 
       const DOMINANCE_ORDER = Object.freeze({
@@ -2043,6 +2122,7 @@
         chartState.focusedLineage = new Set(combinedLineage);
 
         showComparisonLegend(firstNode, secondNode);
+        renderComparisonPanel(firstNode, secondNode);
         zoomToLineage(combinedLineage);
       }
 
@@ -2086,6 +2166,7 @@
       function removeChartOverlays() {
         chartState.group?.selectAll(".pct-pill, .pct-pill-text").remove();
         clearInfoPanel();
+        clearComparisonPanel();
       }
 
       function highlightHoverLineage(node) {
@@ -2235,9 +2316,30 @@
         legend?.replaceChildren();
       }
 
+      function getProductsForStrainAndVariants(node) {
+        const products = new Set();
+        const visited = new Set();
+
+        function collectProducts(currentNode) {
+          if (!currentNode || visited.has(currentNode.id)) return;
+          visited.add(currentNode.id);
+
+          parseSemicolonSeparatedValues(currentNode.product).forEach((product) =>
+            products.add(product),
+          );
+
+          const variants =
+            chartState.indexes.variantsByBaseName.get(currentNode.name) || [];
+          variants.forEach(collectProducts);
+        }
+
+        collectProducts(node);
+        return [...products].sort((a, b) => a.localeCompare(b));
+      }
+
       function getInfoPanelData(node, ancestorContributions) {
         const alsoKnownAs = parseSemicolonSeparatedValues(node.alsoKnownAs);
-        const products = parseSemicolonSeparatedValues(node.product);
+        const products = getProductsForStrainAndVariants(node);
 
         const contributors = Array.from(ancestorContributions.entries())
           .filter(([nodeId, percentage]) =>
@@ -2270,8 +2372,35 @@
         body.replaceChildren();
       }
 
-      function setInfoPanelZoom(nextZoom) {
-        const panel = document.getElementById("infoPanel");
+      function clearComparisonPanel() {
+        const panel = document.getElementById("comparisonPanel");
+        const body = document.getElementById("comparisonPanelBody");
+        if (!panel || !body) return;
+
+        panel.hidden = true;
+        body.replaceChildren();
+      }
+
+      const PANEL_ZOOM_CONFIG = Object.freeze({
+        info: {
+          panelId: "infoPanel",
+          zoomOutId: "infoPanelZoomOut",
+          zoomInId: "infoPanelZoomIn",
+          stateKey: "infoPanelZoom",
+        },
+        comparison: {
+          panelId: "comparisonPanel",
+          zoomOutId: "comparisonPanelZoomOut",
+          zoomInId: "comparisonPanelZoomIn",
+          stateKey: "comparisonPanelZoom",
+        },
+      });
+
+      function setPanelZoom(panelType, nextZoom) {
+        const config = PANEL_ZOOM_CONFIG[panelType];
+        if (!config) return;
+
+        const panel = document.getElementById(config.panelId);
         if (!panel) return;
 
         const clampedZoom = Math.min(
@@ -2279,27 +2408,33 @@
           Math.max(CHART_BEHAVIOUR.infoPanelZoomMinimum, nextZoom),
         );
 
-        pageState.infoPanelZoom = Number(clampedZoom.toFixed(2));
+        pageState[config.stateKey] = Number(clampedZoom.toFixed(2));
         panel.style.setProperty(
           "--info-panel-scale",
-          pageState.infoPanelZoom,
+          pageState[config.stateKey],
         );
 
-        const zoomOut = document.getElementById("infoPanelZoomOut");
-        const zoomIn = document.getElementById("infoPanelZoomIn");
+        const zoomOut = document.getElementById(config.zoomOutId);
+        const zoomIn = document.getElementById(config.zoomInId);
         if (zoomOut) {
           zoomOut.disabled =
-            pageState.infoPanelZoom <= CHART_BEHAVIOUR.infoPanelZoomMinimum;
+            pageState[config.stateKey] <=
+            CHART_BEHAVIOUR.infoPanelZoomMinimum;
         }
         if (zoomIn) {
           zoomIn.disabled =
-            pageState.infoPanelZoom >= CHART_BEHAVIOUR.infoPanelZoomMaximum;
+            pageState[config.stateKey] >=
+            CHART_BEHAVIOUR.infoPanelZoomMaximum;
         }
       }
 
-      function adjustInfoPanelZoom(direction) {
-        setInfoPanelZoom(
-          pageState.infoPanelZoom +
+      function adjustPanelZoom(panelType, direction) {
+        const config = PANEL_ZOOM_CONFIG[panelType];
+        if (!config) return;
+
+        setPanelZoom(
+          panelType,
+          pageState[config.stateKey] +
             direction * CHART_BEHAVIOUR.infoPanelZoomStep,
         );
       }
@@ -2417,7 +2552,136 @@
           body.appendChild(actions);
         }
 
-        setInfoPanelZoom(pageState.infoPanelZoom);
+        clearComparisonPanel();
+        setPanelZoom("info", pageState.infoPanelZoom);
+        panel.hidden = false;
+      }
+
+      function formatContributionPercentage(amount) {
+        return amount < 1 ? "<1%" : `${Math.round(amount)}%`;
+      }
+
+      function getSharedAncestorContributions(firstNode, secondNode) {
+        const firstContributions = calculateAncestorContributions(
+          firstNode,
+          chartState.nodes,
+          chartState.indexes,
+        );
+        const secondContributions = calculateAncestorContributions(
+          secondNode,
+          chartState.nodes,
+          chartState.indexes,
+        );
+
+        return [...firstContributions.keys()]
+          .filter(
+            (nodeId) =>
+              secondContributions.has(nodeId) &&
+              nodeId !== firstNode.id &&
+              nodeId !== secondNode.id,
+          )
+          .map((nodeId) => {
+            const ancestor = chartState.indexes.nodesById.get(nodeId);
+            if (!ancestor) return null;
+
+            return {
+              ancestor,
+              firstPercentage: firstContributions.get(nodeId),
+              secondPercentage: secondContributions.get(nodeId),
+            };
+          })
+          .filter(Boolean)
+          .sort(
+            (a, b) =>
+              b.firstPercentage + b.secondPercentage -
+                (a.firstPercentage + a.secondPercentage) ||
+              a.ancestor.name.localeCompare(b.ancestor.name),
+          );
+      }
+
+      function appendComparisonContributorRows(
+        container,
+        sharedAncestors,
+        percentageKey,
+      ) {
+        const grid = document.createElement("div");
+        grid.className = "comparison-contributors-grid";
+
+        sharedAncestors.forEach(({ ancestor, ...percentages }) => {
+          const percentage = document.createElement("div");
+          percentage.className = "c-perc";
+          percentage.textContent = formatContributionPercentage(
+            percentages[percentageKey],
+          );
+
+          const dot = document.createElement("div");
+          dot.className = "c-dot";
+          dot.style.backgroundColor = getDominanceColour(ancestor.dominance);
+
+          const name = document.createElement("div");
+          name.className = "c-name";
+          name.textContent = ancestor.name;
+
+          grid.append(percentage, dot, name);
+        });
+
+        container.appendChild(grid);
+      }
+
+      function renderComparisonPanel(firstNode, secondNode) {
+        const panel = document.getElementById("comparisonPanel");
+        const body = document.getElementById("comparisonPanelBody");
+        if (!panel || !body) return;
+
+        const sharedAncestors = getSharedAncestorContributions(
+          firstNode,
+          secondNode,
+        );
+
+        body.replaceChildren();
+
+        const columns = document.createElement("div");
+        columns.className = "comparison-panel-columns";
+
+        const firstColumn = document.createElement("section");
+        firstColumn.className = "comparison-panel-column";
+        const firstTitle = document.createElement("div");
+        firstTitle.className = "comparison-panel-column-title";
+        firstTitle.textContent = firstNode.name;
+        firstColumn.appendChild(firstTitle);
+
+        const secondColumn = document.createElement("section");
+        secondColumn.className = "comparison-panel-column";
+        const secondTitle = document.createElement("div");
+        secondTitle.className = "comparison-panel-column-title";
+        secondTitle.textContent = secondNode.name;
+        secondColumn.appendChild(secondTitle);
+
+        if (sharedAncestors.length) {
+          appendComparisonContributorRows(
+            firstColumn,
+            sharedAncestors,
+            "firstPercentage",
+          );
+          appendComparisonContributorRows(
+            secondColumn,
+            sharedAncestors,
+            "secondPercentage",
+          );
+        } else {
+          [firstColumn, secondColumn].forEach((column) => {
+            const empty = document.createElement("div");
+            empty.className = "comparison-panel-empty";
+            empty.textContent = "No shared ancestors recorded.";
+            column.appendChild(empty);
+          });
+        }
+
+        columns.append(firstColumn, secondColumn);
+        body.appendChild(columns);
+
+        clearInfoPanel();
+        setPanelZoom("comparison", pageState.comparisonPanelZoom);
         panel.hidden = false;
       }
 
@@ -2882,10 +3146,22 @@
           );
         document
           .getElementById("infoPanelZoomIn")
-          .addEventListener("click", () => adjustInfoPanelZoom(1));
+          .addEventListener("click", () => adjustPanelZoom("info", 1));
         document
           .getElementById("infoPanelZoomOut")
-          .addEventListener("click", () => adjustInfoPanelZoom(-1));
+          .addEventListener("click", () => adjustPanelZoom("info", -1));
+        document
+          .getElementById("comparisonPanelZoomIn")
+          .addEventListener("click", () => adjustPanelZoom("comparison", 1));
+        document
+          .getElementById("comparisonPanelZoomOut")
+          .addEventListener("click", () => adjustPanelZoom("comparison", -1));
+        document
+          .getElementById("infoPanelClose")
+          .addEventListener("click", () => clearChartFocus());
+        document
+          .getElementById("comparisonPanelClose")
+          .addEventListener("click", () => clearChartFocus());
 
         document
           .getElementById("deselectButton")
@@ -2908,7 +3184,8 @@
 
       applyChartTheme();
       setupPageControls();
-      setInfoPanelZoom(pageState.infoPanelZoom);
+      setPanelZoom("info", pageState.infoPanelZoom);
+      setPanelZoom("comparison", pageState.comparisonPanelZoom);
       initialiseChart();
 
       window.addEventListener("load", () => {
