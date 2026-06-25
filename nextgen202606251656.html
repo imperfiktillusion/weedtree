@@ -198,6 +198,36 @@
         gap: 20px;
       }
 
+      #popup2 .search-mode-toggle {
+        display: inline-flex;
+        overflow: hidden;
+        border: 3px solid #434343;
+        border-radius: 999px;
+        background: #fff;
+      }
+
+      #popup2 .search-mode-option {
+        min-width: 110px;
+        padding: 7px 18px;
+        border: 0;
+        background: transparent;
+        color: #434343;
+        font: 600 16px "Poppins", Arial, sans-serif;
+        cursor: pointer;
+      }
+
+      #popup2 .search-mode-option.is-active {
+        background: #434343;
+        color: #fff;
+      }
+
+      #popup2 .compare-selection-status {
+        min-height: 22px;
+        color: #fff;
+        font: 600 15px "Poppins", Arial, sans-serif;
+        text-align: center;
+      }
+
       #popup2 .search-container {
         position: relative;
         display: flex;
@@ -315,23 +345,27 @@
       #zoomInButton,
       #zoomOutButton { flex: 1; font-size: 30px; font-weight: 700; }
 
-      .chart-container { flex-grow: 1; width: 100%; overflow: hidden; }
+      .chart-container { position: relative; flex-grow: 1; width: 100%; overflow: hidden; }
       #lineageChart { width: 100%; height: 100%; }
-      #nzIconTemplate { display: none; }
-
-      .node use { z-index: 1000; pointer-events: none; }
       .node text { z-index: 999; fill: #000; text-anchor: start; dominant-baseline: middle; }
       .strain-name { font: 700 15px "Roboto", Arial, sans-serif; }
-      .product { font: 400 10px "Roboto", Arial, sans-serif; }
       .is-condensed { font-family: "Roboto Condensed", Arial, sans-serif; }
 
-      .node.clicked rect { stroke: var(--chart-selected); stroke-width: 8px; }
-      .node.highlighted rect { stroke: var(--chart-hover-highlight); stroke-width: 3px; }
+      .node.clicked .node-background { stroke: var(--chart-selected); stroke-width: 8px; }
+      .node.highlighted:not(.has-product) .node-background,
+      .node.compare-shared:not(.has-product) .node-background {
+        stroke: var(--chart-hover-highlight);
+        stroke-width: 3px;
+      }
+      .node.has-product:not(.clicked) .node-background { stroke: var(--chart-product-stroke); }
       .node.highlighted-search .highlight-arrow { fill: var(--chart-search-highlight); }
-      .link.highlighted { stroke: var(--chart-hover-highlight) !important; stroke-width: 3px; }
+      .link.highlighted,
+      .link.compare-shared {
+        stroke: var(--chart-hover-highlight) !important;
+        stroke-width: 3px;
+      }
       .node.dimmed rect,
       .node.dimmed text,
-      .node.dimmed use,
       .link.dimmed { opacity: var(--chart-dimmed-opacity); }
 
       .pct-pill {
@@ -339,10 +373,11 @@
         stroke: var(--chart-node-stroke);
       }
 
-      .pct-pill-text {
+      .node .pct-pill-text {
         fill: var(--chart-percentage-text);
-        font-size: 9px;
-        font-weight: 700;
+        font: 700 15px "Roboto", Arial, sans-serif;
+        text-anchor: middle;
+        dominant-baseline: middle;
         pointer-events: none;
       }
 
@@ -357,8 +392,34 @@
       }
 
       .info-panel-heading { font-weight: 700; }
-      .info-panel-heading--contributors { margin-bottom: 6px; }
+      .info-panel-heading--products {
+        line-height: 1.2;
+        white-space: normal;
+      }
+      .info-panel-heading--contributors {
+        margin-bottom: 6px;
+        line-height: 1.2;
+        white-space: normal;
+      }
       .info-panel-actions { margin-top: 6px; }
+
+      .comparison-legend {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 10;
+        display: none;
+        max-width: min(520px, calc(100% - 140px));
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.94);
+        color: #222;
+        font: 600 13px/1.35 "Roboto", Arial, sans-serif;
+        pointer-events: none;
+      }
+
+      .comparison-legend.is-visible { display: block; }
+      .comparison-legend-row + .comparison-legend-row { margin-top: 2px; }
 
       .contributors-grid {
         display: grid;
@@ -419,6 +480,7 @@
     <!-- Chart Container -->
     <div class="container">
       <div class="chart-container">
+        <div id="comparisonLegend" class="comparison-legend" aria-live="polite"></div>
         <div id="lineageChart"></div>
       </div>
     </div>
@@ -430,6 +492,25 @@
     <div id="popup2" class="popup">
       <button class="close-button">×</button>
       <div class="popup2-center">
+        <div class="search-mode-toggle" role="group" aria-label="Strain selection mode">
+          <button
+            type="button"
+            class="search-mode-option is-active"
+            data-search-mode="single"
+            aria-pressed="true"
+          >
+            Single
+          </button>
+          <button
+            type="button"
+            class="search-mode-option"
+            data-search-mode="compare"
+            aria-pressed="false"
+          >
+            Compare
+          </button>
+        </div>
+        <div id="compareSelectionStatus" class="compare-selection-status" aria-live="polite"></div>
         <div class="search-container">
           <input type="text" id="strainSearch" placeholder="go to strain_" />
         </div>
@@ -477,76 +558,6 @@
 
     <div id="loading-message">chart loading...</div>
 
-    <svg
-      id="nzIconTemplate"
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 28 28"
-    >
-      <symbol id="nzIcon">
-        <circle
-          cx="14"
-          cy="14"
-          r="12.5"
-          fill="white"
-          stroke="black"
-          stroke-width="3"
-        />
-        <line
-          x1="7"
-          y1="9"
-          x2="7"
-          y2="19"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-        <line
-          x1="7"
-          y1="9"
-          x2="13"
-          y2="19"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-        <line
-          x1="13"
-          y1="9"
-          x2="13"
-          y2="19"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-        <line
-          x1="16"
-          y1="9"
-          x2="20.5"
-          y2="9"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-        <line
-          x1="16"
-          y1="19"
-          x2="21.5"
-          y2="19"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-        <line
-          x1="21.5"
-          y1="9"
-          x2="16"
-          y2="19"
-          stroke="black"
-          stroke-width="3"
-          stroke-linecap="round"
-        />
-      </symbol>
-    </svg>
 
     <script>
       // -----------------------------------------------------------------------
@@ -593,15 +604,14 @@
         linkWidth: 3,
         focusedLinkWidth: 4,
         percentagePillWidth: 80,
-        percentagePillPadding: 10,
+        percentagePillOverlap: 24,
+        comparisonPillHorizontalPadding: 10,
         percentageTextYOffset: 1,
-        productIconSize: 30,
-        productIconRightOffset: 20,
-        productIconYOffset: -14,
-        infoPanelWidth: 220,
-        infoPanelXOffset: 10,
+        infoPanelWidth: 242,
+        infoPanelLeftOffset: -100,
         infoPanelBaseGap: 20,
         viewportPadding: 50,
+        leftEdgeMargin: 50,
       });
 
       window.CHART_BEHAVIOUR = Object.freeze({
@@ -632,6 +642,11 @@
         nodeSelection: null,
         linkSelection: null,
         focusedNode: null,
+        focusedLineage: null,
+        comparison: null,
+        currentTransform: null,
+        leftEdgeScreenX: null,
+        isLeftEdgeZoomLocked: false,
         width: 0,
         height: 0,
         standardNodeWidth: CHART_SIZING.minimumNodeWidth,
@@ -647,6 +662,8 @@
       };
 
       const searchState = {
+        mode: "single",
+        firstComparisonNode: null,
         blinkInterval: null,
         showingUnderscore: true,
       };
@@ -699,6 +716,7 @@
         const root = document.documentElement;
         const properties = {
           "--chart-node-stroke": CHART_COLOURS.nodeStroke,
+          "--chart-product-stroke": CHART_COLOURS.productStroke,
           "--chart-selected": CHART_COLOURS.selected,
           "--chart-hover-highlight": CHART_COLOURS.hoverHighlight,
           "--chart-search-highlight": CHART_COLOURS.searchHighlight,
@@ -739,6 +757,15 @@
             ),
           )
           .filter((row) => Object.values(row).some((value) => value !== ""));
+      }
+
+      function parseSemicolonSeparatedValues(value) {
+        return value
+          ? value
+              .split(";")
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [];
       }
 
       function convertSpreadsheetRowsToNodes(rows) {
@@ -1433,6 +1460,11 @@
         chartState.width = chartContainer.clientWidth;
         chartState.height = chartContainer.clientHeight;
         chartState.focusedNode = null;
+        chartState.focusedLineage = null;
+        chartState.comparison = null;
+        chartState.currentTransform = null;
+        chartState.leftEdgeScreenX = null;
+        chartState.isLeftEdgeZoomLocked = false;
 
         d3.select("#lineageChart").selectAll("*").remove();
 
@@ -1449,8 +1481,41 @@
             CHART_BEHAVIOUR.zoomMinimum,
             CHART_BEHAVIOUR.zoomMaximum,
           ])
-          .on("zoom", (event) => {
-            chartState.group.attr("transform", event.transform);
+          .on("zoom", function (event) {
+            let transform = event.transform;
+            const previousTransform =
+              chartState.currentTransform || event.transform;
+            const scaleChanged =
+              Math.abs(transform.k - previousTransform.k) > 1e-9;
+            const positionChanged =
+              Math.abs(transform.x - previousTransform.x) > 1e-9 ||
+              Math.abs(transform.y - previousTransform.y) > 1e-9;
+            const userPanned =
+              Boolean(event.sourceEvent) && !scaleChanged && positionChanged;
+
+            if (userPanned) {
+              chartState.isLeftEdgeZoomLocked = false;
+            }
+
+            if (
+              scaleChanged &&
+              chartState.isLeftEdgeZoomLocked &&
+              Number.isFinite(chartState.leftEdgeScreenX)
+            ) {
+              const referenceNodes = getZoomReferenceNodes();
+              const { minimumX } = getChartBounds(referenceNodes);
+              transform = d3.zoomIdentity
+                .translate(
+                  chartState.leftEdgeScreenX - transform.k * minimumX,
+                  transform.y,
+                )
+                .scale(transform.k);
+
+              d3.select(this).property("__zoom", transform);
+            }
+
+            chartState.currentTransform = transform;
+            chartState.group.attr("transform", transform);
           });
 
         chartState.svg.call(chartState.zoom);
@@ -1485,6 +1550,7 @@
           .data(chartState.nodes)
           .join("g")
           .attr("class", "node")
+          .classed("has-product", (node) => Boolean(node.product?.trim()))
           .attr("transform", (node) => `translate(${node.x},${node.y})`)
           .each(function (node) {
             node.currentScale = 1;
@@ -1494,14 +1560,13 @@
 
         renderNodeBackgrounds();
         renderNodeLabels();
-        renderProductLabels();
-        renderProductIcons();
         attachNodeInteractions();
       }
 
       function renderNodeBackgrounds() {
         chartState.nodeSelection
           .append("rect")
+          .attr("class", "node-background")
           .attr("rx", CHART_SIZING.nodeHeight / 2)
           .attr("ry", CHART_SIZING.nodeHeight / 2)
           .attr("width", getNodeWidth)
@@ -1548,53 +1613,6 @@
               d3.select(this).classed("is-condensed", true);
             }
           });
-      }
-
-      function renderProductLabels() {
-        chartState.nodeSelection
-          .append("text")
-          .filter((node) => node.product)
-          .attr("class", "product")
-          .text((node) => node.product)
-          .attr("x", positionProductLabel)
-          .attr("y", 1.6)
-          .each(function (node) {
-            const nodeWidth = getNodeWidth(node);
-            const strainLabel = this.parentNode.querySelector(".strain-name");
-            const remainingWidth =
-              nodeWidth - strainLabel.getComputedTextLength() - 40;
-
-            if (this.getComputedTextLength() > remainingWidth) {
-              d3.select(this).classed("is-condensed", true);
-              d3.select(strainLabel).classed("is-condensed", true);
-              d3.select(this).attr("x", positionProductLabel.call(this, node));
-            }
-          });
-      }
-
-      function positionProductLabel(node) {
-        const strainLabel = this.parentNode.querySelector(".strain-name");
-        return (
-          -getNodeWidth(node) / 2 +
-          5 +
-          strainLabel.getComputedTextLength() +
-          10
-        );
-      }
-
-      function renderProductIcons() {
-        chartState.nodeSelection
-          .filter((node) => node.product)
-          .append("use")
-          .attr("href", "#nzIcon")
-          .attr("width", CHART_SIZING.productIconSize)
-          .attr("height", CHART_SIZING.productIconSize)
-          .attr(
-            "x",
-            (node) =>
-              getNodeWidth(node) / 2 - CHART_SIZING.productIconRightOffset,
-          )
-          .attr("y", CHART_SIZING.productIconYOffset);
       }
 
       function createLineageChart() {
@@ -1740,14 +1758,16 @@
 
       function selectNode(node) {
         removeChartOverlays();
+        hideComparisonLegend();
 
-        if (chartState.focusedNode === node) {
+        if (chartState.focusedNode === node && !chartState.comparison) {
           clearChartFocus();
           return;
         }
 
         const lineage = collectLineage(node, chartState.nodes, chartState.indexes);
 
+        clearComparisonClasses();
         chartState.nodeSelection
           .classed("dimmed", (candidate) => !lineage.has(candidate.id))
           .classed("clicked", (candidate) => candidate.id === node.id);
@@ -1765,6 +1785,8 @@
           );
 
         chartState.focusedNode = node;
+        chartState.comparison = null;
+        chartState.focusedLineage = new Set(lineage);
         zoomToLineage(lineage);
 
         const ancestorContributions = calculateAncestorContributions(
@@ -1787,6 +1809,98 @@
         renderInfoPanel(node, ancestorContributions);
       }
 
+      function compareNodes(firstNode, secondNode) {
+        removeChartOverlays();
+        clearHoverHighlight();
+
+        const firstLineage = collectLineage(
+          firstNode,
+          chartState.nodes,
+          chartState.indexes,
+        );
+        const secondLineage = collectLineage(
+          secondNode,
+          chartState.nodes,
+          chartState.indexes,
+        );
+        const sharedLineage = new Set(
+          [...firstLineage].filter((nodeId) => secondLineage.has(nodeId)),
+        );
+        const combinedLineage = new Set([...firstLineage, ...secondLineage]);
+
+        chartState.nodeSelection
+          .classed("dimmed", (node) => !combinedLineage.has(node.id))
+          .classed(
+            "clicked",
+            (node) => node.id === firstNode.id || node.id === secondNode.id,
+          )
+          .classed("compare-shared", (node) => sharedLineage.has(node.id));
+
+        chartState.linkSelection
+          .classed("dimmed", (link) => {
+            const inFirst =
+              firstLineage.has(link.source) && firstLineage.has(link.target);
+            const inSecond =
+              secondLineage.has(link.source) && secondLineage.has(link.target);
+            return !inFirst && !inSecond;
+          })
+          .classed("compare-shared", (link) =>
+            firstLineage.has(link.source) &&
+            firstLineage.has(link.target) &&
+            secondLineage.has(link.source) &&
+            secondLineage.has(link.target),
+          )
+          .attr("stroke-width", (link) => {
+            const inFirst =
+              firstLineage.has(link.source) && firstLineage.has(link.target);
+            const inSecond =
+              secondLineage.has(link.source) && secondLineage.has(link.target);
+            return inFirst || inSecond
+              ? CHART_SIZING.focusedLinkWidth
+              : CHART_SIZING.linkWidth;
+          });
+
+        const firstContributions = getCombinedContributions(firstNode);
+        const secondContributions = getCombinedContributions(secondNode);
+
+        chartState.focusedNode = null;
+        chartState.comparison = {
+          firstNode,
+          secondNode,
+          firstLineage,
+          secondLineage,
+          sharedLineage,
+          combinedLineage,
+        };
+        chartState.focusedLineage = new Set(combinedLineage);
+
+        renderComparisonPills(
+          firstNode,
+          secondNode,
+          sharedLineage,
+          firstContributions,
+          secondContributions,
+        );
+        showComparisonLegend(firstNode, secondNode);
+        zoomToLineage(combinedLineage);
+      }
+
+      function getCombinedContributions(node) {
+        return combineContributions(
+          node,
+          calculateAncestorContributions(
+            node,
+            chartState.nodes,
+            chartState.indexes,
+          ),
+          calculateDescendantContributions(
+            node,
+            chartState.nodes,
+            chartState.indexes,
+          ),
+        );
+      }
+
       function combineContributions(
         focusedNode,
         ancestorContributions,
@@ -1800,15 +1914,25 @@
         return combined;
       }
 
+      function clearComparisonClasses() {
+        chartState.nodeSelection?.classed("compare-shared", false);
+        chartState.linkSelection?.classed("compare-shared", false);
+      }
+
       function clearChartFocus({ resetView = true } = {}) {
         chartState.focusedNode = null;
+        chartState.focusedLineage = null;
+        chartState.comparison = null;
         chartState.nodeSelection
           ?.classed("dimmed", false)
-          .classed("clicked", false);
+          .classed("clicked", false)
+          .classed("compare-shared", false);
         chartState.linkSelection
           ?.classed("dimmed", false)
+          .classed("compare-shared", false)
           .attr("stroke-width", CHART_SIZING.linkWidth);
         removeChartOverlays();
+        hideComparisonLegend();
 
         if (resetView) resetZoom();
       }
@@ -1845,16 +1969,19 @@
             const amount = contributions.get(node.id);
             const label = amount < 1 ? "<1%" : `${Math.round(amount)}%`;
             const nodeWidth = getNodeWidth(node);
-            const pillX = nodeWidth / 2;
+            const nodeRightEdge = nodeWidth / 2;
+            const pillLeft =
+              nodeRightEdge - CHART_SIZING.percentagePillOverlap;
+            const visiblePillWidth =
+              CHART_SIZING.percentagePillWidth -
+              CHART_SIZING.percentagePillOverlap;
+            const textCenter = nodeRightEdge + visiblePillWidth / 2;
             const group = d3.select(this);
 
             group
               .insert("rect", ":first-child")
               .attr("class", "pct-pill")
-              .attr(
-                "x",
-                pillX - CHART_SIZING.percentagePillPadding * 2 - 4,
-              )
+              .attr("x", pillLeft)
               .attr("y", -CHART_SIZING.nodeHeight / 2)
               .attr("rx", CHART_SIZING.nodeHeight / 2)
               .attr("ry", CHART_SIZING.nodeHeight / 2)
@@ -1865,27 +1992,102 @@
             group
               .append("text")
               .attr("class", "pct-pill-text")
-              .attr(
-                "x",
-                nodeWidth / 2 + CHART_SIZING.percentagePillPadding,
-              )
+              .attr("x", textCenter)
               .attr("y", CHART_SIZING.percentageTextYOffset)
               .attr("text-anchor", "middle")
               .text(label);
           });
       }
 
+      function renderComparisonPills(
+        firstNode,
+        secondNode,
+        sharedLineage,
+        firstContributions,
+        secondContributions,
+      ) {
+        chartState.nodeSelection
+          .filter(
+            (node) =>
+              sharedLineage.has(node.id) &&
+              node.id !== firstNode.id &&
+              node.id !== secondNode.id,
+          )
+          .each(function (node) {
+            const firstAmount = firstContributions.get(node.id) || 0;
+            const secondAmount = secondContributions.get(node.id) || 0;
+            const firstLabel = firstAmount < 1 ? "<1%" : `${Math.round(firstAmount)}%`;
+            const secondLabel = secondAmount < 1 ? "<1%" : `${Math.round(secondAmount)}%`;
+            const label = `A ${firstLabel} · B ${secondLabel}`;
+            const nodeWidth = getNodeWidth(node);
+            const nodeRightEdge = nodeWidth / 2;
+            const visibleLeft = nodeRightEdge;
+            const group = d3.select(this);
+
+            const text = group
+              .append("text")
+              .attr("class", "pct-pill-text")
+              .attr("y", CHART_SIZING.percentageTextYOffset)
+              .attr("text-anchor", "middle")
+              .text(label);
+
+            const visibleWidth =
+              text.node().getComputedTextLength() +
+              CHART_SIZING.comparisonPillHorizontalPadding * 2;
+            const pillWidth =
+              visibleWidth + CHART_SIZING.percentagePillOverlap;
+            const pillLeft =
+              nodeRightEdge - CHART_SIZING.percentagePillOverlap;
+            const textCenter = visibleLeft + visibleWidth / 2;
+
+            text.attr("x", textCenter);
+
+            group
+              .insert("rect", ".pct-pill-text")
+              .attr("class", "pct-pill")
+              .attr("x", pillLeft)
+              .attr("y", -CHART_SIZING.nodeHeight / 2)
+              .attr("rx", CHART_SIZING.nodeHeight / 2)
+              .attr("ry", CHART_SIZING.nodeHeight / 2)
+              .attr("width", pillWidth)
+              .attr("height", CHART_SIZING.nodeHeight)
+              .attr("stroke-width", CHART_SIZING.nodeStrokeWidth)
+              .append("title")
+              .text(
+                `${firstNode.name}: ${firstLabel}; ${secondNode.name}: ${secondLabel}`,
+              );
+          });
+      }
+
+      function showComparisonLegend(firstNode, secondNode) {
+        const legend = document.getElementById("comparisonLegend");
+        legend.replaceChildren();
+
+        const firstRow = document.createElement("div");
+        firstRow.className = "comparison-legend-row";
+        firstRow.textContent = `A: ${firstNode.name}`;
+
+        const secondRow = document.createElement("div");
+        secondRow.className = "comparison-legend-row";
+        secondRow.textContent = `B: ${secondNode.name}`;
+
+        legend.append(firstRow, secondRow);
+        legend.classList.add("is-visible");
+      }
+
+      function hideComparisonLegend() {
+        const legend = document.getElementById("comparisonLegend");
+        legend?.classList.remove("is-visible");
+        legend?.replaceChildren();
+      }
+
       function getInfoPanelData(node, ancestorContributions) {
-        const alsoKnownAs = node.alsoKnownAs
-          ? node.alsoKnownAs
-              .split(";")
-              .map((name) => name.trim())
-              .filter(Boolean)
-          : [];
+        const alsoKnownAs = parseSemicolonSeparatedValues(node.alsoKnownAs);
+        const products = parseSemicolonSeparatedValues(node.product);
 
         const contributors = Array.from(ancestorContributions.entries())
           .filter(([nodeId, percentage]) =>
-            nodeId !== node.id && percentage >= 5,
+            nodeId !== node.id && percentage >= 10,
           )
           .map(([nodeId, percentage]) => {
             const contributor = chartState.indexes.nodesById.get(nodeId);
@@ -1900,11 +2102,11 @@
           .filter(Boolean)
           .sort((a, b) => b.percentage - a.percentage);
 
-        return { alsoKnownAs, contributors };
+        return { alsoKnownAs, products, contributors };
       }
 
       function renderInfoPanel(node, ancestorContributions) {
-        const { alsoKnownAs, contributors } = getInfoPanelData(
+        const { alsoKnownAs, products, contributors } = getInfoPanelData(
           node,
           ancestorContributions,
         );
@@ -1920,9 +2122,7 @@
           .attr("class", "info-panel")
           .attr(
             "x",
-            node.x +
-              CHART_SIZING.infoPanelXOffset -
-              CHART_SIZING.infoPanelWidth / 2,
+            node.x + CHART_SIZING.infoPanelLeftOffset,
           )
           .attr("y", node.y + panelGap)
           .attr("width", CHART_SIZING.infoPanelWidth);
@@ -1944,6 +2144,22 @@
           panel.append("br");
         }
 
+        if (products.length) {
+          panel
+            .append("div")
+            .attr(
+              "class",
+              "info-panel-heading info-panel-heading--products",
+            )
+            .text("New Zealand Medical Cannabis Products");
+          const productList = panel.append("div");
+          products.forEach((product, index) => {
+            if (index) productList.append("br");
+            productList.append("span").text(product);
+          });
+          panel.append("br");
+        }
+
         if (contributors.length) {
           panel
             .append("div")
@@ -1951,7 +2167,7 @@
               "class",
               "info-panel-heading info-panel-heading--contributors",
             )
-            .text("Ancestor contributions");
+            .text("www.weedtree.fyi Calculated Ancestor Contributions*");
 
           const table = panel
             .append("div")
@@ -1998,47 +2214,92 @@
         foreignObject.attr("height", panel.node().scrollHeight);
       }
 
-      function getChartTransform(nodes, scaleMultiplier = 1) {
-        const minimumX =
-          d3.min(nodes, (node) => node.x) - chartState.standardNodeWidth / 2;
-        const maximumX =
-          d3.max(nodes, (node) => node.x) + chartState.standardNodeWidth / 2;
-        const minimumY =
-          d3.min(nodes, (node) => node.y) - CHART_SIZING.nodeHeight / 2;
-        const maximumY =
-          d3.max(nodes, (node) => node.y) + CHART_SIZING.nodeHeight / 2;
-        const horizontalSpan =
-          maximumX - minimumX + CHART_SIZING.viewportPadding * 2;
+      function getChartBounds(nodes) {
+        return {
+          minimumX:
+            d3.min(nodes, (node) => node.x) - chartState.standardNodeWidth / 2,
+          maximumX:
+            d3.max(nodes, (node) => node.x) + chartState.standardNodeWidth / 2,
+          minimumY:
+            d3.min(nodes, (node) => node.y) - CHART_SIZING.nodeHeight / 2,
+          maximumY:
+            d3.max(nodes, (node) => node.y) + CHART_SIZING.nodeHeight / 2,
+        };
+      }
+
+      function getZoomReferenceNodes() {
+        if (!chartState.focusedLineage) return chartState.nodes;
+        return chartState.nodes.filter((node) =>
+          chartState.focusedLineage.has(node.id),
+        );
+      }
+
+      function getChartTransform(
+        nodes,
+        scaleMultiplier = 1,
+        { anchorLeft = Number.isFinite(chartState.leftEdgeScreenX) } = {},
+      ) {
+        const { minimumX, maximumX, minimumY, maximumY } =
+          getChartBounds(nodes);
+        const horizontalRange = maximumX - minimumX;
         const verticalSpan =
           maximumY - minimumY + CHART_SIZING.viewportPadding * 2;
+        const availableWidth = anchorLeft
+          ? chartState.width -
+            chartState.leftEdgeScreenX -
+            CHART_SIZING.viewportPadding
+          : chartState.width;
+        const horizontalSpan = anchorLeft
+          ? horizontalRange + CHART_SIZING.viewportPadding
+          : horizontalRange + CHART_SIZING.viewportPadding * 2;
         const scale =
           scaleMultiplier *
           Math.min(
-            chartState.width / horizontalSpan,
+            availableWidth / horizontalSpan,
             chartState.height / verticalSpan,
           );
         const centreX = (minimumX + maximumX) / 2;
         const centreY = (minimumY + maximumY) / 2;
+        const translateX = anchorLeft
+          ? chartState.leftEdgeScreenX - scale * minimumX
+          : chartState.width / 2 - scale * centreX;
 
         return d3.zoomIdentity
           .translate(
-            chartState.width / 2 - scale * centreX,
+            translateX,
             chartState.height / 2 - scale * centreY,
           )
           .scale(scale);
       }
 
-      function applyInitialZoom() {
-        chartState.svg.call(
-          chartState.zoom.transform,
-          getChartTransform(chartState.nodes),
+      function getInitialLeftEdgeScreenX() {
+        return Math.min(
+          CHART_SIZING.leftEdgeMargin,
+          chartState.standardNodeWidth,
         );
+      }
+
+      function applyInitialZoom() {
+        chartState.leftEdgeScreenX = getInitialLeftEdgeScreenX();
+        chartState.isLeftEdgeZoomLocked = true;
+
+        const initialTransform = getChartTransform(
+          chartState.nodes,
+          1,
+          { anchorLeft: true },
+        );
+
+        chartState.currentTransform = initialTransform;
+        chartState.svg.call(chartState.zoom.transform, initialTransform);
       }
 
       function zoomToLineage(lineage) {
         const activeNodes = chartState.nodes.filter((node) =>
           lineage.has(node.id),
         );
+        chartState.focusedLineage = new Set(lineage);
+        chartState.leftEdgeScreenX = getInitialLeftEdgeScreenX();
+        chartState.isLeftEdgeZoomLocked = true;
 
         chartState.svg
           .transition()
@@ -2048,6 +2309,7 @@
             getChartTransform(
               activeNodes,
               CHART_BEHAVIOUR.lineageZoomScale,
+              { anchorLeft: true },
             ),
           );
       }
@@ -2057,12 +2319,15 @@
           return;
         }
 
+        chartState.focusedLineage = null;
+        chartState.leftEdgeScreenX = getInitialLeftEdgeScreenX();
+        chartState.isLeftEdgeZoomLocked = true;
         chartState.svg
           .transition()
           .duration(CHART_BEHAVIOUR.zoomTransitionDuration)
           .call(
             chartState.zoom.transform,
-            getChartTransform(chartState.nodes),
+            getChartTransform(chartState.nodes, 1, { anchorLeft: true }),
           );
       }
 
@@ -2074,15 +2339,24 @@
         const [minimumScale, maximumScale] = chartState.zoom.scaleExtent();
         if (scale < minimumScale || scale > maximumScale) return;
 
-        chartState.svg
+        const transition = chartState.svg
           .transition()
-          .duration(CHART_BEHAVIOUR.zoomButtonDuration)
-          .call(
-            chartState.zoom.transform,
-            d3.zoomIdentity
-              .translate(currentTransform.x, currentTransform.y)
-              .scale(scale),
-          );
+          .duration(CHART_BEHAVIOUR.zoomButtonDuration);
+
+        if (!chartState.isLeftEdgeZoomLocked) {
+          transition.call(chartState.zoom.scaleBy, factor);
+          return;
+        }
+
+        const { minimumX } = getChartBounds(getZoomReferenceNodes());
+        const translateX = chartState.leftEdgeScreenX - scale * minimumX;
+
+        transition.call(
+          chartState.zoom.transform,
+          d3.zoomIdentity
+            .translate(translateX, currentTransform.y)
+            .scale(scale),
+        );
       }
 
       // -----------------------------------------------------------------------
@@ -2118,16 +2392,24 @@
         });
       }
 
+      function getSearchPrompt() {
+        if (searchState.mode === "single") return "go to strain";
+        return searchState.firstComparisonNode
+          ? "choose second strain"
+          : "choose first strain";
+      }
+
       function startSearchPlaceholderBlink() {
         const searchInput = document.getElementById("strainSearch");
+        const baseText = getSearchPrompt();
         window.clearInterval(searchState.blinkInterval);
         searchInput.classList.add("hidden-cursor");
         searchState.showingUnderscore = true;
 
         searchState.blinkInterval = window.setInterval(() => {
           searchInput.placeholder = searchState.showingUnderscore
-            ? "go to strain_"
-            : "go to strain ";
+            ? `${baseText}_`
+            : `${baseText} `;
           searchState.showingUnderscore = !searchState.showingUnderscore;
         }, 500);
       }
@@ -2136,8 +2418,44 @@
         const searchInput = document.getElementById("strainSearch");
         window.clearInterval(searchState.blinkInterval);
         searchState.blinkInterval = null;
-        searchInput.placeholder = "go to strain";
+        searchInput.placeholder = getSearchPrompt();
         searchInput.classList.remove("hidden-cursor");
+      }
+
+      function updateCompareSelectionStatus() {
+        const status = document.getElementById("compareSelectionStatus");
+        if (searchState.mode !== "compare") {
+          status.textContent = "";
+          return;
+        }
+
+        status.textContent = searchState.firstComparisonNode
+          ? `First strain: ${searchState.firstComparisonNode.name}`
+          : "Select two strains to compare";
+      }
+
+      function setSearchMode(mode) {
+        searchState.mode = mode === "compare" ? "compare" : "single";
+        searchState.firstComparisonNode = null;
+
+        document.querySelectorAll("[data-search-mode]").forEach((button) => {
+          const isActive = button.dataset.searchMode === searchState.mode;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-pressed", String(isActive));
+        });
+
+        const searchInput = document.getElementById("strainSearch");
+        searchInput.value = "";
+        document.getElementById("strainDropdown").style.display = "none";
+        updateCompareSelectionStatus();
+        startSearchPlaceholderBlink();
+        searchInput.focus();
+      }
+
+      function resetPendingComparisonSelection() {
+        searchState.firstComparisonNode = null;
+        updateCompareSelectionStatus();
+        startSearchPlaceholderBlink();
       }
 
       function updateStrainDropdownPosition() {
@@ -2158,6 +2476,7 @@
           .filter(
             (node) =>
               !node.name.toLowerCase().includes("unknown") &&
+              node.id !== searchState.firstComparisonNode?.id &&
               (node.name.toLowerCase().includes(normalisedSearch) ||
                 node.product?.toLowerCase().includes(normalisedSearch) ||
                 node.alsoKnownAs?.toLowerCase().includes(normalisedSearch)),
@@ -2193,17 +2512,42 @@
         dropdown.style.display = matches.length ? "block" : "none";
       }
 
-      function chooseSearchResult(strain) {
+      function completeSearchSelection() {
         const searchInput = document.getElementById("strainSearch");
         const dropdown = document.getElementById("strainDropdown");
         const searchPopup = document.getElementById("popup2");
 
-        selectNode(strain);
         dropdown.style.display = "none";
         searchInput.value = "";
         searchPopup.style.display = "none";
         document.querySelector(".popup-overlay").style.display = "none";
+        searchState.firstComparisonNode = null;
+        updateCompareSelectionStatus();
         startSearchPlaceholderBlink();
+      }
+
+      function chooseSearchResult(strain) {
+        const searchInput = document.getElementById("strainSearch");
+        const dropdown = document.getElementById("strainDropdown");
+
+        if (searchState.mode === "single") {
+          selectNode(strain);
+          completeSearchSelection();
+          return;
+        }
+
+        if (!searchState.firstComparisonNode) {
+          searchState.firstComparisonNode = strain;
+          dropdown.style.display = "none";
+          searchInput.value = "";
+          updateCompareSelectionStatus();
+          startSearchPlaceholderBlink();
+          searchInput.focus();
+          return;
+        }
+
+        compareNodes(searchState.firstComparisonNode, strain);
+        completeSearchSelection();
       }
 
       function handleStrainSearchInput(event) {
@@ -2223,6 +2567,13 @@
         const searchInput = document.getElementById("strainSearch");
         const dropdown = document.getElementById("strainDropdown");
 
+        document.querySelectorAll("[data-search-mode]").forEach((button) => {
+          button.addEventListener("click", () =>
+            setSearchMode(button.dataset.searchMode),
+          );
+        });
+
+        updateCompareSelectionStatus();
         startSearchPlaceholderBlink();
         searchInput.addEventListener("focus", updateStrainDropdownPosition);
         searchInput.addEventListener("input", handleStrainSearchInput);
@@ -2249,6 +2600,8 @@
         overlay.style.display = "block";
 
         if (popup === searchPopup) {
+          updateCompareSelectionStatus();
+          startSearchPlaceholderBlink();
           document.getElementById("strainSearch").focus();
         }
       }
@@ -2262,6 +2615,14 @@
         const overlay = document.querySelector(".popup-overlay");
         const searchPopup = document.getElementById("popup2");
         const aboutPopup = document.getElementById("popup3");
+        const suppressAutomaticSearchPopup = Boolean(
+          getRequestedFocusStrain(),
+        );
+
+        function closeAboutPopup() {
+          hidePopup(aboutPopup);
+          if (!suppressAutomaticSearchPopup) showPopup(searchPopup);
+        }
 
         document
           .getElementById("btn3")
@@ -2272,19 +2633,19 @@
 
         aboutPopup
           .querySelector(".close-button")
-          .addEventListener("click", () => {
-            hidePopup(aboutPopup);
-            showPopup(searchPopup);
-          });
+          .addEventListener("click", closeAboutPopup);
         searchPopup
           .querySelector(".close-button")
-          .addEventListener("click", () => hidePopup(searchPopup));
+          .addEventListener("click", () => {
+            resetPendingComparisonSelection();
+            hidePopup(searchPopup);
+          });
 
         overlay.addEventListener("click", () => {
           if (aboutPopup.style.display !== "none") {
-            hidePopup(aboutPopup);
-            showPopup(searchPopup);
+            closeAboutPopup();
           } else if (searchPopup.style.display !== "none") {
+            resetPendingComparisonSelection();
             hidePopup(searchPopup);
           }
         });
@@ -2339,7 +2700,9 @@
         document
           .getElementById("deselectButton")
           .addEventListener("click", () => {
-            if (chartState.focusedNode) clearChartFocus();
+            if (chartState.focusedNode || chartState.comparison) {
+              clearChartFocus();
+            }
           });
 
         window.addEventListener("resize", handleWindowResize);
