@@ -537,6 +537,7 @@
         infoPanelLeftOffset: -100,
         infoPanelBaseGap: 20,
         viewportPadding: 50,
+        leftEdgeMargin: 50,
       });
 
       window.CHART_BEHAVIOUR = Object.freeze({
@@ -570,6 +571,7 @@
         focusedLineage: null,
         currentTransform: null,
         leftEdgeScreenX: null,
+        isLeftEdgeZoomLocked: false,
         width: 0,
         height: 0,
         standardNodeWidth: CHART_SIZING.minimumNodeWidth,
@@ -1384,6 +1386,7 @@
         chartState.focusedLineage = null;
         chartState.currentTransform = null;
         chartState.leftEdgeScreenX = null;
+        chartState.isLeftEdgeZoomLocked = false;
 
         d3.select("#lineageChart").selectAll("*").remove();
 
@@ -1402,10 +1405,25 @@
           ])
           .on("zoom", function (event) {
             let transform = event.transform;
-            const previousScale = chartState.currentTransform?.k ?? transform.k;
-            const scaleChanged = Math.abs(transform.k - previousScale) > 1e-9;
+            const previousTransform =
+              chartState.currentTransform || event.transform;
+            const scaleChanged =
+              Math.abs(transform.k - previousTransform.k) > 1e-9;
+            const positionChanged =
+              Math.abs(transform.x - previousTransform.x) > 1e-9 ||
+              Math.abs(transform.y - previousTransform.y) > 1e-9;
+            const userPanned =
+              Boolean(event.sourceEvent) && !scaleChanged && positionChanged;
 
-            if (scaleChanged && Number.isFinite(chartState.leftEdgeScreenX)) {
+            if (userPanned) {
+              chartState.isLeftEdgeZoomLocked = false;
+            }
+
+            if (
+              scaleChanged &&
+              chartState.isLeftEdgeZoomLocked &&
+              Number.isFinite(chartState.leftEdgeScreenX)
+            ) {
               const referenceNodes = getZoomReferenceNodes();
               const { minimumX } = getChartBounds(referenceNodes);
               transform = d3.zoomIdentity
@@ -1989,15 +2007,23 @@
           .scale(scale);
       }
 
+      function getInitialLeftEdgeScreenX() {
+        return Math.min(
+          CHART_SIZING.leftEdgeMargin,
+          chartState.standardNodeWidth,
+        );
+      }
+
       function applyInitialZoom() {
+        chartState.leftEdgeScreenX = getInitialLeftEdgeScreenX();
+        chartState.isLeftEdgeZoomLocked = true;
+
         const initialTransform = getChartTransform(
           chartState.nodes,
           1,
-          { anchorLeft: false },
+          { anchorLeft: true },
         );
-        const { minimumX } = getChartBounds(chartState.nodes);
 
-        chartState.leftEdgeScreenX = initialTransform.applyX(minimumX);
         chartState.currentTransform = initialTransform;
         chartState.svg.call(chartState.zoom.transform, initialTransform);
       }
@@ -2007,6 +2033,8 @@
           lineage.has(node.id),
         );
         chartState.focusedLineage = new Set(lineage);
+        chartState.leftEdgeScreenX = getInitialLeftEdgeScreenX();
+        chartState.isLeftEdgeZoomLocked = true;
 
         chartState.svg
           .transition()
@@ -2027,6 +2055,8 @@
         }
 
         chartState.focusedLineage = null;
+        chartState.leftEdgeScreenX = getInitialLeftEdgeScreenX();
+        chartState.isLeftEdgeZoomLocked = true;
         chartState.svg
           .transition()
           .duration(CHART_BEHAVIOUR.zoomTransitionDuration)
@@ -2044,18 +2074,24 @@
         const [minimumScale, maximumScale] = chartState.zoom.scaleExtent();
         if (scale < minimumScale || scale > maximumScale) return;
 
+        const transition = chartState.svg
+          .transition()
+          .duration(CHART_BEHAVIOUR.zoomButtonDuration);
+
+        if (!chartState.isLeftEdgeZoomLocked) {
+          transition.call(chartState.zoom.scaleBy, factor);
+          return;
+        }
+
         const { minimumX } = getChartBounds(getZoomReferenceNodes());
         const translateX = chartState.leftEdgeScreenX - scale * minimumX;
 
-        chartState.svg
-          .transition()
-          .duration(CHART_BEHAVIOUR.zoomButtonDuration)
-          .call(
-            chartState.zoom.transform,
-            d3.zoomIdentity
-              .translate(translateX, currentTransform.y)
-              .scale(scale),
-          );
+        transition.call(
+          chartState.zoom.transform,
+          d3.zoomIdentity
+            .translate(translateX, currentTransform.y)
+            .scale(scale),
+        );
       }
 
       // -----------------------------------------------------------------------
