@@ -402,7 +402,7 @@
         flex-direction: column;
         box-sizing: border-box;
         width: max-content;
-        min-width: min(var(--chart-info-panel-width), calc(100vw - 2 * var(--chart-info-panel-gap)));
+        min-width: min(var(--info-panel-min-width, var(--chart-info-panel-width)), calc(100vw - 2 * var(--chart-info-panel-gap)));
         max-width: calc(100vw - 2 * var(--chart-info-panel-gap));
         max-height: calc(100vh - 2 * var(--chart-info-panel-gap));
         max-height: calc(100dvh - 2 * var(--chart-info-panel-gap));
@@ -440,21 +440,21 @@
       .info-panel-zoom-controls {
         display: flex;
         flex: 0 0 auto;
-        gap: 4px;
+        gap: calc(4px * var(--info-panel-scale));
       }
 
       .info-panel-zoom-button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 28px;
-        height: 28px;
+        width: calc(28px * var(--info-panel-scale));
+        height: calc(28px * var(--info-panel-scale));
         padding: 0;
         border: 1px solid #555;
         border-radius: 50%;
         background: #fff;
         color: #222;
-        font: 600 18px/1 "Roboto", Arial, sans-serif;
+        font: 600 calc(18px * var(--info-panel-scale))/1 "Roboto", Arial, sans-serif;
         cursor: pointer;
       }
 
@@ -462,7 +462,7 @@
       .info-panel-zoom-button:disabled { opacity: 0.4; cursor: default; }
 
       .info-panel-close-button {
-        font-size: 20px;
+        font-size: calc(20px * var(--info-panel-scale));
         font-weight: 400;
       }
 
@@ -837,6 +837,11 @@
         infoPanelZoomMinimum: 0.35,
         infoPanelZoomMaximum: 1.75,
         infoPanelZoomStep: 0.1,
+        infoPanelInitialZoom: 0.9,
+        infoPanelMediumScreenZoom: 0.8,
+        infoPanelSmallScreenZoom: 0.7,
+        infoPanelMediumScreenMaximumWidth: 1600,
+        infoPanelSmallScreenMaximumWidth: 1280,
       });
 
       const CHART_COLOURS = window.CHART_COLOURS;
@@ -878,11 +883,31 @@
         showingUnderscore: true,
       };
 
+      function getInitialPanelZoom() {
+        if (
+          window.innerWidth <=
+          CHART_BEHAVIOUR.infoPanelSmallScreenMaximumWidth
+        ) {
+          return CHART_BEHAVIOUR.infoPanelSmallScreenZoom;
+        }
+
+        if (
+          window.innerWidth <=
+          CHART_BEHAVIOUR.infoPanelMediumScreenMaximumWidth
+        ) {
+          return CHART_BEHAVIOUR.infoPanelMediumScreenZoom;
+        }
+
+        return CHART_BEHAVIOUR.infoPanelInitialZoom;
+      }
+
+      const initialPanelZoom = getInitialPanelZoom();
+
       const pageState = {
         resizeTimer: null,
         selectionMode: "single",
-        infoPanelZoom: 1,
-        comparisonPanelZoom: 1,
+        infoPanelZoom: initialPanelZoom,
+        comparisonPanelZoom: initialPanelZoom,
       };
 
       const DOMINANCE_ORDER = Object.freeze({
@@ -2337,26 +2362,48 @@
         return [...products].sort((a, b) => a.localeCompare(b));
       }
 
+      function buildAncestorContributionRows(
+        node,
+        ancestorContributions,
+        minimumPercentage = 0,
+      ) {
+        return Array.from(ancestorContributions.entries())
+          .filter(
+            ([nodeId, percentage]) =>
+              nodeId !== node.id && percentage >= minimumPercentage,
+          )
+          .map(([nodeId, exactPercentage]) => {
+            const ancestor = chartState.indexes.nodesById.get(nodeId);
+            if (!ancestor) return null;
+
+            return {
+              nodeId,
+              ancestor,
+              exactPercentage,
+              displayedPercentage: Math.round(exactPercentage),
+            };
+          })
+          .filter(Boolean)
+          .sort(
+            (a, b) =>
+              b.exactPercentage - a.exactPercentage ||
+              a.ancestor.name.localeCompare(b.ancestor.name),
+          );
+      }
+
       function getInfoPanelData(node, ancestorContributions) {
         const alsoKnownAs = parseSemicolonSeparatedValues(node.alsoKnownAs);
         const products = getProductsForStrainAndVariants(node);
 
-        const contributors = Array.from(ancestorContributions.entries())
-          .filter(([nodeId, percentage]) =>
-            nodeId !== node.id && percentage >= 10,
-          )
-          .map(([nodeId, percentage]) => {
-            const contributor = chartState.indexes.nodesById.get(nodeId);
-            if (!contributor) return null;
-
-            return {
-              name: contributor.name,
-              percentage: Math.round(percentage),
-              dominance: contributor.dominance,
-            };
-          })
-          .filter(Boolean)
-          .sort((a, b) => b.percentage - a.percentage);
+        const contributors = buildAncestorContributionRows(
+          node,
+          ancestorContributions,
+          10,
+        ).map(({ ancestor, displayedPercentage }) => ({
+          name: ancestor.name,
+          percentage: displayedPercentage,
+          dominance: ancestor.dominance,
+        }));
 
         return { alsoKnownAs, products, contributors };
       }
@@ -2412,6 +2459,10 @@
         panel.style.setProperty(
           "--info-panel-scale",
           pageState[config.stateKey],
+        );
+        panel.style.setProperty(
+          "--info-panel-min-width",
+          `${CHART_SIZING.infoPanelWidth * pageState[config.stateKey]}px`,
         );
 
         const zoomOut = document.getElementById(config.zoomOutId);
@@ -2557,10 +2608,6 @@
         panel.hidden = false;
       }
 
-      function formatContributionPercentage(amount) {
-        return amount < 1 ? "<1%" : `${Math.round(amount)}%`;
-      }
-
       function getSharedAncestorContributions(firstNode, secondNode) {
         const firstContributions = calculateAncestorContributions(
           firstNode,
@@ -2573,37 +2620,36 @@
           chartState.indexes,
         );
 
-        return [...firstContributions.keys()]
-          .filter((nodeId) => {
-            if (
-              !secondContributions.has(nodeId) ||
-              nodeId === firstNode.id ||
-              nodeId === secondNode.id
-            ) {
-              return false;
-            }
+        const firstRows = buildAncestorContributionRows(
+          firstNode,
+          firstContributions,
+        );
+        const secondRowsById = new Map(
+          buildAncestorContributionRows(secondNode, secondContributions).map(
+            (row) => [row.nodeId, row],
+          ),
+        );
 
+        return firstRows
+          .filter((firstRow) => {
+            const secondRow = secondRowsById.get(firstRow.nodeId);
             return (
-              firstContributions.get(nodeId) >= 20 &&
-              secondContributions.get(nodeId) >= 20
+              secondRow &&
+              firstRow.exactPercentage >= 20 &&
+              secondRow.exactPercentage >= 20 &&
+              firstRow.nodeId !== secondNode.id
             );
           })
-          .map((nodeId) => {
-            const ancestor = chartState.indexes.nodesById.get(nodeId);
-            if (!ancestor) return null;
-
+          .map((firstRow) => {
+            const secondRow = secondRowsById.get(firstRow.nodeId);
             return {
-              ancestor,
-              firstPercentage: firstContributions.get(nodeId),
-              secondPercentage: secondContributions.get(nodeId),
+              ancestor: firstRow.ancestor,
+              firstPercentage: firstRow.exactPercentage,
+              secondPercentage: secondRow.exactPercentage,
+              firstDisplayedPercentage: firstRow.displayedPercentage,
+              secondDisplayedPercentage: secondRow.displayedPercentage,
             };
-          })
-          .filter(Boolean)
-          .sort(
-            (a, b) =>
-              b.firstPercentage - a.firstPercentage ||
-              a.ancestor.name.localeCompare(b.ancestor.name),
-          );
+          });
       }
 
       function appendComparisonContributorRows(
@@ -2617,9 +2663,11 @@
         sharedAncestors.forEach(({ ancestor, ...percentages }) => {
           const percentage = document.createElement("div");
           percentage.className = "c-perc";
-          percentage.textContent = formatContributionPercentage(
-            percentages[percentageKey],
-          );
+          const displayedKey =
+            percentageKey === "firstPercentage"
+              ? "firstDisplayedPercentage"
+              : "secondDisplayedPercentage";
+          percentage.textContent = `${percentages[displayedKey]}%`;
 
           const dot = document.createElement("div");
           dot.className = "c-dot";
@@ -2644,6 +2692,18 @@
           firstNode,
           secondNode,
         );
+
+        sharedAncestors.forEach((row) => {
+          if (
+            Math.round(row.firstPercentage) !== row.firstDisplayedPercentage ||
+            Math.round(row.secondPercentage) !== row.secondDisplayedPercentage
+          ) {
+            console.warn(
+              "Comparison contribution display mismatch detected:",
+              row,
+            );
+          }
+        });
 
         body.replaceChildren();
 
