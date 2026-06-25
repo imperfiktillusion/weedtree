@@ -531,7 +531,7 @@
         linkWidth: 3,
         focusedLinkWidth: 4,
         percentagePillWidth: 80,
-        percentagePillPadding: 10,
+        percentagePillOverlap: 24,
         percentageTextYOffset: 1,
         infoPanelWidth: 242,
         infoPanelLeftOffset: -100,
@@ -1768,16 +1768,19 @@
             const amount = contributions.get(node.id);
             const label = amount < 1 ? "<1%" : `${Math.round(amount)}%`;
             const nodeWidth = getNodeWidth(node);
-            const pillX = nodeWidth / 2;
+            const nodeRightEdge = nodeWidth / 2;
+            const pillLeft =
+              nodeRightEdge - CHART_SIZING.percentagePillOverlap;
+            const visiblePillWidth =
+              CHART_SIZING.percentagePillWidth -
+              CHART_SIZING.percentagePillOverlap;
+            const textCenter = nodeRightEdge + visiblePillWidth / 2;
             const group = d3.select(this);
 
             group
               .insert("rect", ":first-child")
               .attr("class", "pct-pill")
-              .attr(
-                "x",
-                pillX - CHART_SIZING.percentagePillPadding * 2 - 4,
-              )
+              .attr("x", pillLeft)
               .attr("y", -CHART_SIZING.nodeHeight / 2)
               .attr("rx", CHART_SIZING.nodeHeight / 2)
               .attr("ry", CHART_SIZING.nodeHeight / 2)
@@ -1788,10 +1791,7 @@
             group
               .append("text")
               .attr("class", "pct-pill-text")
-              .attr(
-                "x",
-                nodeWidth / 2 + CHART_SIZING.percentagePillPadding,
-              )
+              .attr("x", textCenter)
               .attr("y", CHART_SIZING.percentageTextYOffset)
               .attr("text-anchor", "middle")
               .text(label);
