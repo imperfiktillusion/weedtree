@@ -1580,6 +1580,7 @@
           .each(function (node) {
             node.currentScale = 1;
             node.hoverTimer = null;
+            node.isPointerInside = false;
             if (node.product) d3.select(this).raise();
           });
 
@@ -1658,22 +1659,29 @@
 
       function attachNodeInteractions() {
         chartState.nodeSelection
-          .on("mouseover", handleNodeMouseOver)
-          .on("mouseout", handleNodeMouseOut)
+          // mouseenter/mouseleave do not fire when moving between a node's
+          // rectangle, text, and other child elements. This prevents the
+          // expand/shrink loop caused by bubbling mouseover/mouseout events.
+          .on("mouseenter", handleNodeMouseEnter)
+          .on("mouseleave", handleNodeMouseLeave)
           .on("click", handleNodeClick)
           .call(createNodeDragBehaviour());
       }
 
-      function handleNodeMouseOver(event, node) {
+      function handleNodeMouseEnter(event, node) {
         if (chartState.isDragging) return;
 
+        node.isPointerInside = true;
         window.clearTimeout(node.hoverTimer);
         node.hoverTimer = window.setTimeout(() => {
+          node.hoverTimer = null;
+          if (!node.isPointerInside || chartState.isDragging) return;
+
           node.currentScale = CHART_BEHAVIOUR.hoverScale;
           d3.select(this)
-            .interrupt(true)
+            .interrupt("hover")
             .raise()
-            .transition()
+            .transition("hover")
             .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
             .attr(
               "transform",
@@ -1683,26 +1691,39 @@
         }, CHART_BEHAVIOUR.hoverDelay);
       }
 
-      function handleNodeMouseOut(event, node) {
-        if (chartState.isDragging) return;
-
+      function handleNodeMouseLeave(event, node) {
+        node.isPointerInside = false;
         window.clearTimeout(node.hoverTimer);
         node.hoverTimer = null;
-        if (node.currentScale === 1) return;
+        clearHoverHighlight();
+
+        if (chartState.isDragging || node.currentScale === 1) return;
 
         node.currentScale = 1;
         d3.select(this)
-          .interrupt(true)
-          .transition()
+          .interrupt("hover")
+          .transition("hover")
           .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
           .attr("transform", `translate(${node.x},${node.y}) scale(1)`)
           .on("end", raiseProductNodes);
+      }
+
+      function resetNodeHoverForSelection(element, node) {
+        node.isPointerInside = false;
+        node.currentScale = 1;
+        window.clearTimeout(node.hoverTimer);
+        node.hoverTimer = null;
+
+        d3.select(element)
+          .interrupt("hover")
+          .attr("transform", `translate(${node.x},${node.y}) scale(1)`);
 
         clearHoverHighlight();
       }
 
       function handleNodeClick(event, node) {
         event.stopPropagation();
+        resetNodeHoverForSelection(this, node);
         handleStrainSelection(node);
       }
 
@@ -1770,9 +1791,12 @@
           chartState.nodeSelection
             .each((node) => {
               window.clearTimeout(node.hoverTimer);
+              node.hoverTimer = null;
+              node.isPointerInside = false;
               node.currentScale = 1;
             })
-            .transition()
+            .interrupt("hover")
+            .transition("hover")
             .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
             .attr("transform", (node) =>
               `translate(${node.x},${node.y}) scale(1)`,
