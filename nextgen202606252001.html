@@ -198,6 +198,47 @@
         gap: 20px;
       }
 
+      .header-mode-toggle {
+        display: inline-flex;
+        overflow: hidden;
+        border: 2px solid #fff;
+        border-radius: 18px;
+      }
+
+      .header-mode-option {
+        min-width: max-content;
+        padding: 5px 12px;
+        border: 0;
+        background: transparent;
+        color: #fff;
+        font: 600 0.82em "Poppins", Arial, sans-serif;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      .header-mode-option + .header-mode-option {
+        border-left: 1px solid rgba(255, 255, 255, 0.55);
+      }
+
+      .header-mode-option:hover { background: rgba(255, 255, 255, 0.1); }
+      .header-mode-option.is-active { background: #fff; color: #434343; }
+
+      .go-to-strain-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .search-button-icon {
+        width: 14px;
+        height: 14px;
+        flex: 0 0 auto;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+      }
+
       #popup2 .search-container {
         position: relative;
         display: flex;
@@ -315,20 +356,25 @@
       #zoomInButton,
       #zoomOutButton { flex: 1; font-size: 30px; font-weight: 700; }
 
-      .chart-container { flex-grow: 1; width: 100%; overflow: hidden; }
+      .chart-container { position: relative; flex-grow: 1; width: 100%; overflow: hidden; }
       #lineageChart { width: 100%; height: 100%; }
       .node text { z-index: 999; fill: #000; text-anchor: start; dominant-baseline: middle; }
       .strain-name { font: 700 15px "Roboto", Arial, sans-serif; }
       .is-condensed { font-family: "Roboto Condensed", Arial, sans-serif; }
 
-      .node.clicked rect { stroke: var(--chart-selected); stroke-width: 8px; }
-      .node.highlighted:not(.has-product) rect {
+      .node.clicked .node-background { stroke: var(--chart-selected); stroke-width: 8px; }
+      .node.highlighted:not(.has-product) .node-background,
+      .node.compare-shared:not(.has-product) .node-background {
         stroke: var(--chart-hover-highlight);
         stroke-width: 3px;
       }
-      .node.has-product:not(.clicked) rect { stroke: var(--chart-product-stroke); }
+      .node.has-product:not(.clicked) .node-background { stroke: var(--chart-product-stroke); }
       .node.highlighted-search .highlight-arrow { fill: var(--chart-search-highlight); }
-      .link.highlighted { stroke: var(--chart-hover-highlight) !important; stroke-width: 3px; }
+      .link.highlighted,
+      .link.compare-shared {
+        stroke: var(--chart-hover-highlight) !important;
+        stroke-width: 3px;
+      }
       .node.dimmed rect,
       .node.dimmed text,
       .link.dimmed { opacity: var(--chart-dimmed-opacity); }
@@ -346,16 +392,25 @@
         pointer-events: none;
       }
 
-      .info-panel-content {
+      .info-panel {
+        position: fixed;
+        right: var(--chart-info-panel-gap);
+        bottom: var(--chart-info-panel-gap);
+        z-index: 998;
         box-sizing: border-box;
+        width: min(var(--chart-info-panel-width), calc(100vw - 2 * var(--chart-info-panel-gap)));
+        max-height: calc(100vh - 2 * var(--chart-info-panel-gap));
+        overflow-y: auto;
         padding: 8px;
-        border: 0;
+        border: 1px solid var(--chart-node-stroke);
         border-radius: 8px;
         background: var(--chart-panel-background);
+        color: #222;
         font: 13px "Roboto", Arial, sans-serif;
         white-space: nowrap;
       }
 
+      .info-panel[hidden] { display: none; }
       .info-panel-heading { font-weight: 700; }
       .info-panel-heading--products {
         line-height: 1.2;
@@ -367,6 +422,24 @@
         white-space: normal;
       }
       .info-panel-actions { margin-top: 6px; }
+
+      .comparison-legend {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 10;
+        display: none;
+        max-width: min(520px, calc(100% - 140px));
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.94);
+        color: #222;
+        font: 600 13px/1.35 "Roboto", Arial, sans-serif;
+        pointer-events: none;
+      }
+
+      .comparison-legend.is-visible { display: block; }
+      .comparison-legend-row + .comparison-legend-row { margin-top: 2px; }
 
       .contributors-grid {
         display: grid;
@@ -407,7 +480,31 @@
         <span class="subhead">Work in progress, errors probable</span>
       </h1>
       <div class="header-buttons">
-        <button id="btn2" class="btn">Go to strain</button>
+        <div class="header-mode-toggle" role="group" aria-label="Strain selection mode">
+          <button
+            type="button"
+            class="header-mode-option is-active"
+            data-selection-mode="single"
+            aria-pressed="true"
+          >
+            Single strain
+          </button>
+          <button
+            type="button"
+            class="header-mode-option"
+            data-selection-mode="compare"
+            aria-pressed="false"
+          >
+            Compare strains
+          </button>
+        </div>
+        <button id="btn2" class="btn go-to-strain-button">
+          <svg class="search-button-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <line x1="15.5" y1="15.5" x2="21" y2="21"></line>
+          </svg>
+          <span>Go to strain</span>
+        </button>
         <button id="btn3" class="btn">About</button>
       </div>
     </div>
@@ -427,9 +524,12 @@
     <!-- Chart Container -->
     <div class="container">
       <div class="chart-container">
+        <div id="comparisonLegend" class="comparison-legend" aria-live="polite"></div>
         <div id="lineageChart"></div>
       </div>
     </div>
+
+    <aside id="infoPanel" class="info-panel" aria-live="polite" hidden></aside>
 
     <!-- Popups -->
     <div class="popup-overlay"></div>
@@ -534,8 +634,7 @@
         percentagePillOverlap: 24,
         percentageTextYOffset: 1,
         infoPanelWidth: 242,
-        infoPanelLeftOffset: -100,
-        infoPanelBaseGap: 20,
+        infoPanelViewportGap: 12,
         viewportPadding: 50,
         leftEdgeMargin: 50,
       });
@@ -569,6 +668,8 @@
         linkSelection: null,
         focusedNode: null,
         focusedLineage: null,
+        comparison: null,
+        comparisonSelections: [],
         currentTransform: null,
         leftEdgeScreenX: null,
         isLeftEdgeZoomLocked: false,
@@ -593,6 +694,7 @@
 
       const pageState = {
         resizeTimer: null,
+        selectionMode: "single",
       };
 
       const DOMINANCE_ORDER = Object.freeze({
@@ -646,6 +748,8 @@
           "--chart-percentage-background": CHART_COLOURS.percentageBackground,
           "--chart-percentage-text": CHART_COLOURS.percentageText,
           "--chart-panel-background": CHART_COLOURS.panelBackground,
+          "--chart-info-panel-width": `${CHART_SIZING.infoPanelWidth}px`,
+          "--chart-info-panel-gap": `${CHART_SIZING.infoPanelViewportGap}px`,
           "--chart-dimmed-opacity": CHART_COLOURS.dimmedOpacity,
         };
 
@@ -1189,7 +1293,7 @@
         return contributions;
       }
 
-      function collectLineage(
+      function collectAncestorLineage(
         startNode,
         nodes,
         indexes = buildGraphIndexes(nodes),
@@ -1211,8 +1315,17 @@
         }
 
         addAncestors(startNode);
+        return lineage;
+      }
 
+      function collectLineage(
+        startNode,
+        nodes,
+        indexes = buildGraphIndexes(nodes),
+      ) {
+        const lineage = collectAncestorLineage(startNode, nodes, indexes);
         const descendantLineage = new Set();
+
         function collectDescendants(node) {
           if (!node || descendantLineage.has(node.id)) return;
           descendantLineage.add(node.id);
@@ -1384,6 +1497,8 @@
         chartState.height = chartContainer.clientHeight;
         chartState.focusedNode = null;
         chartState.focusedLineage = null;
+        chartState.comparison = null;
+        chartState.comparisonSelections = [];
         chartState.currentTransform = null;
         chartState.leftEdgeScreenX = null;
         chartState.isLeftEdgeZoomLocked = false;
@@ -1477,6 +1592,7 @@
           .each(function (node) {
             node.currentScale = 1;
             node.hoverTimer = null;
+            node.isPointerInside = false;
             if (node.product) d3.select(this).raise();
           });
 
@@ -1488,6 +1604,7 @@
       function renderNodeBackgrounds() {
         chartState.nodeSelection
           .append("rect")
+          .attr("class", "node-background")
           .attr("rx", CHART_SIZING.nodeHeight / 2)
           .attr("ry", CHART_SIZING.nodeHeight / 2)
           .attr("width", getNodeWidth)
@@ -1554,22 +1671,29 @@
 
       function attachNodeInteractions() {
         chartState.nodeSelection
-          .on("mouseover", handleNodeMouseOver)
-          .on("mouseout", handleNodeMouseOut)
+          // mouseenter/mouseleave do not fire when moving between a node's
+          // rectangle, text, and other child elements. This prevents the
+          // expand/shrink loop caused by bubbling mouseover/mouseout events.
+          .on("mouseenter", handleNodeMouseEnter)
+          .on("mouseleave", handleNodeMouseLeave)
           .on("click", handleNodeClick)
           .call(createNodeDragBehaviour());
       }
 
-      function handleNodeMouseOver(event, node) {
+      function handleNodeMouseEnter(event, node) {
         if (chartState.isDragging) return;
 
+        node.isPointerInside = true;
         window.clearTimeout(node.hoverTimer);
         node.hoverTimer = window.setTimeout(() => {
+          node.hoverTimer = null;
+          if (!node.isPointerInside || chartState.isDragging) return;
+
           node.currentScale = CHART_BEHAVIOUR.hoverScale;
           d3.select(this)
-            .interrupt(true)
+            .interrupt("hover")
             .raise()
-            .transition()
+            .transition("hover")
             .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
             .attr(
               "transform",
@@ -1579,27 +1703,40 @@
         }, CHART_BEHAVIOUR.hoverDelay);
       }
 
-      function handleNodeMouseOut(event, node) {
-        if (chartState.isDragging) return;
-
+      function handleNodeMouseLeave(event, node) {
+        node.isPointerInside = false;
         window.clearTimeout(node.hoverTimer);
         node.hoverTimer = null;
-        if (node.currentScale === 1) return;
+        clearHoverHighlight();
+
+        if (chartState.isDragging || node.currentScale === 1) return;
 
         node.currentScale = 1;
         d3.select(this)
-          .interrupt(true)
-          .transition()
+          .interrupt("hover")
+          .transition("hover")
           .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
           .attr("transform", `translate(${node.x},${node.y}) scale(1)`)
           .on("end", raiseProductNodes);
+      }
+
+      function resetNodeHoverForSelection(element, node) {
+        node.isPointerInside = false;
+        node.currentScale = 1;
+        window.clearTimeout(node.hoverTimer);
+        node.hoverTimer = null;
+
+        d3.select(element)
+          .interrupt("hover")
+          .attr("transform", `translate(${node.x},${node.y}) scale(1)`);
 
         clearHoverHighlight();
       }
 
       function handleNodeClick(event, node) {
         event.stopPropagation();
-        selectNode(node);
+        resetNodeHoverForSelection(this, node);
+        handleStrainSelection(node);
       }
 
       function createNodeDragBehaviour() {
@@ -1666,9 +1803,12 @@
           chartState.nodeSelection
             .each((node) => {
               window.clearTimeout(node.hoverTimer);
+              node.hoverTimer = null;
+              node.isPointerInside = false;
               node.currentScale = 1;
             })
-            .transition()
+            .interrupt("hover")
+            .transition("hover")
             .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
             .attr("transform", (node) =>
               `translate(${node.x},${node.y}) scale(1)`,
@@ -1679,14 +1819,16 @@
 
       function selectNode(node) {
         removeChartOverlays();
+        hideComparisonLegend();
 
-        if (chartState.focusedNode === node) {
+        if (chartState.focusedNode === node && !chartState.comparison) {
           clearChartFocus();
           return;
         }
 
         const lineage = collectLineage(node, chartState.nodes, chartState.indexes);
 
+        clearComparisonClasses();
         chartState.nodeSelection
           .classed("dimmed", (candidate) => !lineage.has(candidate.id))
           .classed("clicked", (candidate) => candidate.id === node.id);
@@ -1704,6 +1846,7 @@
           );
 
         chartState.focusedNode = node;
+        chartState.comparison = null;
         chartState.focusedLineage = new Set(lineage);
         zoomToLineage(lineage);
 
@@ -1727,6 +1870,73 @@
         renderInfoPanel(node, ancestorContributions);
       }
 
+      function compareNodes(firstNode, secondNode) {
+        removeChartOverlays();
+        clearHoverHighlight();
+
+        const firstLineage = collectAncestorLineage(
+          firstNode,
+          chartState.nodes,
+          chartState.indexes,
+        );
+        const secondLineage = collectAncestorLineage(
+          secondNode,
+          chartState.nodes,
+          chartState.indexes,
+        );
+        const sharedLineage = new Set(
+          [...firstLineage].filter((nodeId) => secondLineage.has(nodeId)),
+        );
+        const combinedLineage = new Set([...firstLineage, ...secondLineage]);
+
+        chartState.nodeSelection
+          .classed("dimmed", (node) => !combinedLineage.has(node.id))
+          .classed(
+            "clicked",
+            (node) => node.id === firstNode.id || node.id === secondNode.id,
+          )
+          .classed("compare-shared", (node) => sharedLineage.has(node.id));
+
+        chartState.linkSelection
+          .classed("dimmed", (link) => {
+            const inFirst =
+              firstLineage.has(link.source) && firstLineage.has(link.target);
+            const inSecond =
+              secondLineage.has(link.source) && secondLineage.has(link.target);
+            return !inFirst && !inSecond;
+          })
+          .classed("compare-shared", (link) =>
+            firstLineage.has(link.source) &&
+            firstLineage.has(link.target) &&
+            secondLineage.has(link.source) &&
+            secondLineage.has(link.target),
+          )
+          .attr("stroke-width", (link) => {
+            const inFirst =
+              firstLineage.has(link.source) && firstLineage.has(link.target);
+            const inSecond =
+              secondLineage.has(link.source) && secondLineage.has(link.target);
+            return inFirst || inSecond
+              ? CHART_SIZING.focusedLinkWidth
+              : CHART_SIZING.linkWidth;
+          });
+
+        chartState.focusedNode = null;
+        chartState.comparisonSelections = [firstNode, secondNode];
+        chartState.comparison = {
+          firstNode,
+          secondNode,
+          firstLineage,
+          secondLineage,
+          sharedLineage,
+          combinedLineage,
+        };
+        chartState.focusedLineage = new Set(combinedLineage);
+
+        showComparisonLegend(firstNode, secondNode);
+        zoomToLineage(combinedLineage);
+      }
+
       function combineContributions(
         focusedNode,
         ancestorContributions,
@@ -1740,28 +1950,45 @@
         return combined;
       }
 
+      function clearComparisonClasses() {
+        chartState.nodeSelection?.classed("compare-shared", false);
+        chartState.linkSelection?.classed("compare-shared", false);
+      }
+
       function clearChartFocus({ resetView = true } = {}) {
         chartState.focusedNode = null;
         chartState.focusedLineage = null;
+        chartState.comparison = null;
+        chartState.comparisonSelections = [];
         chartState.nodeSelection
           ?.classed("dimmed", false)
-          .classed("clicked", false);
+          .classed("clicked", false)
+          .classed("compare-shared", false);
         chartState.linkSelection
           ?.classed("dimmed", false)
+          .classed("compare-shared", false)
           .attr("stroke-width", CHART_SIZING.linkWidth);
         removeChartOverlays();
+        hideComparisonLegend();
 
         if (resetView) resetZoom();
       }
 
       function removeChartOverlays() {
-        chartState.group
-          ?.selectAll(".pct-pill, .pct-pill-text, .info-panel")
-          .remove();
+        chartState.group?.selectAll(".pct-pill, .pct-pill-text").remove();
+        clearInfoPanel();
       }
 
       function highlightHoverLineage(node) {
-        const lineage = collectLineage(node, chartState.nodes, chartState.indexes);
+        const lineage =
+          pageState.selectionMode === "compare"
+            ? collectAncestorLineage(
+                node,
+                chartState.nodes,
+                chartState.indexes,
+              )
+            : collectLineage(node, chartState.nodes, chartState.indexes);
+
         chartState.nodeSelection.classed("highlighted", (candidate) =>
           lineage.has(candidate.id),
         );
@@ -1816,6 +2043,89 @@
           });
       }
 
+      function showPendingComparisonSelection(node) {
+        removeChartOverlays();
+        clearHoverHighlight();
+        clearComparisonClasses();
+
+        chartState.focusedNode = null;
+        chartState.focusedLineage = null;
+        chartState.comparison = null;
+        chartState.comparisonSelections = [node];
+
+        chartState.nodeSelection
+          .classed("dimmed", false)
+          .classed("clicked", (candidate) => candidate.id === node.id);
+        chartState.linkSelection
+          .classed("dimmed", false)
+          .attr("stroke-width", CHART_SIZING.linkWidth);
+
+        showComparisonLegend(node);
+      }
+
+      function handleComparisonSelection(node) {
+        const selections = chartState.comparisonSelections;
+
+        if (selections.length === 1 && selections[0].id === node.id) {
+          clearChartFocus({ resetView: false });
+          return;
+        }
+
+        if (selections.length === 2) {
+          const clickedIndex = selections.findIndex(
+            (selectedNode) => selectedNode.id === node.id,
+          );
+
+          if (clickedIndex !== -1) {
+            const remainingNode = selections[clickedIndex === 0 ? 1 : 0];
+            showPendingComparisonSelection(remainingNode);
+            return;
+          }
+
+          showPendingComparisonSelection(node);
+          return;
+        }
+
+        if (selections.length !== 1) {
+          showPendingComparisonSelection(node);
+          return;
+        }
+
+        compareNodes(selections[0], node);
+      }
+
+      function handleStrainSelection(node) {
+        if (pageState.selectionMode === "compare") {
+          handleComparisonSelection(node);
+        } else {
+          selectNode(node);
+        }
+      }
+
+      function showComparisonLegend(firstNode, secondNode = null) {
+        const legend = document.getElementById("comparisonLegend");
+        legend.replaceChildren();
+
+        const firstRow = document.createElement("div");
+        firstRow.className = "comparison-legend-row";
+        firstRow.textContent = `A: ${firstNode.name}`;
+
+        const secondRow = document.createElement("div");
+        secondRow.className = "comparison-legend-row";
+        secondRow.textContent = secondNode
+          ? `B: ${secondNode.name}`
+          : "Select a second strain";
+
+        legend.append(firstRow, secondRow);
+        legend.classList.add("is-visible");
+      }
+
+      function hideComparisonLegend() {
+        const legend = document.getElementById("comparisonLegend");
+        legend?.classList.remove("is-visible");
+        legend?.replaceChildren();
+      }
+
       function getInfoPanelData(node, ancestorContributions) {
         const alsoKnownAs = parseSemicolonSeparatedValues(node.alsoKnownAs);
         const products = parseSemicolonSeparatedValues(node.product);
@@ -1840,113 +2150,129 @@
         return { alsoKnownAs, products, contributors };
       }
 
+      function clearInfoPanel() {
+        const panel = document.getElementById("infoPanel");
+        if (!panel) return;
+
+        panel.hidden = true;
+        panel.replaceChildren();
+      }
+
+      function appendInfoPanelHeading(panel, text, className = "") {
+        const heading = document.createElement("div");
+        heading.className = ["info-panel-heading", className]
+          .filter(Boolean)
+          .join(" ");
+        heading.textContent = text;
+        panel.appendChild(heading);
+      }
+
+      function appendLineSeparatedValues(panel, values) {
+        const list = document.createElement("div");
+
+        values.forEach((value, index) => {
+          if (index) list.appendChild(document.createElement("br"));
+          const item = document.createElement("span");
+          item.textContent = value;
+          list.appendChild(item);
+        });
+
+        panel.appendChild(list);
+      }
+
+      function appendInfoPanelSpacer(panel) {
+        panel.appendChild(document.createElement("br"));
+      }
+
       function renderInfoPanel(node, ancestorContributions) {
+        const panel = document.getElementById("infoPanel");
+        if (!panel) return;
+
         const { alsoKnownAs, products, contributors } = getInfoPanelData(
           node,
           ancestorContributions,
         );
-        const variantCount = (
-          chartState.indexes.variantsByBaseName.get(node.name) || []
-        ).length;
-        const panelGap =
-          CHART_SIZING.infoPanelBaseGap +
-          variantCount * (CHART_SIZING.nodeHeight + 1);
 
-        const foreignObject = chartState.group
-          .append("foreignObject")
-          .attr("class", "info-panel")
-          .attr(
-            "x",
-            node.x + CHART_SIZING.infoPanelLeftOffset,
-          )
-          .attr("y", node.y + panelGap)
-          .attr("width", CHART_SIZING.infoPanelWidth);
+        panel.replaceChildren();
 
-        const panel = foreignObject
-          .append("xhtml:div")
-          .attr("class", "info-panel-content");
+        if (!alsoKnownAs.length && !products.length && !contributors.length) {
+          panel.hidden = true;
+          return;
+        }
 
         if (alsoKnownAs.length) {
-          panel
-            .append("div")
-            .attr("class", "info-panel-heading")
-            .text("Also known as");
-          const aliases = panel.append("div");
-          alsoKnownAs.forEach((alias, index) => {
-            if (index) aliases.append("br");
-            aliases.append("span").text(alias);
-          });
-          panel.append("br");
+          appendInfoPanelHeading(panel, "Also known as");
+          appendLineSeparatedValues(panel, alsoKnownAs);
+          appendInfoPanelSpacer(panel);
         }
 
         if (products.length) {
-          panel
-            .append("div")
-            .attr(
-              "class",
-              "info-panel-heading info-panel-heading--products",
-            )
-            .text("New Zealand Medical Cannabis Products");
-          const productList = panel.append("div");
-          products.forEach((product, index) => {
-            if (index) productList.append("br");
-            productList.append("span").text(product);
-          });
-          panel.append("br");
+          appendInfoPanelHeading(
+            panel,
+            "New Zealand Medical Cannabis Products",
+            "info-panel-heading--products",
+          );
+          appendLineSeparatedValues(panel, products);
+          appendInfoPanelSpacer(panel);
         }
 
         if (contributors.length) {
-          panel
-            .append("div")
-            .attr(
-              "class",
-              "info-panel-heading info-panel-heading--contributors",
-            )
-            .text("www.weedtree.fyi Calculated Ancestor Contributions*");
+          appendInfoPanelHeading(
+            panel,
+            "www.weedtree.fyi Calculated Ancestor Contributions*",
+            "info-panel-heading--contributors",
+          );
 
-          const table = panel
-            .append("div")
-            .attr("id", "contributors-table")
-            .attr("class", "contributors-grid");
+          const table = document.createElement("div");
+          table.id = "contributors-table";
+          table.className = "contributors-grid";
 
           contributors.forEach((contributor) => {
-            table
-              .append("div")
-              .attr("class", "c-perc")
-              .text(`${contributor.percentage}%`);
-            table
-              .append("div")
-              .attr("class", "c-dot")
-              .style(
-                "background-color",
-                getDominanceColour(contributor.dominance),
-              );
-            table
-              .append("div")
-              .attr("class", "c-name")
-              .text(contributor.name);
+            const percentage = document.createElement("div");
+            percentage.className = "c-perc";
+            percentage.textContent = `${contributor.percentage}%`;
+
+            const dot = document.createElement("div");
+            dot.className = "c-dot";
+            dot.style.backgroundColor = getDominanceColour(
+              contributor.dominance,
+            );
+
+            const name = document.createElement("div");
+            name.className = "c-name";
+            name.textContent = contributor.name;
+
+            table.append(percentage, dot, name);
           });
 
-          const actions = panel
-            .append("div")
-            .attr("class", "info-panel-actions");
+          panel.appendChild(table);
 
-          actions
-            .append("a")
-            .attr("href", "#")
-            .text("Copy strain URL")
-            .on("click", (event) => copyStrainURL(node.name, event));
-          actions.append("br");
-          actions
-            .append("a")
-            .attr("href", "#")
-            .text("Copy strain contributors")
-            .on("click", (event) =>
-              copyStrainContributors(node.name, event),
-            );
+          const actions = document.createElement("div");
+          actions.className = "info-panel-actions";
+
+          const copyUrlLink = document.createElement("a");
+          copyUrlLink.href = "#";
+          copyUrlLink.textContent = "Copy strain URL";
+          copyUrlLink.addEventListener("click", (event) =>
+            copyStrainURL(node.name, event),
+          );
+
+          const copyContributorsLink = document.createElement("a");
+          copyContributorsLink.href = "#";
+          copyContributorsLink.textContent = "Copy strain contributors";
+          copyContributorsLink.addEventListener("click", (event) =>
+            copyStrainContributors(node.name, event),
+          );
+
+          actions.append(
+            copyUrlLink,
+            document.createElement("br"),
+            copyContributorsLink,
+          );
+          panel.appendChild(actions);
         }
 
-        foreignObject.attr("height", panel.node().scrollHeight);
+        panel.hidden = false;
       }
 
       function getChartBounds(nodes) {
@@ -2127,16 +2453,24 @@
         });
       }
 
+      function getSearchPrompt() {
+        if (pageState.selectionMode === "single") return "go to strain";
+        return chartState.comparisonSelections.length === 1
+          ? "choose second strain"
+          : "choose first strain";
+      }
+
       function startSearchPlaceholderBlink() {
         const searchInput = document.getElementById("strainSearch");
+        const baseText = getSearchPrompt();
         window.clearInterval(searchState.blinkInterval);
         searchInput.classList.add("hidden-cursor");
         searchState.showingUnderscore = true;
 
         searchState.blinkInterval = window.setInterval(() => {
           searchInput.placeholder = searchState.showingUnderscore
-            ? "go to strain_"
-            : "go to strain ";
+            ? `${baseText}_`
+            : `${baseText} `;
           searchState.showingUnderscore = !searchState.showingUnderscore;
         }, 500);
       }
@@ -2145,8 +2479,31 @@
         const searchInput = document.getElementById("strainSearch");
         window.clearInterval(searchState.blinkInterval);
         searchState.blinkInterval = null;
-        searchInput.placeholder = "go to strain";
+        searchInput.placeholder = getSearchPrompt();
         searchInput.classList.remove("hidden-cursor");
+      }
+
+      function resetSearchInput() {
+        const searchInput = document.getElementById("strainSearch");
+        searchInput.value = "";
+        document.getElementById("strainDropdown").style.display = "none";
+        startSearchPlaceholderBlink();
+      }
+
+      function setSelectionMode(mode) {
+        const nextMode = mode === "compare" ? "compare" : "single";
+        if (pageState.selectionMode === nextMode) return;
+
+        pageState.selectionMode = nextMode;
+        clearChartFocus();
+
+        document.querySelectorAll("[data-selection-mode]").forEach((button) => {
+          const isActive = button.dataset.selectionMode === nextMode;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-pressed", String(isActive));
+        });
+
+        resetSearchInput();
       }
 
       function updateStrainDropdownPosition() {
@@ -2167,6 +2524,7 @@
           .filter(
             (node) =>
               !node.name.toLowerCase().includes("unknown") &&
+              node.id !== chartState.comparisonSelections[0]?.id &&
               (node.name.toLowerCase().includes(normalisedSearch) ||
                 node.product?.toLowerCase().includes(normalisedSearch) ||
                 node.alsoKnownAs?.toLowerCase().includes(normalisedSearch)),
@@ -2202,17 +2560,37 @@
         dropdown.style.display = matches.length ? "block" : "none";
       }
 
-      function chooseSearchResult(strain) {
+      function completeSearchSelection() {
         const searchInput = document.getElementById("strainSearch");
         const dropdown = document.getElementById("strainDropdown");
         const searchPopup = document.getElementById("popup2");
 
-        selectNode(strain);
         dropdown.style.display = "none";
         searchInput.value = "";
         searchPopup.style.display = "none";
         document.querySelector(".popup-overlay").style.display = "none";
         startSearchPlaceholderBlink();
+      }
+
+      function chooseSearchResult(strain) {
+        const searchInput = document.getElementById("strainSearch");
+        const dropdown = document.getElementById("strainDropdown");
+
+        handleStrainSelection(strain);
+
+        if (
+          pageState.selectionMode === "compare" &&
+          chartState.comparisonSelections.length === 1 &&
+          !chartState.comparison
+        ) {
+          dropdown.style.display = "none";
+          searchInput.value = "";
+          startSearchPlaceholderBlink();
+          searchInput.focus();
+          return;
+        }
+
+        completeSearchSelection();
       }
 
       function handleStrainSearchInput(event) {
@@ -2258,6 +2636,7 @@
         overlay.style.display = "block";
 
         if (popup === searchPopup) {
+          startSearchPlaceholderBlink();
           document.getElementById("strainSearch").focus();
         }
       }
@@ -2336,6 +2715,12 @@
       }
 
       function setupPageControls() {
+        document.querySelectorAll("[data-selection-mode]").forEach((button) => {
+          button.addEventListener("click", () =>
+            setSelectionMode(button.dataset.selectionMode),
+          );
+        });
+
         document
           .getElementById("fullscreenToggle")
           .addEventListener("click", toggleFullScreen);
@@ -2352,7 +2737,13 @@
         document
           .getElementById("deselectButton")
           .addEventListener("click", () => {
-            if (chartState.focusedNode) clearChartFocus();
+            if (
+              chartState.focusedNode ||
+              chartState.comparison ||
+              chartState.comparisonSelections.length
+            ) {
+              clearChartFocus();
+            }
           });
 
         window.addEventListener("resize", handleWindowResize);
