@@ -578,36 +578,42 @@
       }
 
       .focused-info-column--related {
+        box-sizing: border-box;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
         padding-left: calc(18px * var(--info-panel-scale));
+        padding-right: calc(4px * var(--info-panel-scale));
         border-left: 1px solid #aaa;
       }
 
-      .related-products-list {
+      .related-products-groups {
         display: grid;
-        gap: calc(12px * var(--info-panel-scale));
+        gap: calc(14px * var(--info-panel-scale));
         margin-top: calc(7px * var(--info-panel-scale));
       }
 
-      .related-product-item {
-        min-width: 0;
-      }
+      .related-product-group { min-width: 0; }
 
-      .related-product-name {
+      .related-product-group-heading {
+        margin-bottom: calc(5px * var(--info-panel-scale));
         font-weight: 700;
-        line-height: 1.2;
-        overflow-wrap: anywhere;
-      }
-
-      .related-product-strain {
-        margin-top: calc(2px * var(--info-panel-scale));
         line-height: 1.25;
         overflow-wrap: anywhere;
       }
 
-      .related-product-relationship {
-        margin-top: calc(2px * var(--info-panel-scale));
-        color: #444;
-        line-height: 1.3;
+      .related-product-group-products {
+        display: grid;
+        gap: calc(3px * var(--info-panel-scale));
+        min-width: 0;
+      }
+
+      .related-product-name {
+        min-width: 0;
+        font-weight: 400;
+        line-height: 1.25;
         overflow-wrap: anywhere;
       }
 
@@ -2596,6 +2602,10 @@
             pageState[config.stateKey] >=
             CHART_BEHAVIOUR.infoPanelZoomMaximum;
         }
+
+        if (panelType === "info" && !panel.hidden) {
+          window.requestAnimationFrame(syncFocusedInfoColumnHeight);
+        }
       }
 
       function adjustPanelZoom(panelType, direction) {
@@ -2716,6 +2726,28 @@
         container.appendChild(actions);
       }
 
+      function groupRelatedProductsByRelationship(relatedProducts) {
+        const groupsByRelationship = new Map();
+
+        relatedProducts.forEach((match) => {
+          const relationship = match.relationshipGroup;
+          let group = groupsByRelationship.get(relationship);
+
+          if (!group) {
+            group = {
+              relationship,
+              relationshipRank: match.relationshipRank,
+              products: [],
+            };
+            groupsByRelationship.set(relationship, group);
+          }
+
+          group.products.push(match.product);
+        });
+
+        return [...groupsByRelationship.values()];
+      }
+
       function appendRelatedProductsColumn(container, relatedProducts) {
         appendInfoPanelHeading(
           container,
@@ -2732,30 +2764,52 @@
           return;
         }
 
-        const list = document.createElement("div");
-        list.className = "related-products-list";
+        const groups = document.createElement("div");
+        groups.className = "related-products-groups";
 
-        relatedProducts.forEach((match) => {
-          const item = document.createElement("article");
-          item.className = "related-product-item";
+        groupRelatedProductsByRelationship(relatedProducts).forEach((group) => {
+          const section = document.createElement("section");
+          section.className = "related-product-group";
 
-          const productName = document.createElement("div");
-          productName.className = "related-product-name";
-          productName.textContent = match.product;
+          const heading = document.createElement("div");
+          heading.className = "related-product-group-heading";
+          heading.textContent = `${group.relationship}:`;
 
-          const strainName = document.createElement("div");
-          strainName.className = "related-product-strain";
-          strainName.textContent = `Strain: ${match.strain.name}`;
+          const products = document.createElement("div");
+          products.className = "related-product-group-products";
 
-          const relationship = document.createElement("div");
-          relationship.className = "related-product-relationship";
-          relationship.textContent = match.relationship;
+          group.products.forEach((product) => {
+            const productName = document.createElement("div");
+            productName.className = "related-product-name";
+            productName.textContent = product;
+            products.appendChild(productName);
+          });
 
-          item.append(productName, strainName, relationship);
-          list.appendChild(item);
+          section.append(heading, products);
+          groups.appendChild(section);
         });
 
-        container.appendChild(list);
+        container.appendChild(groups);
+      }
+
+      function syncFocusedInfoColumnHeight() {
+        const panel = document.getElementById("infoPanel");
+        if (!panel || panel.hidden) return;
+
+        const primaryColumn = panel.querySelector(
+          ".focused-info-column:not(.focused-info-column--related)",
+        );
+        const relatedColumn = panel.querySelector(
+          ".focused-info-column--related",
+        );
+        if (!primaryColumn || !relatedColumn) return;
+
+        relatedColumn.style.height = "auto";
+        relatedColumn.style.maxHeight = "none";
+
+        const primaryHeight = Math.ceil(primaryColumn.getBoundingClientRect().height);
+        relatedColumn.style.height = `${primaryHeight}px`;
+        relatedColumn.style.maxHeight = `${primaryHeight}px`;
       }
 
       function renderInfoPanel(node, ancestorContributions) {
@@ -2798,6 +2852,7 @@
         clearComparisonPanel();
         setPanelZoom("info", pageState.infoPanelZoom);
         panel.hidden = false;
+        window.requestAnimationFrame(syncFocusedInfoColumnHeight);
       }
 
       function getAncestorDepths(
@@ -3103,6 +3158,93 @@
         return compactStatement.charAt(0).toUpperCase() + compactStatement.slice(1);
       }
 
+
+      function capitaliseFirst(value) {
+        return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+      }
+
+      function getDescendantRelationshipLabel(depth) {
+        if (depth === 1) return "child";
+        if (depth === 2) return "grandchild";
+        if (depth === 3) return "great-grandchild";
+        return `${depth - 2}× great-grandchild`;
+      }
+
+      function getRelatedProductRelationshipGroupLabel(
+        focusedNode,
+        candidateNode,
+      ) {
+        if (candidateNode.variant === focusedNode.name) {
+          return "Variants";
+        }
+        if (focusedNode.variant === candidateNode.name) {
+          return "Base strain";
+        }
+        if (
+          focusedNode.variant &&
+          candidateNode.variant &&
+          focusedNode.variant === candidateNode.variant
+        ) {
+          return `Variants of ${focusedNode.variant}`;
+        }
+
+        const maximumDepth =
+          CHART_BEHAVIOUR.comparisonRelationshipMaximumGenerations;
+        const focusedDepths = getAncestorDepths(focusedNode);
+        const candidateDepths = getAncestorDepths(candidateNode);
+        const focusedFromCandidate = candidateDepths.get(focusedNode.id);
+        const candidateFromFocused = focusedDepths.get(candidateNode.id);
+
+        if (
+          focusedFromCandidate > 0 &&
+          focusedFromCandidate <= maximumDepth
+        ) {
+          return `${capitaliseFirst(
+            getDescendantRelationshipLabel(focusedFromCandidate),
+          )} strains`;
+        }
+
+        if (
+          candidateFromFocused > 0 &&
+          candidateFromFocused <= maximumDepth
+        ) {
+          return `${capitaliseFirst(
+            getGenerationRelationshipLabel(candidateFromFocused),
+          )} strains`;
+        }
+
+        const statement = getComparisonRelationshipStatement(
+          focusedNode,
+          candidateNode,
+        );
+
+        const sharedRelationshipMatch = statement.match(
+          /^These strains are (.+?), sharing (.+?) as .+\.$/,
+        );
+        if (sharedRelationshipMatch) {
+          return `${capitaliseFirst(sharedRelationshipMatch[1])} through ${sharedRelationshipMatch[2]}`;
+        }
+
+        const removedCousinMatch = statement.match(
+          /^These strains are (.+?) through (.+?), .+$/,
+        );
+        if (removedCousinMatch) {
+          return `${capitaliseFirst(removedCousinMatch[1])} through ${removedCousinMatch[2]}`;
+        }
+
+        const unequalRelationshipMatch = statement.match(
+          /^These strains share (.+?), .+$/,
+        );
+        if (unequalRelationshipMatch) {
+          return `Related through ${unequalRelationshipMatch[1]}`;
+        }
+
+        return getCompactRelationshipStatement(
+          focusedNode,
+          candidateNode,
+        ).replace(/\.$/, "");
+      }
+
       function getRelatedProductMatches(focusedNode, exactProducts = []) {
         const exactProductNames = new Set(
           exactProducts.map((product) => product.trim().toLowerCase()),
@@ -3137,6 +3279,10 @@
               product,
               strain: candidateNode,
               relationship: getCompactRelationshipStatement(
+                focusedNode,
+                candidateNode,
+              ),
+              relationshipGroup: getRelatedProductRelationshipGroupLabel(
                 focusedNode,
                 candidateNode,
               ),
@@ -3751,6 +3897,7 @@
         pageState.resizeTimer = window.setTimeout(() => {
           if (chartState.isPrepared) createLineageChart();
           adjustFullscreenButtonPosition();
+          window.requestAnimationFrame(syncFocusedInfoColumnHeight);
         }, 120);
       }
 
