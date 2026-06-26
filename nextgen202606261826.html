@@ -424,9 +424,11 @@
       }
       .link.compare-first-only {
         stroke: var(--chart-compare-first-link) !important;
+        stroke-opacity: 0.5;
       }
       .link.compare-second-only {
         stroke: var(--chart-compare-second-link) !important;
+        stroke-opacity: 0.5;
       }
       .link.compare-shared {
         stroke: var(--chart-hover-highlight) !important;
@@ -590,6 +592,14 @@
       }
       .c-name {
         min-width: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+
+      .comparison-relationship {
+        margin-bottom: calc(12px * var(--info-panel-scale));
+        font-size: calc(14px * var(--info-panel-scale));
+        line-height: 1.35;
         white-space: normal;
         overflow-wrap: anywhere;
       }
@@ -888,6 +898,7 @@
         hoverTransitionDuration: 150,
         linkDarkenAmount: 2,
         variantBlendAmount: 0.5,
+        comparisonRelationshipMaximumGenerations: 4,
         infoPanelZoomMinimum: 0.35,
         infoPanelZoomMaximum: 1.75,
         infoPanelZoomStep: 0.1,
@@ -2689,6 +2700,178 @@
         panel.hidden = false;
       }
 
+      function getAncestorDepths(
+        startNode,
+        indexes = chartState.indexes,
+      ) {
+        const depths = new Map();
+        const queue = [{ node: startNode, depth: 0 }];
+
+        while (queue.length) {
+          const { node, depth } = queue.shift();
+          if (!node) continue;
+
+          const existingDepth = depths.get(node.id);
+          if (existingDepth !== undefined && existingDepth <= depth) continue;
+          depths.set(node.id, depth);
+
+          if (node.variant) {
+            const baseNode = indexes.nodesByName.get(node.variant);
+            if (baseNode) queue.push({ node: baseNode, depth });
+            continue;
+          }
+
+          node.parents.forEach((parentId) => {
+            const parentNode = indexes.nodesById.get(parentId);
+            if (parentNode) queue.push({ node: parentNode, depth: depth + 1 });
+          });
+        }
+
+        return depths;
+      }
+
+      function getGenerationRelationshipLabel(depth) {
+        if (depth === 1) return "parent";
+        if (depth === 2) return "grandparent";
+        if (depth === 3) return "great-grandparent";
+        if (depth === 4) return "great-great-grandparent";
+        return `${depth - 2}× great-grandparent`;
+      }
+
+      function getOrdinalRelationshipName(degree) {
+        return ["", "first", "second", "third"][degree] || `${degree}th`;
+      }
+
+      function describeSharedAncestorCount(count, relationship) {
+        const plural = count === 1 ? relationship : `${relationship}s`;
+        const amount = count === 1 ? "one" : count === 2 ? "two" : String(count);
+        return `${amount} ${plural}`;
+      }
+
+      function getComparisonRelationshipStatement(firstNode, secondNode) {
+        if (firstNode.variant === secondNode.name) {
+          return `${firstNode.name} is a variant of ${secondNode.name}.`;
+        }
+        if (secondNode.variant === firstNode.name) {
+          return `${secondNode.name} is a variant of ${firstNode.name}.`;
+        }
+        if (
+          firstNode.variant &&
+          secondNode.variant &&
+          firstNode.variant === secondNode.variant
+        ) {
+          return `These strains are variants of ${firstNode.variant}.`;
+        }
+
+        const maximumDepth =
+          CHART_BEHAVIOUR.comparisonRelationshipMaximumGenerations;
+        const firstDepths = getAncestorDepths(firstNode);
+        const secondDepths = getAncestorDepths(secondNode);
+        const firstFromSecond = secondDepths.get(firstNode.id);
+        const secondFromFirst = firstDepths.get(secondNode.id);
+
+        if (firstFromSecond > 0 && firstFromSecond <= maximumDepth) {
+          return `${firstNode.name} is a ${getGenerationRelationshipLabel(firstFromSecond)} of ${secondNode.name}.`;
+        }
+        if (secondFromFirst > 0 && secondFromFirst <= maximumDepth) {
+          return `${secondNode.name} is a ${getGenerationRelationshipLabel(secondFromFirst)} of ${firstNode.name}.`;
+        }
+
+        const candidates = [];
+        firstDepths.forEach((firstDepth, nodeId) => {
+          const secondDepth = secondDepths.get(nodeId);
+          const ancestor = chartState.indexes.nodesById.get(nodeId);
+          if (
+            secondDepth === undefined ||
+            firstDepth < 1 ||
+            secondDepth < 1 ||
+            Math.max(firstDepth, secondDepth) > maximumDepth ||
+            !ancestor ||
+            ancestor.name.toLowerCase().includes("unknown")
+          ) {
+            return;
+          }
+
+          candidates.push({
+            ancestor,
+            firstDepth,
+            secondDepth,
+            combinedDepth: firstDepth + secondDepth,
+            maximumDepth: Math.max(firstDepth, secondDepth),
+          });
+        });
+
+        if (!candidates.length) {
+          return "These strains are only distantly related.";
+        }
+
+        candidates.sort(
+          (a, b) =>
+            a.combinedDepth - b.combinedDepth ||
+            a.maximumDepth - b.maximumDepth ||
+            a.ancestor.name.localeCompare(b.ancestor.name),
+        );
+
+        const closest = candidates[0];
+        const closestGroup = candidates.filter(
+          (candidate) =>
+            candidate.firstDepth === closest.firstDepth &&
+            candidate.secondDepth === closest.secondDepth,
+        );
+        const sharedCount = closestGroup.length;
+
+        if (closest.firstDepth === closest.secondDepth) {
+          if (closest.firstDepth === 1) {
+            const firstParents = new Set(
+              getParentNodes(firstNode, chartState.indexes).map(
+                (node) => node.id,
+              ),
+            );
+            const secondParents = new Set(
+              getParentNodes(secondNode, chartState.indexes).map(
+                (node) => node.id,
+              ),
+            );
+            const sameParents =
+              firstParents.size > 0 &&
+              firstParents.size === secondParents.size &&
+              [...firstParents].every((parentId) =>
+                secondParents.has(parentId),
+              );
+
+            if (sameParents) return "These strains are full siblings.";
+            return `These strains are half-siblings, sharing ${describeSharedAncestorCount(sharedCount, "parent")}.`;
+          }
+
+          const cousinDegree = closest.firstDepth - 1;
+          const ancestorLabel = getGenerationRelationshipLabel(
+            closest.firstDepth,
+          );
+          return `These strains are ${getOrdinalRelationshipName(cousinDegree)} cousins, sharing ${describeSharedAncestorCount(sharedCount, ancestorLabel)}.`;
+        }
+
+        const lowerDepth = Math.min(
+          closest.firstDepth,
+          closest.secondDepth,
+        );
+        const removal = Math.abs(
+          closest.firstDepth - closest.secondDepth,
+        );
+
+        if (lowerDepth >= 2) {
+          const cousinDegree = lowerDepth - 1;
+          const removalText =
+            removal === 1
+              ? " once removed"
+              : removal === 2
+                ? " twice removed"
+                : ` ${removal} times removed`;
+          return `These strains are ${getOrdinalRelationshipName(cousinDegree)} cousins${removalText}.`;
+        }
+
+        return `These strains share ${closest.ancestor.name}, a ${getGenerationRelationshipLabel(closest.firstDepth)} of ${firstNode.name} and a ${getGenerationRelationshipLabel(closest.secondDepth)} of ${secondNode.name}.`;
+      }
+
       function getSharedAncestorContributions(firstNode, secondNode) {
         const firstContributions = calculateAncestorContributions(
           firstNode,
@@ -2787,6 +2970,14 @@
         });
 
         body.replaceChildren();
+
+        const relationship = document.createElement("div");
+        relationship.className = "comparison-relationship";
+        relationship.textContent = getComparisonRelationshipStatement(
+          firstNode,
+          secondNode,
+        );
+        body.appendChild(relationship);
 
         const columns = document.createElement("div");
         columns.className = "comparison-panel-columns";
