@@ -645,8 +645,14 @@
         overflow-wrap: anywhere;
       }
 
-      .comparison-relationship {
+      .comparison-relationships {
+        display: grid;
+        gap: calc(6px * var(--info-panel-scale));
         margin-bottom: calc(12px * var(--info-panel-scale));
+      }
+
+      .comparison-relationship {
+        margin: 0;
         font-size: calc(14px * var(--info-panel-scale));
         line-height: 1.35;
         white-space: normal;
@@ -1129,12 +1135,10 @@
           name: strain.Strain,
           displayName: strain.Strain,
           dominance: strain.Dominance,
-          parents: [
-            strain.Parent1,
-            strain.Parent2,
-            strain.Parent3,
-            strain.Parent4,
-          ].filter(Boolean),
+          parents: Array.from(
+            { length: 10 },
+            (_, index) => strain[`Parent${index + 1}`],
+          ).filter(Boolean),
           generation: 0,
           special: strain.Special,
           product: strain.Product,
@@ -2912,39 +2916,19 @@
         return count === 1 ? `a ${label}` : `${label}s`;
       }
 
-      function getComparisonRelationshipStatement(firstNode, secondNode) {
-        if (firstNode.variant === secondNode.name) {
-          return `${firstNode.name} is a variant of ${secondNode.name}.`;
-        }
-        if (secondNode.variant === firstNode.name) {
-          return `${secondNode.name} is a variant of ${firstNode.name}.`;
-        }
-        if (
-          firstNode.variant &&
-          secondNode.variant &&
-          firstNode.variant === secondNode.variant
-        ) {
-          return `These strains are variants of ${firstNode.variant}.`;
-        }
-
-        const maximumDepth =
-          CHART_BEHAVIOUR.comparisonRelationshipMaximumGenerations;
+      function getSharedRelationshipCandidates(
+        firstNode,
+        secondNode,
+        maximumDepth = CHART_BEHAVIOUR.comparisonRelationshipMaximumGenerations,
+      ) {
         const firstDepths = getAncestorDepths(firstNode);
         const secondDepths = getAncestorDepths(secondNode);
-        const firstFromSecond = secondDepths.get(firstNode.id);
-        const secondFromFirst = firstDepths.get(secondNode.id);
-
-        if (firstFromSecond > 0 && firstFromSecond <= maximumDepth) {
-          return `${firstNode.name} is a ${getGenerationRelationshipLabel(firstFromSecond)} of ${secondNode.name}.`;
-        }
-        if (secondFromFirst > 0 && secondFromFirst <= maximumDepth) {
-          return `${secondNode.name} is a ${getGenerationRelationshipLabel(secondFromFirst)} of ${firstNode.name}.`;
-        }
-
         const candidates = [];
+
         firstDepths.forEach((firstDepth, nodeId) => {
           const secondDepth = secondDepths.get(nodeId);
           const ancestor = chartState.indexes.nodesById.get(nodeId);
+
           if (
             secondDepth === undefined ||
             firstDepth < 1 ||
@@ -2965,27 +2949,84 @@
           });
         });
 
-        if (!candidates.length) {
-          return "These strains are only distantly related.";
-        }
-
-        candidates.sort(
+        return candidates.sort(
           (a, b) =>
             a.combinedDepth - b.combinedDepth ||
             a.maximumDepth - b.maximumDepth ||
+            a.firstDepth - b.firstDepth ||
+            a.secondDepth - b.secondDepth ||
             a.ancestor.name.localeCompare(b.ancestor.name),
         );
+      }
 
-        const closest = candidates[0];
-        const closestGroup = candidates.filter(
-          (candidate) =>
-            candidate.firstDepth === closest.firstDepth &&
-            candidate.secondDepth === closest.secondDepth,
+      function removeRedundantSharedAncestors(candidates) {
+        return candidates.filter((candidate) =>
+          !candidates.some((otherCandidate) => {
+            if (otherCandidate.ancestor.id === candidate.ancestor.id) {
+              return false;
+            }
+
+            const otherAncestorDepths = getAncestorDepths(
+              otherCandidate.ancestor,
+            );
+            const distanceToCandidate = otherAncestorDepths.get(
+              candidate.ancestor.id,
+            );
+
+            const isCloserInBothLineages =
+              otherCandidate.firstDepth <= candidate.firstDepth &&
+              otherCandidate.secondDepth <= candidate.secondDepth &&
+              (otherCandidate.firstDepth < candidate.firstDepth ||
+                otherCandidate.secondDepth < candidate.secondDepth);
+
+            return (
+              distanceToCandidate !== undefined &&
+              distanceToCandidate > 0 &&
+              isCloserInBothLineages
+            );
+          }),
         );
-        const sharedCount = closestGroup.length;
+      }
 
-        if (closest.firstDepth === closest.secondDepth) {
-          if (closest.firstDepth === 1) {
+      function groupSharedRelationshipCandidates(candidates) {
+        const groups = new Map();
+
+        candidates.forEach((candidate) => {
+          const key = `${candidate.firstDepth}:${candidate.secondDepth}`;
+          if (!groups.has(key)) {
+            groups.set(key, {
+              firstDepth: candidate.firstDepth,
+              secondDepth: candidate.secondDepth,
+              candidates: [],
+            });
+          }
+          groups.get(key).candidates.push(candidate);
+        });
+
+        return [...groups.values()].sort(
+          (a, b) =>
+            a.firstDepth + a.secondDepth -
+              (b.firstDepth + b.secondDepth) ||
+            Math.max(a.firstDepth, a.secondDepth) -
+              Math.max(b.firstDepth, b.secondDepth) ||
+            a.firstDepth - b.firstDepth ||
+            a.secondDepth - b.secondDepth,
+        );
+      }
+
+      function describeSharedRelationshipGroup(
+        firstNode,
+        secondNode,
+        group,
+      ) {
+        const { firstDepth, secondDepth, candidates } = group;
+        const sharedCount = candidates.length;
+        const sharedAncestorNames = formatStrainNameList(
+          candidates.map((candidate) => candidate.ancestor.name),
+        );
+
+        if (firstDepth === secondDepth) {
+          if (firstDepth === 1) {
             const firstParents = new Set(
               getParentNodes(firstNode, chartState.indexes).map(
                 (node) => node.id,
@@ -3003,41 +3044,20 @@
                 secondParents.has(parentId),
               );
 
-            const sharedParentNames = formatStrainNameList(
-              closestGroup.map((candidate) => candidate.ancestor.name),
-            );
-
             if (sameParents) {
-              return `These strains are full siblings, sharing ${sharedParentNames} as parents.`;
+              return `These strains are full siblings, sharing ${sharedAncestorNames} as parents.`;
             }
-            return `These strains are half-siblings, sharing ${sharedParentNames} as ${formatAncestorRole(1, sharedCount)}.`;
+            return `These strains are half-siblings, sharing ${sharedAncestorNames} as ${formatAncestorRole(1, sharedCount)}.`;
           }
 
-          const cousinDegree = closest.firstDepth - 1;
-          const sharedAncestorNames = formatStrainNameList(
-            closestGroup.map((candidate) => candidate.ancestor.name),
-          );
-          return `These strains are ${getOrdinalRelationshipName(cousinDegree)} cousins, sharing ${sharedAncestorNames} as ${formatAncestorRole(closest.firstDepth, sharedCount)}.`;
+          const cousinDegree = firstDepth - 1;
+          return `These strains are ${getOrdinalRelationshipName(cousinDegree)} cousins, sharing ${sharedAncestorNames} as ${formatAncestorRole(firstDepth, sharedCount)}.`;
         }
 
-        const lowerDepth = Math.min(
-          closest.firstDepth,
-          closest.secondDepth,
-        );
-        const removal = Math.abs(
-          closest.firstDepth - closest.secondDepth,
-        );
-        const sharedAncestorNames = formatStrainNameList(
-          closestGroup.map((candidate) => candidate.ancestor.name),
-        );
-        const firstRole = formatAncestorRole(
-          closest.firstDepth,
-          sharedCount,
-        );
-        const secondRole = formatAncestorRole(
-          closest.secondDepth,
-          sharedCount,
-        );
+        const lowerDepth = Math.min(firstDepth, secondDepth);
+        const removal = Math.abs(firstDepth - secondDepth);
+        const firstRole = formatAncestorRole(firstDepth, sharedCount);
+        const secondRole = formatAncestorRole(secondDepth, sharedCount);
 
         if (lowerDepth >= 2) {
           const cousinDegree = lowerDepth - 1;
@@ -3051,6 +3071,79 @@
         }
 
         return `These strains share ${sharedAncestorNames}, ${firstRole} of ${firstNode.name} and ${secondRole} of ${secondNode.name}.`;
+      }
+
+      function formatAdditionalRelationshipStatement(statement) {
+        if (statement.startsWith("These strains are ")) {
+          return statement.replace("These strains are ", "They are also ");
+        }
+        if (statement.startsWith("These strains share ")) {
+          return statement.replace("These strains share ", "They also share ");
+        }
+        return statement;
+      }
+
+      function getComparisonRelationshipStatements(firstNode, secondNode) {
+        if (firstNode.variant === secondNode.name) {
+          return [`${firstNode.name} is a variant of ${secondNode.name}.`];
+        }
+        if (secondNode.variant === firstNode.name) {
+          return [`${secondNode.name} is a variant of ${firstNode.name}.`];
+        }
+        if (
+          firstNode.variant &&
+          secondNode.variant &&
+          firstNode.variant === secondNode.variant
+        ) {
+          return [`These strains are variants of ${firstNode.variant}.`];
+        }
+
+        const maximumDepth =
+          CHART_BEHAVIOUR.comparisonRelationshipMaximumGenerations;
+        const firstDepths = getAncestorDepths(firstNode);
+        const secondDepths = getAncestorDepths(secondNode);
+        const firstFromSecond = secondDepths.get(firstNode.id);
+        const secondFromFirst = firstDepths.get(secondNode.id);
+
+        if (firstFromSecond > 0 && firstFromSecond <= maximumDepth) {
+          return [
+            `${firstNode.name} is a ${getGenerationRelationshipLabel(firstFromSecond)} of ${secondNode.name}.`,
+          ];
+        }
+        if (secondFromFirst > 0 && secondFromFirst <= maximumDepth) {
+          return [
+            `${secondNode.name} is a ${getGenerationRelationshipLabel(secondFromFirst)} of ${firstNode.name}.`,
+          ];
+        }
+
+        const candidates = removeRedundantSharedAncestors(
+          getSharedRelationshipCandidates(
+            firstNode,
+            secondNode,
+            maximumDepth,
+          ),
+        );
+
+        if (!candidates.length) {
+          return ["These strains are only distantly related."];
+        }
+
+        return groupSharedRelationshipCandidates(candidates).map(
+          (group, index) => {
+            const statement = describeSharedRelationshipGroup(
+              firstNode,
+              secondNode,
+              group,
+            );
+            return index === 0
+              ? statement
+              : formatAdditionalRelationshipStatement(statement);
+          },
+        );
+      }
+
+      function getComparisonRelationshipStatement(firstNode, secondNode) {
+        return getComparisonRelationshipStatements(firstNode, secondNode)[0];
       }
 
       function getRelationshipSortRank(firstNode, secondNode) {
@@ -3509,13 +3602,17 @@
 
         body.replaceChildren();
 
-        const relationship = document.createElement("div");
-        relationship.className = "comparison-relationship";
-        relationship.textContent = getComparisonRelationshipStatement(
-          firstNode,
-          secondNode,
+        const relationships = document.createElement("div");
+        relationships.className = "comparison-relationships";
+        getComparisonRelationshipStatements(firstNode, secondNode).forEach(
+          (statement) => {
+            const relationship = document.createElement("div");
+            relationship.className = "comparison-relationship";
+            relationship.textContent = statement;
+            relationships.appendChild(relationship);
+          },
         );
-        body.appendChild(relationship);
+        body.appendChild(relationships);
 
         const columns = document.createElement("div");
         columns.className = "comparison-panel-columns";
