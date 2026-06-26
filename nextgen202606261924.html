@@ -561,6 +561,62 @@
         white-space: normal;
       }
 
+
+      .focused-info-columns {
+        display: grid;
+        grid-template-columns:
+          minmax(0, max-content)
+          minmax(calc(220px * var(--info-panel-scale)), calc(330px * var(--info-panel-scale)));
+        align-items: start;
+        gap: calc(20px * var(--info-panel-scale));
+        width: max-content;
+        max-width: 100%;
+      }
+
+      .focused-info-column {
+        min-width: 0;
+      }
+
+      .focused-info-column--related {
+        padding-left: calc(18px * var(--info-panel-scale));
+        border-left: 1px solid #aaa;
+      }
+
+      .related-products-list {
+        display: grid;
+        gap: calc(12px * var(--info-panel-scale));
+        margin-top: calc(7px * var(--info-panel-scale));
+      }
+
+      .related-product-item {
+        min-width: 0;
+      }
+
+      .related-product-name {
+        font-weight: 700;
+        line-height: 1.2;
+        overflow-wrap: anywhere;
+      }
+
+      .related-product-strain {
+        margin-top: calc(2px * var(--info-panel-scale));
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+
+      .related-product-relationship {
+        margin-top: calc(2px * var(--info-panel-scale));
+        color: #444;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+      }
+
+      .related-products-empty {
+        margin-top: calc(7px * var(--info-panel-scale));
+        color: #555;
+        line-height: 1.3;
+      }
+
       .contributors-grid {
         display: grid;
         grid-template-columns: max-content calc(10px * var(--info-panel-scale)) max-content;
@@ -2466,7 +2522,9 @@
           dominance: ancestor.dominance,
         }));
 
-        return { alsoKnownAs, products, contributors };
+        const relatedProducts = getRelatedProductMatches(node, products);
+
+        return { alsoKnownAs, products, contributors, relatedProducts };
       }
 
       function clearInfoPanel() {
@@ -2578,91 +2636,164 @@
         panel.appendChild(document.createElement("br"));
       }
 
+      function appendPrimaryInfoPanelContent(
+        container,
+        node,
+        alsoKnownAs,
+        products,
+        contributors,
+      ) {
+        if (alsoKnownAs.length) {
+          appendInfoPanelHeading(container, "Also known as");
+          appendLineSeparatedValues(container, alsoKnownAs);
+          appendInfoPanelSpacer(container);
+        }
+
+        if (products.length) {
+          appendInfoPanelHeading(
+            container,
+            "NZ Medical Cannabis Products",
+            "info-panel-heading--products",
+          );
+          appendLineSeparatedValues(container, products);
+          appendInfoPanelSpacer(container);
+        }
+
+        if (!contributors.length) return;
+
+        appendInfoPanelHeading(
+          container,
+          "Weedtree Calculated Ancestor Contributions*",
+          "info-panel-heading--contributors",
+        );
+
+        const table = document.createElement("div");
+        table.id = "contributors-table";
+        table.className = "contributors-grid";
+
+        contributors.forEach((contributor) => {
+          const percentage = document.createElement("div");
+          percentage.className = "c-perc";
+          percentage.textContent = `${contributor.percentage}%`;
+
+          const dot = document.createElement("div");
+          dot.className = "c-dot";
+          dot.style.backgroundColor = getDominanceColour(
+            contributor.dominance,
+          );
+
+          const name = document.createElement("div");
+          name.className = "c-name";
+          name.textContent = contributor.name;
+
+          table.append(percentage, dot, name);
+        });
+
+        container.appendChild(table);
+
+        const actions = document.createElement("div");
+        actions.className = "info-panel-actions";
+
+        const copyUrlLink = document.createElement("a");
+        copyUrlLink.href = "#";
+        copyUrlLink.textContent = "Copy strain URL";
+        copyUrlLink.addEventListener("click", (event) =>
+          copyStrainURL(node.name, event),
+        );
+
+        const copyContributorsLink = document.createElement("a");
+        copyContributorsLink.href = "#";
+        copyContributorsLink.textContent = "Copy strain contributors";
+        copyContributorsLink.addEventListener("click", (event) =>
+          copyStrainContributors(node.name, event),
+        );
+
+        actions.append(
+          copyUrlLink,
+          document.createElement("br"),
+          copyContributorsLink,
+        );
+        container.appendChild(actions);
+      }
+
+      function appendRelatedProductsColumn(container, relatedProducts) {
+        appendInfoPanelHeading(
+          container,
+          "Related NZ Medical Cannabis Products",
+          "info-panel-heading--products",
+        );
+
+        if (!relatedProducts.length) {
+          const empty = document.createElement("div");
+          empty.className = "related-products-empty";
+          empty.textContent =
+            "No related NZ products were found within three generations.";
+          container.appendChild(empty);
+          return;
+        }
+
+        const list = document.createElement("div");
+        list.className = "related-products-list";
+
+        relatedProducts.forEach((match) => {
+          const item = document.createElement("article");
+          item.className = "related-product-item";
+
+          const productName = document.createElement("div");
+          productName.className = "related-product-name";
+          productName.textContent = match.product;
+
+          const strainName = document.createElement("div");
+          strainName.className = "related-product-strain";
+          strainName.textContent = `Strain: ${match.strain.name}`;
+
+          const relationship = document.createElement("div");
+          relationship.className = "related-product-relationship";
+          relationship.textContent = match.relationship;
+
+          item.append(productName, strainName, relationship);
+          list.appendChild(item);
+        });
+
+        container.appendChild(list);
+      }
+
       function renderInfoPanel(node, ancestorContributions) {
         const panel = document.getElementById("infoPanel");
         const title = document.getElementById("infoPanelTitle");
         const body = document.getElementById("infoPanelBody");
         if (!panel || !title || !body) return;
 
-        const { alsoKnownAs, products, contributors } = getInfoPanelData(
-          node,
-          ancestorContributions,
-        );
+        const {
+          alsoKnownAs,
+          products,
+          contributors,
+          relatedProducts,
+        } = getInfoPanelData(node, ancestorContributions);
 
         title.textContent = node.name;
         body.replaceChildren();
 
-        if (alsoKnownAs.length) {
-          appendInfoPanelHeading(body, "Also known as");
-          appendLineSeparatedValues(body, alsoKnownAs);
-          appendInfoPanelSpacer(body);
-        }
+        const columns = document.createElement("div");
+        columns.className = "focused-info-columns";
 
-        if (products.length) {
-          appendInfoPanelHeading(
-            body,
-            "NZ Medical Cannabis Products",
-            "info-panel-heading--products",
-          );
-          appendLineSeparatedValues(body, products);
-          appendInfoPanelSpacer(body);
-        }
+        const primaryColumn = document.createElement("section");
+        primaryColumn.className = "focused-info-column";
+        appendPrimaryInfoPanelContent(
+          primaryColumn,
+          node,
+          alsoKnownAs,
+          products,
+          contributors,
+        );
 
-        if (contributors.length) {
-          appendInfoPanelHeading(
-            body,
-            "Weedtree Calculated Ancestor Contributions*",
-            "info-panel-heading--contributors",
-          );
+        const relatedColumn = document.createElement("section");
+        relatedColumn.className =
+          "focused-info-column focused-info-column--related";
+        appendRelatedProductsColumn(relatedColumn, relatedProducts);
 
-          const table = document.createElement("div");
-          table.id = "contributors-table";
-          table.className = "contributors-grid";
-
-          contributors.forEach((contributor) => {
-            const percentage = document.createElement("div");
-            percentage.className = "c-perc";
-            percentage.textContent = `${contributor.percentage}%`;
-
-            const dot = document.createElement("div");
-            dot.className = "c-dot";
-            dot.style.backgroundColor = getDominanceColour(
-              contributor.dominance,
-            );
-
-            const name = document.createElement("div");
-            name.className = "c-name";
-            name.textContent = contributor.name;
-
-            table.append(percentage, dot, name);
-          });
-
-          body.appendChild(table);
-
-          const actions = document.createElement("div");
-          actions.className = "info-panel-actions";
-
-          const copyUrlLink = document.createElement("a");
-          copyUrlLink.href = "#";
-          copyUrlLink.textContent = "Copy strain URL";
-          copyUrlLink.addEventListener("click", (event) =>
-            copyStrainURL(node.name, event),
-          );
-
-          const copyContributorsLink = document.createElement("a");
-          copyContributorsLink.href = "#";
-          copyContributorsLink.textContent = "Copy strain contributors";
-          copyContributorsLink.addEventListener("click", (event) =>
-            copyStrainContributors(node.name, event),
-          );
-
-          actions.append(
-            copyUrlLink,
-            document.createElement("br"),
-            copyContributorsLink,
-          );
-          body.appendChild(actions);
-        }
+        columns.append(primaryColumn, relatedColumn);
+        body.appendChild(columns);
 
         clearComparisonPanel();
         setPanelZoom("info", pageState.infoPanelZoom);
@@ -2865,6 +2996,171 @@
         }
 
         return `These strains share ${sharedAncestorNames}, ${firstRole} of ${firstNode.name} and ${secondRole} of ${secondNode.name}.`;
+      }
+
+      function getRelationshipSortRank(firstNode, secondNode) {
+        if (
+          firstNode.variant === secondNode.name ||
+          secondNode.variant === firstNode.name ||
+          (firstNode.variant &&
+            secondNode.variant &&
+            firstNode.variant === secondNode.variant)
+        ) {
+          return 0;
+        }
+
+        const maximumDepth =
+          CHART_BEHAVIOUR.comparisonRelationshipMaximumGenerations;
+        const firstDepths = getAncestorDepths(firstNode);
+        const secondDepths = getAncestorDepths(secondNode);
+        const firstFromSecond = secondDepths.get(firstNode.id);
+        const secondFromFirst = firstDepths.get(secondNode.id);
+        const directDepth = [firstFromSecond, secondFromFirst]
+          .filter((depth) => depth > 0 && depth <= maximumDepth)
+          .sort((a, b) => a - b)[0];
+
+        if (directDepth === 1) return 1;
+        if (directDepth === 2) return 4;
+        if (directDepth === 3) return 8;
+
+        const candidates = [];
+        firstDepths.forEach((firstDepth, nodeId) => {
+          const secondDepth = secondDepths.get(nodeId);
+          const ancestor = chartState.indexes.nodesById.get(nodeId);
+          if (
+            secondDepth === undefined ||
+            firstDepth < 1 ||
+            secondDepth < 1 ||
+            Math.max(firstDepth, secondDepth) > maximumDepth ||
+            !ancestor ||
+            ancestor.name.toLowerCase().includes("unknown")
+          ) {
+            return;
+          }
+
+          candidates.push({
+            firstDepth,
+            secondDepth,
+            combinedDepth: firstDepth + secondDepth,
+            maximumDepth: Math.max(firstDepth, secondDepth),
+          });
+        });
+
+        if (!candidates.length) return Number.POSITIVE_INFINITY;
+
+        candidates.sort(
+          (a, b) =>
+            a.combinedDepth - b.combinedDepth ||
+            a.maximumDepth - b.maximumDepth,
+        );
+
+        const closest = candidates[0];
+        if (closest.firstDepth === 1 && closest.secondDepth === 1) {
+          const firstParents = new Set(
+            getParentNodes(firstNode, chartState.indexes).map(
+              (parent) => parent.id,
+            ),
+          );
+          const secondParents = new Set(
+            getParentNodes(secondNode, chartState.indexes).map(
+              (parent) => parent.id,
+            ),
+          );
+          const sameParents =
+            firstParents.size > 0 &&
+            firstParents.size === secondParents.size &&
+            [...firstParents].every((parentId) =>
+              secondParents.has(parentId),
+            );
+          return sameParents ? 2 : 3;
+        }
+
+        if (closest.firstDepth === 2 && closest.secondDepth === 2) return 5;
+
+        const lowerDepth = Math.min(
+          closest.firstDepth,
+          closest.secondDepth,
+        );
+        const removal = Math.abs(
+          closest.firstDepth - closest.secondDepth,
+        );
+        if (lowerDepth === 2 && removal === 1) return 6;
+        if (closest.firstDepth === 3 && closest.secondDepth === 3) return 7;
+
+        return 8;
+      }
+
+      function getCompactRelationshipStatement(firstNode, secondNode) {
+        const fullStatement = getComparisonRelationshipStatement(
+          firstNode,
+          secondNode,
+        );
+
+        let compactStatement = fullStatement
+          .replace(/^These strains are /, "")
+          .replace(/^These strains share /, "Share ");
+
+        return compactStatement.charAt(0).toUpperCase() + compactStatement.slice(1);
+      }
+
+      function getRelatedProductMatches(focusedNode, exactProducts = []) {
+        const exactProductNames = new Set(
+          exactProducts.map((product) => product.trim().toLowerCase()),
+        );
+        const bestMatchByProduct = new Map();
+
+        chartState.nodes.forEach((candidateNode) => {
+          if (candidateNode.id === focusedNode.id) return;
+
+          const products = parseSemicolonSeparatedValues(candidateNode.product);
+          if (!products.length) return;
+
+          const relationshipStatement = getComparisonRelationshipStatement(
+            focusedNode,
+            candidateNode,
+          );
+          if (relationshipStatement === "These strains are only distantly related.") {
+            return;
+          }
+
+          const relationshipRank = getRelationshipSortRank(
+            focusedNode,
+            candidateNode,
+          );
+          if (!Number.isFinite(relationshipRank)) return;
+
+          products.forEach((product) => {
+            const productKey = product.trim().toLowerCase();
+            if (exactProductNames.has(productKey)) return;
+
+            const match = {
+              product,
+              strain: candidateNode,
+              relationship: getCompactRelationshipStatement(
+                focusedNode,
+                candidateNode,
+              ),
+              relationshipRank,
+            };
+
+            const currentBest = bestMatchByProduct.get(productKey);
+            if (
+              !currentBest ||
+              match.relationshipRank < currentBest.relationshipRank ||
+              (match.relationshipRank === currentBest.relationshipRank &&
+                match.strain.name.localeCompare(currentBest.strain.name) < 0)
+            ) {
+              bestMatchByProduct.set(productKey, match);
+            }
+          });
+        });
+
+        return [...bestMatchByProduct.values()].sort(
+          (a, b) =>
+            a.relationshipRank - b.relationshipRank ||
+            a.product.localeCompare(b.product) ||
+            a.strain.name.localeCompare(b.strain.name),
+        );
       }
 
       function getSharedAncestorContributions(firstNode, secondNode) {
