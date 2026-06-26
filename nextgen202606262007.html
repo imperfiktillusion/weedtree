@@ -3170,22 +3170,32 @@
         return `${depth - 2}× great-grandchild`;
       }
 
-      function getRelatedProductRelationshipGroupLabel(
+      function getDirectRelationshipRank(depth) {
+        if (depth === 1) return 1;
+        if (depth === 2) return 4;
+        if (depth === 3) return 8;
+        return Number.POSITIVE_INFINITY;
+      }
+
+      function getRelatedProductRelationshipMetadata(
         focusedNode,
         candidateNode,
       ) {
         if (candidateNode.variant === focusedNode.name) {
-          return "Variants";
+          return { label: "Variants", rank: 0 };
         }
         if (focusedNode.variant === candidateNode.name) {
-          return "Base strain";
+          return { label: "Base strain", rank: 0 };
         }
         if (
           focusedNode.variant &&
           candidateNode.variant &&
           focusedNode.variant === candidateNode.variant
         ) {
-          return `Variants of ${focusedNode.variant}`;
+          return {
+            label: `Variants of ${focusedNode.variant}`,
+            rank: 0,
+          };
         }
 
         const maximumDepth =
@@ -3199,50 +3209,155 @@
           focusedFromCandidate > 0 &&
           focusedFromCandidate <= maximumDepth
         ) {
-          return `${capitaliseFirst(
-            getDescendantRelationshipLabel(focusedFromCandidate),
-          )} strains`;
+          if (focusedNode.generation === 0) return null;
+
+          return {
+            label: `${capitaliseFirst(
+              getDescendantRelationshipLabel(focusedFromCandidate),
+            )} strains`,
+            rank: getDirectRelationshipRank(focusedFromCandidate),
+          };
         }
 
         if (
           candidateFromFocused > 0 &&
           candidateFromFocused <= maximumDepth
         ) {
-          return `${capitaliseFirst(
-            getGenerationRelationshipLabel(candidateFromFocused),
-          )} strains`;
+          if (candidateNode.generation === 0) return null;
+
+          return {
+            label:
+              candidateFromFocused === 1
+                ? `Parent ${candidateNode.name}`
+                : `${capitaliseFirst(
+                    getGenerationRelationshipLabel(candidateFromFocused),
+                  )} strains`,
+            rank: getDirectRelationshipRank(candidateFromFocused),
+          };
         }
 
-        const statement = getComparisonRelationshipStatement(
+        const candidates = [];
+        focusedDepths.forEach((focusedDepth, nodeId) => {
+          const candidateDepth = candidateDepths.get(nodeId);
+          const ancestor = chartState.indexes.nodesById.get(nodeId);
+
+          if (
+            candidateDepth === undefined ||
+            focusedDepth < 1 ||
+            candidateDepth < 1 ||
+            Math.max(focusedDepth, candidateDepth) > maximumDepth ||
+            !ancestor ||
+            ancestor.generation === 0 ||
+            ancestor.name.toLowerCase().includes("unknown")
+          ) {
+            return;
+          }
+
+          candidates.push({
+            ancestor,
+            focusedDepth,
+            candidateDepth,
+            combinedDepth: focusedDepth + candidateDepth,
+            maximumDepth: Math.max(focusedDepth, candidateDepth),
+          });
+        });
+
+        if (!candidates.length) return null;
+
+        candidates.sort(
+          (a, b) =>
+            a.combinedDepth - b.combinedDepth ||
+            a.maximumDepth - b.maximumDepth ||
+            a.ancestor.name.localeCompare(b.ancestor.name),
+        );
+
+        const closest = candidates[0];
+        const closestGroup = candidates.filter(
+          (candidate) =>
+            candidate.focusedDepth === closest.focusedDepth &&
+            candidate.candidateDepth === closest.candidateDepth,
+        );
+        const sharedAncestorNames = formatStrainNameList(
+          closestGroup.map((candidate) => candidate.ancestor.name),
+        );
+
+        if (closest.focusedDepth === closest.candidateDepth) {
+          if (closest.focusedDepth === 1) {
+            const focusedParents = new Set(
+              getParentNodes(focusedNode, chartState.indexes).map(
+                (parent) => parent.id,
+              ),
+            );
+            const candidateParents = new Set(
+              getParentNodes(candidateNode, chartState.indexes).map(
+                (parent) => parent.id,
+              ),
+            );
+            const sameParents =
+              focusedParents.size > 0 &&
+              focusedParents.size === candidateParents.size &&
+              [...focusedParents].every((parentId) =>
+                candidateParents.has(parentId),
+              );
+
+            return {
+              label: `${sameParents ? "Full siblings" : "Half-siblings"} through ${sharedAncestorNames}`,
+              rank: sameParents ? 2 : 3,
+            };
+          }
+
+          const cousinDegree = closest.focusedDepth - 1;
+          return {
+            label: `${capitaliseFirst(
+              getOrdinalRelationshipName(cousinDegree),
+            )} cousins through ${sharedAncestorNames}`,
+            rank: closest.focusedDepth === 2 ? 5 : 7,
+          };
+        }
+
+        const lowerDepth = Math.min(
+          closest.focusedDepth,
+          closest.candidateDepth,
+        );
+        const removal = Math.abs(
+          closest.focusedDepth - closest.candidateDepth,
+        );
+
+        if (lowerDepth >= 2) {
+          const cousinDegree = lowerDepth - 1;
+          const removalText =
+            removal === 1
+              ? " once removed"
+              : removal === 2
+                ? " twice removed"
+                : ` ${removal} times removed`;
+
+          return {
+            label: `${capitaliseFirst(
+              getOrdinalRelationshipName(cousinDegree),
+            )} cousins${removalText} through ${sharedAncestorNames}`,
+            rank: 6,
+          };
+        }
+
+        return {
+          label: `Through ${sharedAncestorNames}: ${getGenerationRelationshipLabel(
+            closest.focusedDepth,
+          )} of focused strain / ${getGenerationRelationshipLabel(
+            closest.candidateDepth,
+          )} of product strain`,
+          rank: 8,
+        };
+      }
+
+      function getRelatedProductRelationshipGroupLabel(
+        focusedNode,
+        candidateNode,
+      ) {
+        return getRelatedProductRelationshipMetadata(
           focusedNode,
           candidateNode,
-        );
-
-        const sharedRelationshipMatch = statement.match(
-          /^These strains are (.+?), sharing (.+?) as .+\.$/,
-        );
-        if (sharedRelationshipMatch) {
-          return `${capitaliseFirst(sharedRelationshipMatch[1])} through ${sharedRelationshipMatch[2]}`;
-        }
-
-        const removedCousinMatch = statement.match(
-          /^These strains are (.+?) through (.+?), .+$/,
-        );
-        if (removedCousinMatch) {
-          return `${capitaliseFirst(removedCousinMatch[1])} through ${removedCousinMatch[2]}`;
-        }
-
-        const unequalRelationshipMatch = statement.match(
-          /^These strains share (.+?), .+$/,
-        );
-        if (unequalRelationshipMatch) {
-          return `Related through ${unequalRelationshipMatch[1]}`;
-        }
-
-        return getCompactRelationshipStatement(
-          focusedNode,
-          candidateNode,
-        ).replace(/\.$/, "");
+        )?.label;
       }
 
       function getRelatedProductMatches(focusedNode, exactProducts = []) {
@@ -3257,19 +3372,11 @@
           const products = parseSemicolonSeparatedValues(candidateNode.product);
           if (!products.length) return;
 
-          const relationshipStatement = getComparisonRelationshipStatement(
+          const relationshipMetadata = getRelatedProductRelationshipMetadata(
             focusedNode,
             candidateNode,
           );
-          if (relationshipStatement === "These strains are only distantly related.") {
-            return;
-          }
-
-          const relationshipRank = getRelationshipSortRank(
-            focusedNode,
-            candidateNode,
-          );
-          if (!Number.isFinite(relationshipRank)) return;
+          if (!relationshipMetadata) return;
 
           products.forEach((product) => {
             const productKey = product.trim().toLowerCase();
@@ -3278,15 +3385,8 @@
             const match = {
               product,
               strain: candidateNode,
-              relationship: getCompactRelationshipStatement(
-                focusedNode,
-                candidateNode,
-              ),
-              relationshipGroup: getRelatedProductRelationshipGroupLabel(
-                focusedNode,
-                candidateNode,
-              ),
-              relationshipRank,
+              relationshipGroup: relationshipMetadata.label,
+              relationshipRank: relationshipMetadata.rank,
             };
 
             const currentBest = bestMatchByProduct.get(productKey);
@@ -3304,6 +3404,7 @@
         return [...bestMatchByProduct.values()].sort(
           (a, b) =>
             a.relationshipRank - b.relationshipRank ||
+            a.relationshipGroup.localeCompare(b.relationshipGroup) ||
             a.product.localeCompare(b.product) ||
             a.strain.name.localeCompare(b.strain.name),
         );
