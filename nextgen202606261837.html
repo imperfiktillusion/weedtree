@@ -898,7 +898,7 @@
         hoverTransitionDuration: 150,
         linkDarkenAmount: 2,
         variantBlendAmount: 0.5,
-        comparisonRelationshipMaximumGenerations: 4,
+        comparisonRelationshipMaximumGenerations: 3,
         infoPanelZoomMinimum: 0.35,
         infoPanelZoomMaximum: 1.75,
         infoPanelZoomStep: 0.1,
@@ -2742,10 +2742,19 @@
         return ["", "first", "second", "third"][degree] || `${degree}th`;
       }
 
-      function describeSharedAncestorCount(count, relationship) {
-        const plural = count === 1 ? relationship : `${relationship}s`;
-        const amount = count === 1 ? "one" : count === 2 ? "two" : String(count);
-        return `${amount} ${plural}`;
+      function formatStrainNameList(names) {
+        const uniqueNames = [...new Set(names.filter(Boolean))];
+        if (!uniqueNames.length) return "";
+        if (uniqueNames.length === 1) return uniqueNames[0];
+        if (uniqueNames.length === 2) {
+          return `${uniqueNames[0]} and ${uniqueNames[1]}`;
+        }
+        return `${uniqueNames.slice(0, -1).join(", ")}, and ${uniqueNames.at(-1)}`;
+      }
+
+      function formatAncestorRole(depth, count) {
+        const label = getGenerationRelationshipLabel(depth);
+        return count === 1 ? `a ${label}` : `${label}s`;
       }
 
       function getComparisonRelationshipStatement(firstNode, secondNode) {
@@ -2839,15 +2848,21 @@
                 secondParents.has(parentId),
               );
 
-            if (sameParents) return "These strains are full siblings.";
-            return `These strains are half-siblings, sharing ${describeSharedAncestorCount(sharedCount, "parent")}.`;
+            const sharedParentNames = formatStrainNameList(
+              closestGroup.map((candidate) => candidate.ancestor.name),
+            );
+
+            if (sameParents) {
+              return `These strains are full siblings, sharing ${sharedParentNames} as parents.`;
+            }
+            return `These strains are half-siblings, sharing ${sharedParentNames} as ${formatAncestorRole(1, sharedCount)}.`;
           }
 
           const cousinDegree = closest.firstDepth - 1;
-          const ancestorLabel = getGenerationRelationshipLabel(
-            closest.firstDepth,
+          const sharedAncestorNames = formatStrainNameList(
+            closestGroup.map((candidate) => candidate.ancestor.name),
           );
-          return `These strains are ${getOrdinalRelationshipName(cousinDegree)} cousins, sharing ${describeSharedAncestorCount(sharedCount, ancestorLabel)}.`;
+          return `These strains are ${getOrdinalRelationshipName(cousinDegree)} cousins, sharing ${sharedAncestorNames} as ${formatAncestorRole(closest.firstDepth, sharedCount)}.`;
         }
 
         const lowerDepth = Math.min(
@@ -2856,6 +2871,17 @@
         );
         const removal = Math.abs(
           closest.firstDepth - closest.secondDepth,
+        );
+        const sharedAncestorNames = formatStrainNameList(
+          closestGroup.map((candidate) => candidate.ancestor.name),
+        );
+        const firstRole = formatAncestorRole(
+          closest.firstDepth,
+          sharedCount,
+        );
+        const secondRole = formatAncestorRole(
+          closest.secondDepth,
+          sharedCount,
         );
 
         if (lowerDepth >= 2) {
@@ -2866,10 +2892,10 @@
               : removal === 2
                 ? " twice removed"
                 : ` ${removal} times removed`;
-          return `These strains are ${getOrdinalRelationshipName(cousinDegree)} cousins${removalText}.`;
+          return `These strains are ${getOrdinalRelationshipName(cousinDegree)} cousins${removalText} through ${sharedAncestorNames}, ${firstRole} of ${firstNode.name} and ${secondRole} of ${secondNode.name}.`;
         }
 
-        return `These strains share ${closest.ancestor.name}, a ${getGenerationRelationshipLabel(closest.firstDepth)} of ${firstNode.name} and a ${getGenerationRelationshipLabel(closest.secondDepth)} of ${secondNode.name}.`;
+        return `These strains share ${sharedAncestorNames}, ${firstRole} of ${firstNode.name} and ${secondRole} of ${secondNode.name}.`;
       }
 
       function getSharedAncestorContributions(firstNode, secondNode) {
