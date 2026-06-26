@@ -399,6 +399,11 @@
         user-select: none;
       }
       .node { cursor: pointer; }
+      .node-hitbox {
+        fill: transparent;
+        pointer-events: all;
+      }
+      .node-visual { pointer-events: none; }
       .node text {
         z-index: 999;
         fill: #000;
@@ -406,7 +411,7 @@
         dominant-baseline: middle;
         pointer-events: none;
       }
-      .node-background { cursor: pointer; }
+      .node-background { pointer-events: none; }
       .strain-name { font: 700 15px "Roboto", Arial, sans-serif; }
       .is-condensed { font-family: "Roboto Condensed", Arial, sans-serif; }
 
@@ -556,24 +561,6 @@
         white-space: normal;
       }
 
-      .comparison-legend {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        z-index: 10;
-        display: none;
-        max-width: min(520px, calc(100% - 140px));
-        padding: 8px 12px;
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.94);
-        color: #222;
-        font: 600 13px/1.35 "Roboto", Arial, sans-serif;
-        pointer-events: none;
-      }
-
-      .comparison-legend.is-visible { display: block; }
-      .comparison-legend-row + .comparison-legend-row { margin-top: 2px; }
-
       .contributors-grid {
         display: grid;
         grid-template-columns: max-content calc(10px * var(--info-panel-scale)) max-content;
@@ -711,7 +698,6 @@
     <!-- Chart Container -->
     <div class="container">
       <div class="chart-container">
-        <div id="comparisonLegend" class="comparison-legend" aria-live="polite"></div>
         <div id="lineageChart"></div>
       </div>
     </div>
@@ -893,9 +879,8 @@
         zoomButtonDuration: 250,
         zoomTransitionDuration: 750,
         lineageZoomScale: 0.9,
-        hoverDelay: 200,
         hoverScale: 1.4,
-        hoverTransitionDuration: 150,
+        hoverTransitionDuration: 180,
         linkDarkenAmount: 2,
         variantBlendAmount: 0.5,
         comparisonRelationshipMaximumGenerations: 3,
@@ -921,6 +906,7 @@
         group: null,
         zoom: null,
         nodeSelection: null,
+        nodeVisualSelection: null,
         linkSelection: null,
         focusedNode: null,
         focusedLineage: null,
@@ -1871,10 +1857,27 @@
           .attr("transform", (node) => `translate(${node.x},${node.y})`)
           .each(function (node) {
             node.currentScale = 1;
-            node.hoverTimer = null;
             node.isPointerInside = false;
             if (node.product) d3.select(this).raise();
           });
+
+        // Keep pointer detection at the node's unscaled size. Only the visual
+        // group enlarges, so scaling cannot move the hover boundary under the
+        // pointer or leave a node stuck enlarged.
+        chartState.nodeSelection
+          .append("rect")
+          .attr("class", "node-hitbox")
+          .attr("x", (node) => -getNodeWidth(node) / 2)
+          .attr("y", -CHART_SIZING.nodeHeight / 2)
+          .attr("width", getNodeWidth)
+          .attr("height", CHART_SIZING.nodeHeight)
+          .attr("rx", CHART_SIZING.nodeHeight / 2)
+          .attr("ry", CHART_SIZING.nodeHeight / 2);
+
+        chartState.nodeVisualSelection = chartState.nodeSelection
+          .append("g")
+          .attr("class", "node-visual")
+          .attr("transform", "scale(1)");
 
         renderNodeBackgrounds();
         renderNodeLabels();
@@ -1882,7 +1885,7 @@
       }
 
       function renderNodeBackgrounds() {
-        chartState.nodeSelection
+        chartState.nodeVisualSelection
           .append("rect")
           .attr("class", "node-background")
           .attr("rx", CHART_SIZING.nodeHeight / 2)
@@ -1914,7 +1917,7 @@
       }
 
       function renderNodeLabels() {
-        chartState.nodeSelection
+        chartState.nodeVisualSelection
           .append("text")
           .attr("class", "strain-name")
           .text((node) => node.displayName)
@@ -1965,56 +1968,58 @@
           .call(createNodeDragBehaviour());
       }
 
+      function setNodeVisualScale(element, node, scale, { animate = true } = {}) {
+        node.currentScale = scale;
+
+        const visual = d3.select(element).select(".node-visual");
+        visual.interrupt("hover");
+
+        if (!animate) {
+          visual.attr("transform", `scale(${scale})`);
+          return;
+        }
+
+        visual
+          .transition("hover")
+          .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
+          .ease(d3.easeCubicOut)
+          .attr("transform", `scale(${scale})`)
+          .on("end", () => {
+            if (scale === 1) raiseProductNodes();
+          });
+      }
+
+      function resetAllNodeHoverStates({ animate = false } = {}) {
+        chartState.nodeSelection?.each(function (node) {
+          node.isPointerInside = false;
+          setNodeVisualScale(this, node, 1, { animate });
+        });
+        clearHoverHighlight();
+        if (!animate) raiseProductNodes();
+      }
+
       function handleNodeMouseEnter(event, node) {
         if (chartState.isDragging) return;
 
         node.isPointerInside = true;
-        window.clearTimeout(node.hoverTimer);
-        node.hoverTimer = window.setTimeout(() => {
-          node.hoverTimer = null;
-          if (!node.isPointerInside || chartState.isDragging) return;
-
-          node.currentScale = CHART_BEHAVIOUR.hoverScale;
-          d3.select(this)
-            .interrupt("hover")
-            .raise()
-            .transition("hover")
-            .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
-            .attr(
-              "transform",
-              `translate(${node.x},${node.y}) scale(${node.currentScale})`,
-            );
-          highlightHoverLineage(node);
-        }, CHART_BEHAVIOUR.hoverDelay);
+        d3.select(this).raise();
+        setNodeVisualScale(this, node, CHART_BEHAVIOUR.hoverScale);
+        highlightHoverLineage(node);
       }
 
       function handleNodeMouseLeave(event, node) {
         node.isPointerInside = false;
-        window.clearTimeout(node.hoverTimer);
-        node.hoverTimer = null;
         clearHoverHighlight();
 
-        if (chartState.isDragging || node.currentScale === 1) return;
-
-        node.currentScale = 1;
-        d3.select(this)
-          .interrupt("hover")
-          .transition("hover")
-          .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
-          .attr("transform", `translate(${node.x},${node.y}) scale(1)`)
-          .on("end", raiseProductNodes);
+        // Always issue the reset. Do not rely on currentScale because an
+        // interrupted transition may leave the rendered transform between
+        // its stored start and end values.
+        setNodeVisualScale(this, node, 1);
       }
 
       function resetNodeHoverForSelection(element, node) {
         node.isPointerInside = false;
-        node.currentScale = 1;
-        window.clearTimeout(node.hoverTimer);
-        node.hoverTimer = null;
-
-        d3.select(element)
-          .interrupt("hover")
-          .attr("transform", `translate(${node.x},${node.y}) scale(1)`);
-
+        setNodeVisualScale(element, node, 1, { animate: false });
         clearHoverHighlight();
       }
 
@@ -2039,6 +2044,9 @@
       function startNodeDrag(event, node) {
         chartState.isDragging = true;
         node.dragging = true;
+        node.isPointerInside = false;
+        setNodeVisualScale(this, node, 1, { animate: false });
+        clearHoverHighlight();
         d3.select(this).raise();
         node.variantOffsets = (
           chartState.indexes.variantsByBaseName.get(node.name) || []
@@ -2085,26 +2093,13 @@
         });
 
         chartState.svg.on("mouseleave", () => {
-          chartState.nodeSelection
-            .each((node) => {
-              window.clearTimeout(node.hoverTimer);
-              node.hoverTimer = null;
-              node.isPointerInside = false;
-              node.currentScale = 1;
-            })
-            .interrupt("hover")
-            .transition("hover")
-            .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
-            .attr("transform", (node) =>
-              `translate(${node.x},${node.y}) scale(1)`,
-            );
-          clearHoverHighlight();
+          resetAllNodeHoverStates({ animate: false });
         });
       }
 
       function selectNode(node) {
+        resetAllNodeHoverStates({ animate: false });
         removeChartOverlays();
-        hideComparisonLegend();
 
         if (chartState.focusedNode === node && !chartState.comparison) {
           clearChartFocus();
@@ -2156,8 +2151,8 @@
       }
 
       function compareNodes(firstNode, secondNode) {
+        resetAllNodeHoverStates({ animate: false });
         removeChartOverlays();
-        clearHoverHighlight();
 
         const firstLineage = collectAncestorLineage(
           firstNode,
@@ -2233,7 +2228,6 @@
         };
         chartState.focusedLineage = new Set(combinedLineage);
 
-        showComparisonLegend(firstNode, secondNode);
         renderComparisonPanel(firstNode, secondNode);
         zoomToLineage(combinedLineage);
       }
@@ -2260,6 +2254,7 @@
       }
 
       function clearChartFocus({ resetView = true } = {}) {
+        resetAllNodeHoverStates({ animate: false });
         chartState.focusedNode = null;
         chartState.focusedLineage = null;
         chartState.comparison = null;
@@ -2275,7 +2270,6 @@
           .classed("compare-shared", false)
           .attr("stroke-width", CHART_SIZING.linkWidth);
         removeChartOverlays();
-        hideComparisonLegend();
 
         if (resetView) resetZoom();
       }
@@ -2351,8 +2345,8 @@
       }
 
       function showPendingComparisonSelection(node) {
+        resetAllNodeHoverStates({ animate: false });
         removeChartOverlays();
-        clearHoverHighlight();
         clearComparisonClasses();
 
         chartState.focusedNode = null;
@@ -2367,7 +2361,6 @@
           .classed("dimmed", false)
           .attr("stroke-width", CHART_SIZING.linkWidth);
 
-        showComparisonLegend(node);
       }
 
       function handleComparisonSelection(node) {
@@ -2407,30 +2400,6 @@
         } else {
           selectNode(node);
         }
-      }
-
-      function showComparisonLegend(firstNode, secondNode = null) {
-        const legend = document.getElementById("comparisonLegend");
-        legend.replaceChildren();
-
-        const firstRow = document.createElement("div");
-        firstRow.className = "comparison-legend-row";
-        firstRow.textContent = `A: ${firstNode.name}`;
-
-        const secondRow = document.createElement("div");
-        secondRow.className = "comparison-legend-row";
-        secondRow.textContent = secondNode
-          ? `B: ${secondNode.name}`
-          : "Select a second strain";
-
-        legend.append(firstRow, secondRow);
-        legend.classList.add("is-visible");
-      }
-
-      function hideComparisonLegend() {
-        const legend = document.getElementById("comparisonLegend");
-        legend?.classList.remove("is-visible");
-        legend?.replaceChildren();
       }
 
       function getProductsForStrainAndVariants(node) {
