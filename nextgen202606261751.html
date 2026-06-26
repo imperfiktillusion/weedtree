@@ -306,20 +306,47 @@
 
       .container { display: flex; flex-direction: column; height: calc(100vh - 50px); }
 
+      .symbol-button {
+        --symbol-size: 14px;
+        --symbol-thickness: 2px;
+        position: relative;
+        line-height: 0;
+      }
+
+      .symbol-button::before,
+      .symbol-button::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: var(--symbol-size);
+        height: var(--symbol-thickness);
+        border-radius: 999px;
+        background: currentColor;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+
+      .symbol-plus::after { transform: translate(-50%, -50%) rotate(90deg); }
+      .symbol-minus::after { display: none; }
+      .symbol-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+      .symbol-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
       .close-button {
+        --symbol-size: 18px;
+        --symbol-thickness: 2.5px;
         position: absolute;
         top: 15px;
         right: 15px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: grid;
+        place-items: center;
         width: 40px;
         height: 40px;
+        padding: 0;
         border: 0;
         border-radius: 50%;
         background: #434343;
         color: #fff;
-        font-size: 40px;
         cursor: pointer;
         transition: background-color 0.3s;
       }
@@ -354,11 +381,32 @@
 
       .zoom-button-container { display: flex; width: 100%; gap: 8px; }
       #zoomInButton,
-      #zoomOutButton { flex: 1; font-size: 30px; font-weight: 700; }
+      #zoomOutButton {
+        --symbol-size: 17px;
+        --symbol-thickness: 2.5px;
+        flex: 1;
+        min-width: 42px;
+        padding: 0;
+      }
 
       .chart-container { position: relative; flex-grow: 1; width: 100%; overflow: hidden; }
       #lineageChart { width: 100%; height: 100%; }
-      .node text { z-index: 999; fill: #000; text-anchor: start; dominant-baseline: middle; }
+      #lineageChart,
+      #lineageChart svg,
+      .node,
+      .node * {
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      .node { cursor: pointer; }
+      .node text {
+        z-index: 999;
+        fill: #000;
+        text-anchor: start;
+        dominant-baseline: middle;
+        pointer-events: none;
+      }
+      .node-background { cursor: pointer; }
       .strain-name { font: 700 15px "Roboto", Arial, sans-serif; }
       .is-condensed { font-family: "Roboto Condensed", Arial, sans-serif; }
 
@@ -370,7 +418,16 @@
       }
       .node.has-product:not(.clicked) .node-background { stroke: var(--chart-product-stroke); }
       .node.highlighted-search .highlight-arrow { fill: var(--chart-search-highlight); }
-      .link.highlighted,
+      .link.highlighted {
+        stroke: var(--chart-hover-highlight) !important;
+        stroke-width: 3px;
+      }
+      .link.compare-first-only {
+        stroke: var(--chart-compare-first-link) !important;
+      }
+      .link.compare-second-only {
+        stroke: var(--chart-compare-second-link) !important;
+      }
       .link.compare-shared {
         stroke: var(--chart-hover-highlight) !important;
         stroke-width: 3px;
@@ -444,9 +501,10 @@
       }
 
       .info-panel-zoom-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+        --symbol-size: calc(12px * var(--info-panel-scale));
+        --symbol-thickness: max(1px, calc(1.5px * var(--info-panel-scale)));
+        display: grid;
+        place-items: center;
         width: calc(28px * var(--info-panel-scale));
         height: calc(28px * var(--info-panel-scale));
         padding: 0;
@@ -454,17 +512,11 @@
         border-radius: 50%;
         background: #fff;
         color: #222;
-        font: 600 calc(18px * var(--info-panel-scale))/1 "Roboto", Arial, sans-serif;
         cursor: pointer;
       }
 
       .info-panel-zoom-button:hover { background: #eee; }
       .info-panel-zoom-button:disabled { opacity: 0.4; cursor: default; }
-
-      .info-panel-close-button {
-        font-size: calc(20px * var(--info-panel-scale));
-        font-weight: 400;
-      }
 
       .info-panel-body {
         flex: 1 1 auto;
@@ -639,8 +691,8 @@
       <button id="fullscreenToggle" class="btn">Toggle Full Screen</button>
 
       <div class="zoom-button-container">
-        <button id="zoomInButton" class="btn">+</button>
-        <button id="zoomOutButton" class="btn">-</button>
+        <button id="zoomInButton" class="btn symbol-button symbol-plus" type="button" aria-label="Zoom chart in" title="Zoom chart in"></button>
+        <button id="zoomOutButton" class="btn symbol-button symbol-minus" type="button" aria-label="Zoom chart out" title="Zoom chart out"></button>
       </div>
 
       <button id="deselectButton" class="btn">De-select</button>
@@ -660,25 +712,25 @@
         <div class="info-panel-zoom-controls" aria-label="Info panel zoom controls">
           <button
             id="infoPanelZoomOut"
-            class="info-panel-zoom-button"
+            class="info-panel-zoom-button symbol-button symbol-minus"
             type="button"
             aria-label="Zoom info panel out"
             title="Zoom info panel out"
-          >−</button>
+          ></button>
           <button
             id="infoPanelZoomIn"
-            class="info-panel-zoom-button"
+            class="info-panel-zoom-button symbol-button symbol-plus"
             type="button"
             aria-label="Zoom info panel in"
             title="Zoom info panel in"
-          >+</button>
+          ></button>
           <button
             id="infoPanelClose"
-            class="info-panel-zoom-button info-panel-close-button"
+            class="info-panel-zoom-button info-panel-close-button symbol-button symbol-close"
             type="button"
             aria-label="Deselect strain"
             title="Deselect strain"
-          >×</button>
+          ></button>
         </div>
       </div>
       <div id="infoPanelBody" class="info-panel-body"></div>
@@ -690,25 +742,25 @@
         <div class="info-panel-zoom-controls" aria-label="Comparison panel controls">
           <button
             id="comparisonPanelZoomOut"
-            class="info-panel-zoom-button"
+            class="info-panel-zoom-button symbol-button symbol-minus"
             type="button"
             aria-label="Zoom comparison panel out"
             title="Zoom comparison panel out"
-          >−</button>
+          ></button>
           <button
             id="comparisonPanelZoomIn"
-            class="info-panel-zoom-button"
+            class="info-panel-zoom-button symbol-button symbol-plus"
             type="button"
             aria-label="Zoom comparison panel in"
             title="Zoom comparison panel in"
-          >+</button>
+          ></button>
           <button
             id="comparisonPanelClose"
-            class="info-panel-zoom-button info-panel-close-button"
+            class="info-panel-zoom-button info-panel-close-button symbol-button symbol-close"
             type="button"
             aria-label="Clear comparison"
             title="Clear comparison"
-          >×</button>
+          ></button>
         </div>
       </div>
       <div id="comparisonPanelBody" class="info-panel-body"></div>
@@ -719,7 +771,7 @@
 
     <!-- Strain List Popup -->
     <div id="popup2" class="popup">
-      <button class="close-button">×</button>
+      <button class="close-button symbol-button symbol-close" type="button" aria-label="Close popup" title="Close"></button>
       <div class="popup2-center">
         <div class="search-container">
           <input type="text" id="strainSearch" placeholder="go to strain_" />
@@ -729,7 +781,7 @@
 
     <!-- About / Welcome Popup -->
     <div id="popup3" class="popup">
-      <button class="close-button">×</button>
+      <button class="close-button symbol-button symbol-close" type="button" aria-label="Close popup" title="Close"></button>
 
       <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
 
@@ -790,6 +842,8 @@
         productStroke: "#000",
         selected: "#f0f",
         hoverHighlight: "#f0f",
+        compareFirstLink: "#1976d2",
+        compareSecondLink: "#ef8b17",
         searchHighlight: "#f00",
         percentageBackground: "#000",
         percentageText: "#fff",
@@ -957,6 +1011,8 @@
           "--chart-product-stroke": CHART_COLOURS.productStroke,
           "--chart-selected": CHART_COLOURS.selected,
           "--chart-hover-highlight": CHART_COLOURS.hoverHighlight,
+          "--chart-compare-first-link": CHART_COLOURS.compareFirstLink,
+          "--chart-compare-second-link": CHART_COLOURS.compareSecondLink,
           "--chart-search-highlight": CHART_COLOURS.searchHighlight,
           "--chart-percentage-background": CHART_COLOURS.percentageBackground,
           "--chart-percentage-text": CHART_COLOURS.percentageText,
@@ -1884,6 +1940,11 @@
 
       function attachNodeInteractions() {
         chartState.nodeSelection
+          .on("pointerdown.selection", (event) => {
+            // Prevent SVG text selection and native drag behaviour without
+            // suppressing the subsequent node click or D3 shift/touch drag.
+            event.preventDefault();
+          })
           // mouseenter/mouseleave do not fire when moving between a node's
           // rectangle, text, and other child elements. This prevents the
           // expand/shrink loop caused by bubbling mouseover/mouseout events.
@@ -2118,12 +2179,27 @@
               secondLineage.has(link.source) && secondLineage.has(link.target);
             return !inFirst && !inSecond;
           })
-          .classed("compare-shared", (link) =>
-            firstLineage.has(link.source) &&
-            firstLineage.has(link.target) &&
-            secondLineage.has(link.source) &&
-            secondLineage.has(link.target),
-          )
+          .classed("compare-first-only", (link) => {
+            const inFirst =
+              firstLineage.has(link.source) && firstLineage.has(link.target);
+            const inSecond =
+              secondLineage.has(link.source) && secondLineage.has(link.target);
+            return inFirst && !inSecond;
+          })
+          .classed("compare-second-only", (link) => {
+            const inFirst =
+              firstLineage.has(link.source) && firstLineage.has(link.target);
+            const inSecond =
+              secondLineage.has(link.source) && secondLineage.has(link.target);
+            return inSecond && !inFirst;
+          })
+          .classed("compare-shared", (link) => {
+            const inFirst =
+              firstLineage.has(link.source) && firstLineage.has(link.target);
+            const inSecond =
+              secondLineage.has(link.source) && secondLineage.has(link.target);
+            return inFirst && inSecond;
+          })
           .attr("stroke-width", (link) => {
             const inFirst =
               firstLineage.has(link.source) && firstLineage.has(link.target);
@@ -2166,7 +2242,10 @@
 
       function clearComparisonClasses() {
         chartState.nodeSelection?.classed("compare-shared", false);
-        chartState.linkSelection?.classed("compare-shared", false);
+        chartState.linkSelection
+          ?.classed("compare-first-only", false)
+          .classed("compare-second-only", false)
+          .classed("compare-shared", false);
       }
 
       function clearChartFocus({ resetView = true } = {}) {
@@ -2180,6 +2259,8 @@
           .classed("compare-shared", false);
         chartState.linkSelection
           ?.classed("dimmed", false)
+          .classed("compare-first-only", false)
+          .classed("compare-second-only", false)
           .classed("compare-shared", false)
           .attr("stroke-width", CHART_SIZING.linkWidth);
         removeChartOverlays();
@@ -2972,7 +3053,7 @@
         if (pageState.selectionMode === nextMode) return;
 
         pageState.selectionMode = nextMode;
-        clearChartFocus();
+        clearChartFocus({ resetView: false });
 
         document.querySelectorAll("[data-selection-mode]").forEach((button) => {
           const isActive = button.dataset.selectionMode === nextMode;
