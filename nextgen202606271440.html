@@ -2944,8 +2944,17 @@
 
         if (infoPanelState.rolloverNode) {
           const node = infoPanelState.rolloverNode;
-          const exactProducts = getProductsForStrainAndVariants(node);
-          const relatedProducts = getRelatedProductMatches(node, exactProducts);
+          const hoveredExactProducts = getProductsForStrainAndVariants(node);
+          const excludedProducts = [
+            ...new Set([
+              ...hoveredExactProducts,
+              ...infoPanelState.exactProducts,
+            ]),
+          ];
+          const relatedProducts = getRelatedProductMatches(
+            node,
+            excludedProducts,
+          );
           updateRelatedProductsSourceLabel(node);
           appendRelatedProductsResults(
             content,
@@ -3577,9 +3586,9 @@
               getGenerationRelationshipLabel(candidateFromFocused),
             ),
             rank: candidateFromFocused - 1,
-            lineDetail: ` - ${candidateNode.name} ${formatRelatedContributionPercentage(
+            lineDetail: ` - ${candidateNode.name} (${formatRelatedContributionPercentage(
               contribution,
-            )}`,
+            )} of ${focusedNode.name})`,
           };
         }
 
@@ -3590,8 +3599,6 @@
           focusedFromCandidate > 0 &&
           focusedFromCandidate <= maximumDepth
         ) {
-          if (focusedNode.generation === 0) return null;
-
           const candidateAncestorContributions =
             getCachedAncestorContributions(
               candidateNode,
@@ -3610,9 +3617,9 @@
               groupLabels[focusedFromCandidate] ||
               `${focusedFromCandidate - 2}× great-grandchildren`,
             rank: 40 + focusedFromCandidate - 1,
-            lineDetail: ` - ${candidateNode.name} ${formatRelatedContributionPercentage(
+            lineDetail: ` - ${candidateNode.name} (${formatRelatedContributionPercentage(
               contribution,
-            )}`,
+            )} from ${focusedNode.name})`,
           };
         }
 
