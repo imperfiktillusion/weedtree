@@ -1825,22 +1825,35 @@
       // Core chart layout and construction
       // -----------------------------------------------------------------------
 
-      function getFocusedChartLineage() {
-        if (pageState.chartScope !== "focused") return null;
-
+      function hasFocusedLayoutSelection() {
         if (pageState.selectionMode === "compare") {
-          return chartState.comparison?.combinedLineage
-            ? new Set(chartState.comparison.combinedLineage)
-            : null;
+          return Boolean(
+            chartState.comparison &&
+              chartState.comparisonSelections.length === 2,
+          );
         }
 
-        return chartState.focusedNode
-          ? collectLineage(
-              chartState.focusedNode,
-              chartState.nodes,
-              chartState.indexes,
-            )
-          : null;
+        return Boolean(chartState.focusedNode);
+      }
+
+      function isFocusedChartLayoutActive() {
+        return (
+          pageState.chartScope === "focused" && hasFocusedLayoutSelection()
+        );
+      }
+
+      function getFocusedChartLineage() {
+        if (!isFocusedChartLayoutActive()) return null;
+
+        if (pageState.selectionMode === "compare") {
+          return new Set(chartState.comparison.combinedLineage);
+        }
+
+        return collectLineage(
+          chartState.focusedNode,
+          chartState.nodes,
+          chartState.indexes,
+        );
       }
 
       function updateVisibleGraph() {
@@ -1932,10 +1945,9 @@
             ? CHART_SIZING.nodeHeight *
               CHART_SIZING.sparseColumnSpacingMultiplier
             : CHART_SIZING.columnSpacing;
-          const spacing =
-            pageState.chartScope === "focused"
-              ? baseSpacing * CHART_SIZING.focusedColumnSpacingMultiplier
-              : baseSpacing;
+          const spacing = isFocusedChartLayoutActive()
+            ? baseSpacing * CHART_SIZING.focusedColumnSpacingMultiplier
+            : baseSpacing;
 
           const totalHeight =
             nonVariantNodes.length * (CHART_SIZING.nodeHeight + spacing) +
@@ -2509,6 +2521,8 @@
       }
 
       function clearChartFocus({ resetView = true } = {}) {
+        const wasFocusedLayoutActive = isFocusedChartLayoutActive();
+
         resetAllNodeHoverStates({ animate: false });
         chartState.focusedNode = null;
         chartState.focusedLineage = null;
@@ -2516,7 +2530,7 @@
         chartState.comparisonSelections = [];
         removeChartOverlays();
 
-        if (pageState.chartScope === "focused") {
+        if (wasFocusedLayoutActive) {
           renderChartCanvas();
           return;
         }
@@ -4357,7 +4371,9 @@
         const nextScope = scope === "focused" ? "focused" : "full";
         if (pageState.chartScope === nextScope) return;
 
+        const wasFocusedLayoutActive = isFocusedChartLayoutActive();
         pageState.chartScope = nextScope;
+        const isFocusedLayoutActive = isFocusedChartLayoutActive();
 
         document.querySelectorAll("[data-chart-scope]").forEach((button) => {
           const isActive = button.dataset.chartScope === nextScope;
@@ -4365,15 +4381,22 @@
           button.setAttribute("aria-pressed", String(isActive));
         });
 
-        rerenderChartForCurrentSelection();
+        // In compare mode, a pending first strain remains on the untouched
+        // full-chart layout. Filtering and focused spacing begin only once
+        // the second strain completes the comparison.
+        if (wasFocusedLayoutActive || isFocusedLayoutActive) {
+          rerenderChartForCurrentSelection();
+        }
       }
 
       function setSelectionMode(mode) {
         const nextMode = mode === "compare" ? "compare" : "single";
         if (pageState.selectionMode === nextMode) return;
 
-        pageState.selectionMode = nextMode;
+        // Clear using the outgoing mode so an active focused subset is
+        // restored to the full chart before the mode changes.
         clearChartFocus({ resetView: false });
+        pageState.selectionMode = nextMode;
 
         document.querySelectorAll("[data-selection-mode]").forEach((button) => {
           const isActive = button.dataset.selectionMode === nextMode;
