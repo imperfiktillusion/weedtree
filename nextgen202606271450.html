@@ -2243,6 +2243,10 @@
           return;
         }
 
+        // Every newly focused strain starts with the complete related-products list.
+        pageState.relatedProductsMode = "list";
+        infoPanelState.rolloverNode = null;
+
         const lineage = collectLineage(node, chartState.nodes, chartState.indexes);
 
         clearComparisonClasses();
@@ -3006,8 +3010,11 @@
         ].forEach(([mode, label]) => {
           const button = document.createElement("button");
           button.type = "button";
+          const isActive = mode === pageState.relatedProductsMode;
           button.className = "related-products-view-button";
+          button.classList.toggle("is-active", isActive);
           button.dataset.mode = mode;
+          button.setAttribute("aria-pressed", String(isActive));
           button.textContent = label;
           button.addEventListener("click", () => setRelatedProductsMode(mode));
           toggle.appendChild(button);
