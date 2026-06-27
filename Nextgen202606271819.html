@@ -57,7 +57,9 @@
 
       function copyStrainURL(strainName, event) {
         event?.preventDefault();
-        const url = APP_CONFIG.strainUrlBase + strainName.replace(/\s+/g, "_");
+        const url =
+          APP_CONFIG.strainUrlBase +
+          encodeURIComponent(strainName.trim().replace(/\s+/g, "_"));
         copyTextToClipboard(url);
       }
 
@@ -2614,7 +2616,7 @@
 
       function createLineageChart() {
         renderChartCanvas();
-        focusStrainFromUrl();
+        restoreChartLocationFromUrl();
       }
 
       // -----------------------------------------------------------------------
@@ -2916,6 +2918,7 @@
 
         if (pageState.chartScope === "focused") renderChartCanvas();
         applySingleSelectionPresentation(node, lineage);
+        updateUrlForFocusedStrain(node);
       }
 
       function applyComparisonPresentation(
@@ -3024,6 +3027,7 @@
           secondNode,
           comparison,
         );
+        updateUrlForComparison(firstNode, secondNode);
       }
 
       function combineContributions(
@@ -3056,6 +3060,7 @@
         chartState.comparison = null;
         chartState.comparisonSelections = [];
         removeChartOverlays();
+        clearSelectionUrl();
 
         if (wasFocusedLayoutActive) {
           renderChartCanvas();
@@ -3176,6 +3181,7 @@
           renderChartCanvas();
         }
         applyPendingComparisonPresentation(node);
+        clearSelectionUrl();
       }
 
       function handleComparisonSelection(node) {
@@ -4902,24 +4908,164 @@
           .toLowerCase();
       }
 
-      function getRequestedFocusStrain() {
-        const requestedName = new URLSearchParams(window.location.search).get(
-          "focus",
+      const BASE_DOCUMENT_TITLE = document.title;
+      const SELECTION_URL_PARAMETERS = Object.freeze([
+        "focus",
+        "compare",
+        "with",
+      ]);
+
+      function encodeStrainUrlValue(strainName) {
+        return strainName.trim().replace(/\s+/g, "_");
+      }
+
+      function getSelectionUrlBase() {
+        const url = new URL(window.location.href);
+        SELECTION_URL_PARAMETERS.forEach((parameter) =>
+          url.searchParams.delete(parameter),
         );
-        return requestedName ? normaliseStrainName(requestedName) : null;
+        return url;
+      }
+
+      function createFocusUrl(strainName) {
+        const url = getSelectionUrlBase();
+        url.searchParams.set("focus", encodeStrainUrlValue(strainName));
+        return url;
+      }
+
+      function createComparisonUrl(firstStrainName, secondStrainName) {
+        const url = getSelectionUrlBase();
+        url.searchParams.set(
+          "compare",
+          encodeStrainUrlValue(firstStrainName),
+        );
+        url.searchParams.set(
+          "with",
+          encodeStrainUrlValue(secondStrainName),
+        );
+        return url;
+      }
+
+      function replaceBrowserUrl(url, title = BASE_DOCUMENT_TITLE) {
+        document.title = title;
+
+        try {
+          window.history.replaceState(null, "", url.href);
+        } catch (error) {
+          // Some local-file/browser combinations restrict History API URL
+          // changes. The deployed page is same-origin and will update normally.
+          console.warn("Unable to update browser URL", error);
+        }
+      }
+
+      function clearSelectionUrl() {
+        replaceBrowserUrl(getSelectionUrlBase(), BASE_DOCUMENT_TITLE);
+      }
+
+      function updateUrlForFocusedStrain(node) {
+        replaceBrowserUrl(
+          createFocusUrl(node.name),
+          `${node.name} | WeedTree`,
+        );
+      }
+
+      function updateUrlForComparison(firstNode, secondNode) {
+        replaceBrowserUrl(
+          createComparisonUrl(firstNode.name, secondNode.name),
+          `${firstNode.name} vs ${secondNode.name} | WeedTree`,
+        );
+      }
+
+      function getRequestedChartLocation() {
+        const parameters = new URLSearchParams(window.location.search);
+        const comparisonName = parameters.get("compare");
+        const comparisonWithName = parameters.get("with");
+
+        if (comparisonName && comparisonWithName) {
+          return {
+            type: "comparison",
+            firstName: normaliseStrainName(comparisonName),
+            secondName: normaliseStrainName(comparisonWithName),
+          };
+        }
+
+        const focusName = parameters.get("focus");
+        if (focusName) {
+          return {
+            type: "focus",
+            name: normaliseStrainName(focusName),
+          };
+        }
+
+        return null;
       }
 
       function findNodeByNormalisedName(name) {
         return chartState.indexes.nodesByNormalisedName.get(name);
       }
 
-      function focusStrainFromUrl() {
-        const requestedName = getRequestedFocusStrain();
-        if (!requestedName) return;
+      function syncChartScopeButtons() {
+        document.querySelectorAll("[data-chart-scope]").forEach((button) => {
+          const isActive = button.dataset.chartScope === pageState.chartScope;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-pressed", String(isActive));
+        });
+      }
+
+      function syncSelectionModeButtons() {
+        document
+          .querySelectorAll("[data-selection-mode]")
+          .forEach((button) => {
+            const isActive =
+              button.dataset.selectionMode === pageState.selectionMode;
+            button.classList.toggle("is-active", isActive);
+            button.setAttribute("aria-pressed", String(isActive));
+          });
+      }
+
+      function restoreChartLocationFromUrl() {
+        const requestedLocation = getRequestedChartLocation();
+        if (!requestedLocation) return;
 
         requestAnimationFrame(() => {
-          const targetNode = findNodeByNormalisedName(requestedName);
-          if (targetNode) selectNode(targetNode);
+          if (requestedLocation.type === "comparison") {
+            const firstNode = findNodeByNormalisedName(
+              requestedLocation.firstName,
+            );
+            const secondNode = findNodeByNormalisedName(
+              requestedLocation.secondName,
+            );
+
+            if (
+              firstNode &&
+              secondNode &&
+              firstNode.id !== secondNode.id
+            ) {
+              pageState.selectionMode = "compare";
+              pageState.chartScope = "focused";
+              syncSelectionModeButtons();
+              syncChartScopeButtons();
+              compareNodes(firstNode, secondNode);
+              return;
+            }
+          }
+
+          if (requestedLocation.type === "focus") {
+            const targetNode = findNodeByNormalisedName(
+              requestedLocation.name,
+            );
+
+            if (targetNode) {
+              pageState.selectionMode = "single";
+              pageState.chartScope = "full";
+              syncSelectionModeButtons();
+              syncChartScopeButtons();
+              selectNode(targetNode);
+              return;
+            }
+          }
+
+          clearSelectionUrl();
         });
       }
 
@@ -5002,11 +5148,7 @@
         pageState.chartScope = nextScope;
         const isFocusedLayoutActive = isFocusedChartLayoutActive();
 
-        document.querySelectorAll("[data-chart-scope]").forEach((button) => {
-          const isActive = button.dataset.chartScope === nextScope;
-          button.classList.toggle("is-active", isActive);
-          button.setAttribute("aria-pressed", String(isActive));
-        });
+        syncChartScopeButtons();
 
         // In compare mode, a pending first strain remains on the untouched
         // full-chart layout. Filtering and focused spacing begin only once
@@ -5025,11 +5167,7 @@
         clearChartFocus({ resetView: false });
         pageState.selectionMode = nextMode;
 
-        document.querySelectorAll("[data-selection-mode]").forEach((button) => {
-          const isActive = button.dataset.selectionMode === nextMode;
-          button.classList.toggle("is-active", isActive);
-          button.setAttribute("aria-pressed", String(isActive));
-        });
+        syncSelectionModeButtons();
 
         resetSearchInput();
       }
