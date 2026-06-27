@@ -3370,32 +3370,75 @@
         });
       }
 
-      function reducePanelZoomUntilNodesAreClear(panelType) {
+      function resetAutomaticPanelHeight(panel) {
+        if (!panel) return;
+
+        panel.classList.remove("is-auto-height-constrained");
+        if (!panel.classList.contains("is-user-resized")) {
+          panel.style.removeProperty("height");
+        }
+      }
+
+      function lowerPanelTopUntilNodesAreClear(panelType) {
         const config = PANEL_ZOOM_CONFIG[panelType];
         if (!config) return;
 
         const panel = document.getElementById(config.panelId);
-        if (!panel || panel.hidden) return;
-
-        const currentZoom = pageState[config.stateKey];
-        if (
-          !panelOverlapsActiveChartNode(panel) ||
-          currentZoom <= CHART_BEHAVIOUR.infoPanelZoomMinimum
-        ) {
+        if (!panel || panel.hidden || !panelOverlapsActiveChartNode(panel)) {
           return;
         }
 
-        setPanelZoom(
-          panelType,
-          currentZoom - CHART_BEHAVIOUR.infoPanelZoomStep,
+        const panelRect = panel.getBoundingClientRect();
+        const clearance = CHART_SIZING.infoPanelViewportGap;
+        let requiredPanelTop = panelRect.top;
+
+        getActiveChartNodeElements().forEach((element) => {
+          const nodeRect = element.getBoundingClientRect();
+          if (!nodeRect.width || !nodeRect.height) return;
+
+          const horizontallyAligned = !(
+            nodeRect.right + clearance <= panelRect.left ||
+            nodeRect.left - clearance >= panelRect.right
+          );
+          const verticallyRelevant =
+            nodeRect.bottom + clearance > panelRect.top &&
+            nodeRect.top - clearance < panelRect.bottom;
+
+          if (horizontallyAligned && verticallyRelevant) {
+            requiredPanelTop = Math.max(
+              requiredPanelTop,
+              nodeRect.bottom + clearance,
+            );
+          }
+        });
+
+        const computedPanel = window.getComputedStyle(panel);
+        const panelBottomGap = parseFloat(computedPanel.bottom) || 0;
+        const maximumHeight = Math.max(
+          120,
+          window.innerHeight -
+            panelBottomGap -
+            CHART_SIZING.infoPanelViewportGap,
+        );
+        const minimumHeight = Math.min(120, maximumHeight);
+        const availableHeight = Math.max(
+          minimumHeight,
+          panelRect.bottom - requiredPanelTop,
+        );
+        const nextHeight = Math.min(
+          panelRect.height,
+          maximumHeight,
+          availableHeight,
         );
 
-        window.requestAnimationFrame(() => {
-          if (panelType === "info") syncFocusedInfoColumnHeight();
-          window.requestAnimationFrame(() =>
-            reducePanelZoomUntilNodesAreClear(panelType),
-          );
-        });
+        if (nextHeight >= panelRect.height - 1) return;
+
+        panel.style.height = `${Math.floor(nextHeight)}px`;
+        panel.classList.add("is-auto-height-constrained");
+
+        if (panelType === "info") {
+          window.requestAnimationFrame(syncFocusedInfoColumnHeight);
+        }
       }
 
       function schedulePanelNodeClearance(panelType) {
@@ -3409,7 +3452,7 @@
           panelNodeClearanceTimers[panelType] = null;
           window.requestAnimationFrame(() =>
             window.requestAnimationFrame(() =>
-              reducePanelZoomUntilNodesAreClear(panelType),
+              lowerPanelTopUntilNodesAreClear(panelType),
             ),
           );
         }, CHART_BEHAVIOUR.zoomTransitionDuration + 60);
@@ -3811,7 +3854,10 @@
         const primaryHeight = Math.ceil(primaryColumn.getBoundingClientRect().height);
         let targetHeight = primaryHeight;
 
-        if (panel.classList.contains("is-user-resized")) {
+        if (
+          panel.classList.contains("is-user-resized") ||
+          panel.classList.contains("is-auto-height-constrained")
+        ) {
           const bodyStyles = window.getComputedStyle(body);
           const availableHeight =
             body.clientHeight -
@@ -3868,6 +3914,7 @@
         body.appendChild(columns);
 
         clearComparisonPanel();
+        resetAutomaticPanelHeight(panel);
         setPanelZoom("info", pageState.infoPanelZoom);
         panel.hidden = false;
         window.requestAnimationFrame(syncFocusedInfoColumnHeight);
@@ -4762,6 +4809,7 @@
         body.appendChild(actions);
 
         clearInfoPanel();
+        resetAutomaticPanelHeight(panel);
         setPanelZoom("comparison", pageState.comparisonPanelZoom);
         panel.hidden = false;
         schedulePanelNodeClearance("comparison");
@@ -5427,6 +5475,7 @@
             const minimumHeight = Math.min(180, maximumHeight);
 
             panel.style.height = `${startHeight}px`;
+            panel.classList.remove("is-auto-height-constrained");
             panel.classList.add("is-user-resized", "is-resizing");
 
             const handlePointerMove = (moveEvent) => {
@@ -5459,7 +5508,11 @@
 
           handle.addEventListener("dblclick", () => {
             panel.style.removeProperty("height");
-            panel.classList.remove("is-user-resized", "is-resizing");
+            panel.classList.remove(
+              "is-user-resized",
+              "is-auto-height-constrained",
+              "is-resizing",
+            );
             if (panel.id === "infoPanel") {
               window.requestAnimationFrame(syncFocusedInfoColumnHeight);
             }
