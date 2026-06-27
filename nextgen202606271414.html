@@ -656,6 +656,15 @@
 
       .related-products-content { min-width: 0; }
 
+      .related-products-rollover-status {
+        margin-top: calc(7px * var(--info-panel-scale));
+        color: #555;
+        font-size: 0.92em;
+        line-height: 1.3;
+      }
+
+      .related-products-rollover-status[hidden] { display: none; }
+
       .related-products-rollover-placeholder {
         margin-top: calc(9px * var(--info-panel-scale));
         color: #555;
@@ -1087,6 +1096,8 @@
         exactProducts: [],
         relatedProducts: [],
         relatedContent: null,
+        relatedSourceLabel: null,
+        rolloverNode: null,
       };
 
       const DOMINANCE_ORDER = Object.freeze({
@@ -2612,6 +2623,8 @@
         infoPanelState.exactProducts = [];
         infoPanelState.relatedProducts = [];
         infoPanelState.relatedContent = null;
+        infoPanelState.relatedSourceLabel = null;
+        infoPanelState.rolloverNode = null;
       }
 
       function clearComparisonPanel() {
@@ -2769,11 +2782,9 @@
           name.addEventListener("pointerenter", () =>
             previewRelatedProductsForNode(contributor.node),
           );
-          name.addEventListener("pointerleave", clearRelatedProductsPreview);
           name.addEventListener("focus", () =>
             previewRelatedProductsForNode(contributor.node),
           );
-          name.addEventListener("blur", clearRelatedProductsPreview);
 
           table.append(percentage, dot, name);
         });
@@ -2897,6 +2908,20 @@
           });
       }
 
+      function updateRelatedProductsSourceLabel(node = null) {
+        const label = infoPanelState.relatedSourceLabel;
+        if (!label) return;
+
+        if (pageState.relatedProductsMode !== "rollover" || !node) {
+          label.hidden = true;
+          label.textContent = "";
+          return;
+        }
+
+        label.textContent = `Showing products related to ${node.name}`;
+        label.hidden = false;
+      }
+
       function renderRelatedProductsModeContent() {
         const panel = document.getElementById("infoPanel");
         const content = infoPanelState.relatedContent;
@@ -2909,19 +2934,40 @@
         updateRelatedProductsModeButtons(panel);
 
         if (pageState.relatedProductsMode === "list") {
+          updateRelatedProductsSourceLabel();
           appendRelatedProductsResults(
             content,
             infoPanelState.relatedProducts,
           );
-        } else {
-          showRelatedProductsRolloverPlaceholder(
-            "Roll over a strain in the left column to show products from related strains.",
-          );
+          return;
         }
+
+        if (infoPanelState.rolloverNode) {
+          const node = infoPanelState.rolloverNode;
+          const exactProducts = getProductsForStrainAndVariants(node);
+          const relatedProducts = getRelatedProductMatches(node, exactProducts);
+          updateRelatedProductsSourceLabel(node);
+          appendRelatedProductsResults(
+            content,
+            relatedProducts,
+            `No related NZ medical cannabis products were found for ${node.name}.`,
+          );
+          return;
+        }
+
+        updateRelatedProductsSourceLabel();
+        showRelatedProductsRolloverPlaceholder(
+          "Roll over a strain in the left column to show products from related strains.",
+        );
       }
 
       function setRelatedProductsMode(mode) {
         if (mode !== "list" && mode !== "rollover") return;
+
+        if (pageState.relatedProductsMode !== mode) {
+          infoPanelState.rolloverNode = null;
+        }
+
         pageState.relatedProductsMode = mode;
         renderRelatedProductsModeContent();
       }
@@ -2929,20 +2975,8 @@
       function previewRelatedProductsForNode(node) {
         if (pageState.relatedProductsMode !== "rollover" || !node) return;
 
-        const exactProducts = getProductsForStrainAndVariants(node);
-        const relatedProducts = getRelatedProductMatches(node, exactProducts);
-        appendRelatedProductsResults(
-          infoPanelState.relatedContent,
-          relatedProducts,
-          `No related NZ medical cannabis products were found for ${node.name}.`,
-        );
-      }
-
-      function clearRelatedProductsPreview() {
-        if (pageState.relatedProductsMode !== "rollover") return;
-        showRelatedProductsRolloverPlaceholder(
-          "Roll over a strain in the left column to show products from related strains.",
-        );
+        infoPanelState.rolloverNode = node;
+        renderRelatedProductsModeContent();
       }
 
       function appendRelatedProductsColumn(container, relatedProducts) {
@@ -2970,11 +3004,16 @@
           toggle.appendChild(button);
         });
 
+        const sourceLabel = document.createElement("div");
+        sourceLabel.className = "related-products-rollover-status";
+        sourceLabel.hidden = true;
+
         const content = document.createElement("div");
         content.className = "related-products-content";
-        container.append(toggle, content);
+        container.append(toggle, sourceLabel, content);
 
         infoPanelState.relatedProducts = relatedProducts;
+        infoPanelState.relatedSourceLabel = sourceLabel;
         infoPanelState.relatedContent = content;
         renderRelatedProductsModeContent();
       }
@@ -3018,6 +3057,8 @@
         infoPanelState.exactProducts = products;
         infoPanelState.relatedProducts = relatedProducts;
         infoPanelState.relatedContent = null;
+        infoPanelState.relatedSourceLabel = null;
+        infoPanelState.rolloverNode = null;
 
         const columns = document.createElement("div");
         columns.className = "focused-info-columns";
