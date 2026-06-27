@@ -2625,10 +2625,10 @@
 
       function attachNodeInteractions() {
         chartState.nodeSelection
-          // Keep hover detection tied to the node's fixed, unscaled hitbox.
-          // Pointer events let us ignore touch-generated sticky hover states.
-          .on("pointerenter", handleNodePointerEnter)
-          .on("pointerleave", handleNodePointerLeave)
+          // Dragging remains attached to the individual node elements, but
+          // ordinary hover and click selection are resolved centrally from
+          // chart coordinates. This prevents a raised node's transparent
+          // hitbox from blocking another visible node.
           .on("pointercancel.hover-reset", function (event, node) {
             resetNodeHoverForSelection(this, node);
           })
@@ -2637,7 +2637,6 @@
               resetNodeHoverForSelection(this, node);
             }
           })
-          .on("click", handleNodeClick)
           .call(createNodeDragBehaviour());
       }
 
@@ -2724,6 +2723,120 @@
         }
         setNodeVisualScale(element, node, 1, { animate: false });
         clearHoverHighlight();
+      }
+
+      function getChartPointerPosition(event) {
+        const svgElement = chartState.svg?.node();
+        if (!svgElement) return null;
+
+        const screenPosition = d3.pointer(event, svgElement);
+        const transform =
+          chartState.currentTransform || d3.zoomTransform(svgElement);
+        return transform.invert(screenPosition);
+      }
+
+      function getNodeHitScore(node, chartX, chartY, useVisualScale = false) {
+        const scale = useVisualScale
+          ? Math.max(1, Number(node.currentScale) || 1)
+          : 1;
+        const halfWidth = (getNodeWidth(node) * scale) / 2;
+        const halfHeight = (CHART_SIZING.nodeHeight * scale) / 2;
+        const deltaX = chartX - node.x;
+        const deltaY = chartY - node.y;
+
+        if (Math.abs(deltaX) > halfWidth || Math.abs(deltaY) > halfHeight) {
+          return null;
+        }
+
+        // Normalised centre distance chooses the node the pointer is most
+        // clearly aimed at when two fixed rectangles overlap.
+        return (
+          (deltaX / halfWidth) ** 2 +
+          (deltaY / halfHeight) ** 2
+        );
+      }
+
+      function findNodeAtChartPointer(event, { useVisualScale = false } = {}) {
+        const chartPosition = getChartPointerPosition(event);
+        if (!chartPosition) return null;
+
+        const [chartX, chartY] = chartPosition;
+        let closestMatch = null;
+
+        chartState.visibleNodes.forEach((node) => {
+          const score = getNodeHitScore(
+            node,
+            chartX,
+            chartY,
+            useVisualScale,
+          );
+          if (score === null) return;
+
+          if (!closestMatch || score < closestMatch.score) {
+            closestMatch = { node, score };
+          }
+        });
+
+        return closestMatch?.node || null;
+      }
+
+      function getRenderedNodeElement(node) {
+        return chartState.nodeSelection
+          ?.filter((candidate) => candidate.id === node.id)
+          .node();
+      }
+
+      function handleChartPointerMove(event) {
+        if (
+          chartState.isDragging ||
+          chartState.isViewportMoving ||
+          (event.pointerType && event.pointerType !== "mouse")
+        ) {
+          return;
+        }
+
+        const node = findNodeAtChartPointer(event);
+        const element = node ? getRenderedNodeElement(node) : null;
+
+        if (element === chartState.hoveredNodeElement) return;
+
+        if (chartState.hoveredNodeElement) {
+          const previousElement = chartState.hoveredNodeElement;
+          const previousNode = d3.select(previousElement).datum();
+          if (previousNode) {
+            resetNodeHoverForSelection(previousElement, previousNode);
+          }
+        }
+
+        if (!node || !element) {
+          clearHoverHighlight();
+          return;
+        }
+
+        chartState.hoveredNodeElement = element;
+        node.isPointerInside = true;
+        d3.select(element).raise();
+        setNodeVisualScale(element, node, CHART_BEHAVIOUR.hoverScale);
+        highlightHoverLineage(node);
+      }
+
+      function handleChartClick(event) {
+        if (event.defaultPrevented) return;
+
+        const node = findNodeAtChartPointer(event, {
+          useVisualScale: true,
+        });
+
+        if (!node) {
+          clearChartFocus();
+          return;
+        }
+
+        if (performance.now() < (node.suppressClickUntil || 0)) return;
+
+        event.stopPropagation();
+        resetAllNodeHoverStates({ animate: false });
+        handleStrainSelection(node);
       }
 
       function handleNodeClick(event, node) {
@@ -2834,11 +2947,9 @@
       }
 
       function attachChartCanvasInteractions() {
-        chartState.svg.on("click", (event) => {
-          if (!event.defaultPrevented) clearChartFocus();
-        });
-
         chartState.svg
+          .on("click.node-hit-test", handleChartClick)
+          .on("pointermove.node-hit-test", handleChartPointerMove)
           .on("pointerleave.hover-reset", () => {
             resetAllNodeHoverStates({ animate: false });
           })
