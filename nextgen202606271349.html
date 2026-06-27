@@ -624,6 +624,57 @@
         line-height: 1.3;
       }
 
+      .related-products-view-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: calc(2px * var(--info-panel-scale));
+        margin-top: calc(7px * var(--info-panel-scale));
+        padding: calc(2px * var(--info-panel-scale));
+        border: 1px solid #777;
+        border-radius: calc(14px * var(--info-panel-scale));
+        background: #fff;
+      }
+
+      .related-products-view-button {
+        border: 0;
+        border-radius: calc(11px * var(--info-panel-scale));
+        padding:
+          calc(3px * var(--info-panel-scale))
+          calc(9px * var(--info-panel-scale));
+        background: transparent;
+        color: #434343;
+        font: inherit;
+        line-height: 1.15;
+        cursor: pointer;
+      }
+
+      .related-products-view-button:hover { background: #eee; }
+      .related-products-view-button.is-active {
+        background: #434343;
+        color: #fff;
+      }
+
+      .related-products-content { min-width: 0; }
+
+      .related-products-rollover-placeholder {
+        margin-top: calc(9px * var(--info-panel-scale));
+        color: #555;
+        line-height: 1.35;
+      }
+
+      .info-panel.is-related-rollover .related-products-rollover-source {
+        cursor: help;
+        text-decoration: underline dotted;
+        text-underline-offset: 0.18em;
+      }
+
+      .info-panel.is-related-rollover .related-products-rollover-source:hover,
+      .info-panel.is-related-rollover .related-products-rollover-source:focus {
+        color: #000;
+        outline: none;
+        text-decoration-style: solid;
+      }
+
       .contributors-grid {
         display: grid;
         grid-template-columns: max-content calc(10px * var(--info-panel-scale)) max-content;
@@ -1026,8 +1077,16 @@
       const pageState = {
         resizeTimer: null,
         selectionMode: "single",
+        relatedProductsMode: "list",
         infoPanelZoom: initialPanelZoom,
         comparisonPanelZoom: initialPanelZoom,
+      };
+
+      const infoPanelState = {
+        focusedNode: null,
+        exactProducts: [],
+        relatedProducts: [],
+        relatedContent: null,
       };
 
       const DOMINANCE_ORDER = Object.freeze({
@@ -2528,6 +2587,7 @@
           ancestorContributions,
           10,
         ).map(({ ancestor, displayedPercentage }) => ({
+          node: ancestor,
           name: ancestor.name,
           percentage: displayedPercentage,
           dominance: ancestor.dominance,
@@ -2545,8 +2605,13 @@
         if (!panel || !title || !body) return;
 
         panel.hidden = true;
+        panel.classList.remove("is-related-rollover");
         title.textContent = "";
         body.replaceChildren();
+        infoPanelState.focusedNode = null;
+        infoPanelState.exactProducts = [];
+        infoPanelState.relatedProducts = [];
+        infoPanelState.relatedContent = null;
       }
 
       function clearComparisonPanel() {
@@ -2698,8 +2763,17 @@
           );
 
           const name = document.createElement("div");
-          name.className = "c-name";
+          name.className = "c-name related-products-rollover-source";
           name.textContent = contributor.name;
+          name.tabIndex = 0;
+          name.addEventListener("pointerenter", () =>
+            previewRelatedProductsForNode(contributor.node),
+          );
+          name.addEventListener("pointerleave", clearRelatedProductsPreview);
+          name.addEventListener("focus", () =>
+            previewRelatedProductsForNode(contributor.node),
+          );
+          name.addEventListener("blur", clearRelatedProductsPreview);
 
           table.append(percentage, dot, name);
         });
@@ -2758,18 +2832,18 @@
         );
       }
 
-      function appendRelatedProductsColumn(container, relatedProducts) {
-        appendInfoPanelHeading(
-          container,
-          "Related NZ Medical Cannabis Products",
-          "info-panel-heading--products",
-        );
+      function appendRelatedProductsResults(
+        container,
+        relatedProducts,
+        emptyMessage = "No parent, sibling, cousin or descendant products were found.",
+      ) {
+        if (!container) return;
+        container.replaceChildren();
 
         if (!relatedProducts.length) {
           const empty = document.createElement("div");
           empty.className = "related-products-empty";
-          empty.textContent =
-            "No parent, sibling, cousin or descendant products were found.";
+          empty.textContent = emptyMessage;
           container.appendChild(empty);
           return;
         }
@@ -2800,6 +2874,109 @@
         });
 
         container.appendChild(groups);
+      }
+
+      function showRelatedProductsRolloverPlaceholder(message) {
+        const content = infoPanelState.relatedContent;
+        if (!content) return;
+
+        content.replaceChildren();
+        const placeholder = document.createElement("div");
+        placeholder.className = "related-products-rollover-placeholder";
+        placeholder.textContent = message;
+        content.appendChild(placeholder);
+      }
+
+      function updateRelatedProductsModeButtons(container) {
+        container
+          .querySelectorAll(".related-products-view-button")
+          .forEach((button) => {
+            const isActive = button.dataset.mode === pageState.relatedProductsMode;
+            button.classList.toggle("is-active", isActive);
+            button.setAttribute("aria-pressed", String(isActive));
+          });
+      }
+
+      function renderRelatedProductsModeContent() {
+        const panel = document.getElementById("infoPanel");
+        const content = infoPanelState.relatedContent;
+        if (!panel || !content) return;
+
+        panel.classList.toggle(
+          "is-related-rollover",
+          pageState.relatedProductsMode === "rollover",
+        );
+        updateRelatedProductsModeButtons(panel);
+
+        if (pageState.relatedProductsMode === "list") {
+          appendRelatedProductsResults(
+            content,
+            infoPanelState.relatedProducts,
+          );
+        } else {
+          showRelatedProductsRolloverPlaceholder(
+            "Roll over a strain in the left column to show products from related strains.",
+          );
+        }
+      }
+
+      function setRelatedProductsMode(mode) {
+        if (mode !== "list" && mode !== "rollover") return;
+        pageState.relatedProductsMode = mode;
+        renderRelatedProductsModeContent();
+      }
+
+      function previewRelatedProductsForNode(node) {
+        if (pageState.relatedProductsMode !== "rollover" || !node) return;
+
+        const exactProducts = getProductsForStrainAndVariants(node);
+        const relatedProducts = getRelatedProductMatches(node, exactProducts);
+        appendRelatedProductsResults(
+          infoPanelState.relatedContent,
+          relatedProducts,
+          `No related NZ medical cannabis products were found for ${node.name}.`,
+        );
+      }
+
+      function clearRelatedProductsPreview() {
+        if (pageState.relatedProductsMode !== "rollover") return;
+        showRelatedProductsRolloverPlaceholder(
+          "Roll over a strain in the left column to show products from related strains.",
+        );
+      }
+
+      function appendRelatedProductsColumn(container, relatedProducts) {
+        appendInfoPanelHeading(
+          container,
+          "NZ Medical Cannabis Products from Related Strains",
+          "info-panel-heading--products",
+        );
+
+        const toggle = document.createElement("div");
+        toggle.className = "related-products-view-toggle";
+        toggle.setAttribute("role", "group");
+        toggle.setAttribute("aria-label", "Related products display mode");
+
+        [
+          ["list", "List"],
+          ["rollover", "Roll over"],
+        ].forEach(([mode, label]) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "related-products-view-button";
+          button.dataset.mode = mode;
+          button.textContent = label;
+          button.addEventListener("click", () => setRelatedProductsMode(mode));
+          toggle.appendChild(button);
+        });
+
+        const content = document.createElement("div");
+        content.className = "related-products-content";
+        container.append(toggle, content);
+
+        infoPanelState.relatedProducts = relatedProducts;
+        infoPanelState.relatedContent = content;
+        renderRelatedProductsModeContent();
       }
 
       function syncFocusedInfoColumnHeight() {
@@ -2837,6 +3014,10 @@
 
         title.textContent = node.name;
         body.replaceChildren();
+        infoPanelState.focusedNode = node;
+        infoPanelState.exactProducts = products;
+        infoPanelState.relatedProducts = relatedProducts;
+        infoPanelState.relatedContent = null;
 
         const columns = document.createElement("div");
         columns.className = "focused-info-columns";
