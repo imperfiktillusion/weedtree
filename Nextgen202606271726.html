@@ -1029,6 +1029,7 @@
         linkWidth: 3,
         focusedLinkWidth: 4,
         comparisonLinkWidth: 3,
+        comparisonSharedLinkWidth: 4,
         percentagePillWidth: 80,
         percentagePillOverlap: 24,
         percentageTextYOffset: 1,
@@ -2940,6 +2941,9 @@
               firstLineage.has(link.source) && firstLineage.has(link.target);
             const inSecond =
               secondLineage.has(link.source) && secondLineage.has(link.target);
+            if (inFirst && inSecond) {
+              return CHART_SIZING.comparisonSharedLinkWidth;
+            }
             return inFirst || inSecond
               ? CHART_SIZING.comparisonLinkWidth
               : CHART_SIZING.linkWidth;
@@ -3294,6 +3298,86 @@
           stateKey: "comparisonPanelZoom",
         },
       });
+
+      const panelNodeClearanceTimers = {
+        info: null,
+        comparison: null,
+      };
+
+      function rectanglesOverlap(firstRect, secondRect, padding = 0) {
+        return !(
+          firstRect.right + padding <= secondRect.left ||
+          firstRect.left - padding >= secondRect.right ||
+          firstRect.bottom + padding <= secondRect.top ||
+          firstRect.top - padding >= secondRect.bottom
+        );
+      }
+
+      function getActiveChartNodeElements() {
+        const nodeElements = Array.from(
+          document.querySelectorAll("#lineageChart .node"),
+        );
+        const activeNodeElements = nodeElements.filter(
+          (element) => !element.classList.contains("dimmed"),
+        );
+        return activeNodeElements.length ? activeNodeElements : nodeElements;
+      }
+
+      function panelOverlapsActiveChartNode(panel) {
+        const panelRect = panel.getBoundingClientRect();
+        const clearance = CHART_SIZING.infoPanelViewportGap;
+
+        return getActiveChartNodeElements().some((element) => {
+          const nodeRect = element.getBoundingClientRect();
+          if (!nodeRect.width || !nodeRect.height) return false;
+          return rectanglesOverlap(panelRect, nodeRect, clearance);
+        });
+      }
+
+      function reducePanelZoomUntilNodesAreClear(panelType) {
+        const config = PANEL_ZOOM_CONFIG[panelType];
+        if (!config) return;
+
+        const panel = document.getElementById(config.panelId);
+        if (!panel || panel.hidden) return;
+
+        const currentZoom = pageState[config.stateKey];
+        if (
+          !panelOverlapsActiveChartNode(panel) ||
+          currentZoom <= CHART_BEHAVIOUR.infoPanelZoomMinimum
+        ) {
+          return;
+        }
+
+        setPanelZoom(
+          panelType,
+          currentZoom - CHART_BEHAVIOUR.infoPanelZoomStep,
+        );
+
+        window.requestAnimationFrame(() => {
+          if (panelType === "info") syncFocusedInfoColumnHeight();
+          window.requestAnimationFrame(() =>
+            reducePanelZoomUntilNodesAreClear(panelType),
+          );
+        });
+      }
+
+      function schedulePanelNodeClearance(panelType) {
+        if (!PANEL_ZOOM_CONFIG[panelType]) return;
+
+        if (panelNodeClearanceTimers[panelType]) {
+          window.clearTimeout(panelNodeClearanceTimers[panelType]);
+        }
+
+        panelNodeClearanceTimers[panelType] = window.setTimeout(() => {
+          panelNodeClearanceTimers[panelType] = null;
+          window.requestAnimationFrame(() =>
+            window.requestAnimationFrame(() =>
+              reducePanelZoomUntilNodesAreClear(panelType),
+            ),
+          );
+        }, CHART_BEHAVIOUR.zoomTransitionDuration + 60);
+      }
 
       function setPanelZoom(panelType, nextZoom) {
         const config = PANEL_ZOOM_CONFIG[panelType];
@@ -3741,6 +3825,7 @@
         setPanelZoom("info", pageState.infoPanelZoom);
         panel.hidden = false;
         window.requestAnimationFrame(syncFocusedInfoColumnHeight);
+        schedulePanelNodeClearance("info");
       }
 
       function getAncestorDepths(
@@ -4624,6 +4709,7 @@
         clearInfoPanel();
         setPanelZoom("comparison", pageState.comparisonPanelZoom);
         panel.hidden = false;
+        schedulePanelNodeClearance("comparison");
       }
 
       function getChartBounds(nodes) {
