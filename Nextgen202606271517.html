@@ -1007,6 +1007,7 @@
         columnSpacing: 16,
         sparseColumnMaximumNodes: 11,
         sparseColumnSpacingMultiplier: 1.5,
+        focusedColumnSpacingMultiplier: 2,
         variantSpacing: 2,
         linkWidth: 3,
         focusedLinkWidth: 4,
@@ -1828,17 +1829,8 @@
         if (pageState.chartScope !== "focused") return null;
 
         if (pageState.selectionMode === "compare") {
-          if (chartState.comparison?.combinedLineage) {
-            return new Set(chartState.comparison.combinedLineage);
-          }
-
-          const pendingNode = chartState.comparisonSelections[0];
-          return pendingNode
-            ? collectAncestorLineage(
-                pendingNode,
-                chartState.nodes,
-                chartState.indexes,
-              )
+          return chartState.comparison?.combinedLineage
+            ? new Set(chartState.comparison.combinedLineage)
             : null;
         }
 
@@ -1936,10 +1928,14 @@
           const sparseColumn =
             generation >= 2 &&
             nonVariantNodes.length <= CHART_SIZING.sparseColumnMaximumNodes;
-          const spacing = sparseColumn
+          const baseSpacing = sparseColumn
             ? CHART_SIZING.nodeHeight *
               CHART_SIZING.sparseColumnSpacingMultiplier
             : CHART_SIZING.columnSpacing;
+          const spacing =
+            pageState.chartScope === "focused"
+              ? baseSpacing * CHART_SIZING.focusedColumnSpacingMultiplier
+              : baseSpacing;
 
           const totalHeight =
             nonVariantNodes.length * (CHART_SIZING.nodeHeight + spacing) +
@@ -2619,7 +2615,10 @@
           .attr("stroke-width", CHART_SIZING.linkWidth);
       }
 
-      function showPendingComparisonSelection(node) {
+      function showPendingComparisonSelection(
+        node,
+        { restoreFullChart = false } = {},
+      ) {
         resetAllNodeHoverStates({ animate: false });
         removeChartOverlays();
 
@@ -2632,7 +2631,9 @@
           chartState.indexes,
         );
 
-        if (pageState.chartScope === "focused") renderChartCanvas();
+        if (pageState.chartScope === "focused" && restoreFullChart) {
+          renderChartCanvas();
+        }
         applyPendingComparisonPresentation(node);
       }
 
@@ -2651,11 +2652,13 @@
 
           if (clickedIndex !== -1) {
             const remainingNode = selections[clickedIndex === 0 ? 1 : 0];
-            showPendingComparisonSelection(remainingNode);
+            showPendingComparisonSelection(remainingNode, {
+              restoreFullChart: true,
+            });
             return;
           }
 
-          showPendingComparisonSelection(node);
+          showPendingComparisonSelection(node, { restoreFullChart: true });
           return;
         }
 
