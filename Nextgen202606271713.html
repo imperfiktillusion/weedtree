@@ -1018,12 +1018,13 @@
         sparseColumnMaximumNodes: 11,
         sparseColumnSpacingMultiplier: 1.5,
         focusedColumnSpacingMultiplier: 2,
-        // Focused Gen1 anchor layout:
-        // - one node is centred;
-        // - two nodes share a restrained central span;
-        // - three or more nodes occupy the middle 80% of the chart.
-        focusedGenerationOneVerticalMarginRatio: 0.1,
-        focusedGenerationOneTwoNodeSpanRatio: 0.28,
+        // Focused Gen1 anchor layout. These ratios describe the desired
+        // on-screen span after the automatic lineage zoom, not raw chart
+        // coordinates. Variants remain tucked beneath their base strain and
+        // the base-plus-variants group counts as one Gen1 family anchor.
+        focusedGenerationOneScreenSpanRatio: 0.8,
+        focusedGenerationOneTwoNodeScreenSpanRatio: 0.5,
+        focusedGenerationOneMaximumWorldSpanRatio: 8,
         variantSpacing: 2,
         linkWidth: 3,
         focusedLinkWidth: 4,
@@ -1764,10 +1765,18 @@
         });
       }
 
+      function getFocusedGenerationOneTargetScreenSpanRatio(nodeCount) {
+        if (nodeCount <= 1) return 0;
+        return nodeCount === 2
+          ? CHART_SIZING.focusedGenerationOneTwoNodeScreenSpanRatio
+          : CHART_SIZING.focusedGenerationOneScreenSpanRatio;
+      }
+
       function assignFocusedGenerationOnePositions(
         nonVariantNodes,
         height,
         visibleNodeIds,
+        requestedWorldSpan = null,
       ) {
         if (!nonVariantNodes.length) return;
 
@@ -1777,16 +1786,14 @@
 
         if (nodeCount === 1) {
           positions = [centreY];
-        } else if (nodeCount === 2) {
-          const totalSpan =
-            height * CHART_SIZING.focusedGenerationOneTwoNodeSpanRatio;
-          positions = [centreY - totalSpan / 2, centreY + totalSpan / 2];
         } else {
-          const marginRatio =
-            CHART_SIZING.focusedGenerationOneVerticalMarginRatio;
-          const topY = height * marginRatio;
-          const bottomY = height * (1 - marginRatio);
-          const step = (bottomY - topY) / (nodeCount - 1);
+          const defaultSpan =
+            height * getFocusedGenerationOneTargetScreenSpanRatio(nodeCount);
+          const totalSpan = Number.isFinite(requestedWorldSpan)
+            ? requestedWorldSpan
+            : defaultSpan;
+          const topY = centreY - totalSpan / 2;
+          const step = totalSpan / (nodeCount - 1);
           positions = nonVariantNodes.map((_, index) => topY + step * index);
         }
 
@@ -1802,6 +1809,191 @@
                 (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
           });
         });
+      }
+
+      function getFocusedGenerationOneAnchorNodes(nodes) {
+        return nodes
+          .filter(
+            (node) =>
+              (node.generation === 1 ||
+                node.special?.toLowerCase() === "landrace") &&
+              !node.variant,
+          )
+          .sort(sortByDominanceAndLandrace);
+      }
+
+      function getFocusedColumnSpacing(generation, nonVariantNodeCount) {
+        const sparseColumn =
+          generation >= 2 &&
+          nonVariantNodeCount <= CHART_SIZING.sparseColumnMaximumNodes;
+        const baseSpacing = sparseColumn
+          ? CHART_SIZING.nodeHeight *
+            CHART_SIZING.sparseColumnSpacingMultiplier
+          : CHART_SIZING.columnSpacing;
+        return baseSpacing * CHART_SIZING.focusedColumnSpacingMultiplier;
+      }
+
+      function reflowFocusedColumnsFromGenerationOne(
+        nodes,
+        visibleNodeIds,
+        requestedWorldSpan,
+      ) {
+        const { height } = chartState;
+        const generationOneAnchors =
+          getFocusedGenerationOneAnchorNodes(nodes);
+
+        assignFocusedGenerationOnePositions(
+          generationOneAnchors,
+          height,
+          visibleNodeIds,
+          requestedWorldSpan,
+        );
+
+        const maximumGeneration = Math.max(
+          ...nodes.map((node) => node.generation),
+        );
+
+        for (let generation = 2; generation <= maximumGeneration; generation += 1) {
+          let generationNodes = nodes.filter(
+            (node) => node.generation === generation,
+          );
+          generationNodes = barycentricSort(
+            generationNodes,
+            nodes,
+            "parents",
+            chartState.indexes,
+          );
+
+          const nonVariantNodes = generationNodes.filter(
+            (node) => !node.variant,
+          );
+          const variantCount = generationNodes.length - nonVariantNodes.length;
+          const spacing = getFocusedColumnSpacing(
+            generation,
+            nonVariantNodes.length,
+          );
+          const totalHeight =
+            nonVariantNodes.length * (CHART_SIZING.nodeHeight + spacing) +
+            variantCount *
+              (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
+          const startY = (height - totalHeight) / 2;
+
+          assignParentBalancedColumnPositions(
+            nonVariantNodes,
+            startY,
+            spacing,
+            visibleNodeIds,
+          );
+        }
+
+        calculateOriginPositions(nodes, chartState.indexes);
+      }
+
+      function getProjectedFocusedLineageZoomScale(nodes) {
+        const { minimumX, maximumX, minimumY, maximumY } =
+          getChartBounds(nodes);
+        const leftEdgeScreenX = getInitialLeftEdgeScreenX();
+        const availableWidth =
+          chartState.width -
+          leftEdgeScreenX -
+          CHART_SIZING.viewportPadding;
+        const horizontalSpan =
+          maximumX - minimumX + CHART_SIZING.viewportPadding;
+        const verticalSpan =
+          maximumY - minimumY + CHART_SIZING.viewportPadding * 2;
+
+        return (
+          CHART_BEHAVIOUR.lineageZoomScale *
+          Math.min(
+            availableWidth / horizontalSpan,
+            chartState.height / verticalSpan,
+          )
+        );
+      }
+
+      function getGenerationOneProjectedScreenSpan(anchors, nodes) {
+        if (anchors.length <= 1) return 0;
+        const minimumY = d3.min(anchors, (node) => node.y);
+        const maximumY = d3.max(anchors, (node) => node.y);
+        return (
+          (maximumY - minimumY) *
+          getProjectedFocusedLineageZoomScale(nodes)
+        );
+      }
+
+      function makeFocusedGenerationOneScreenAware(
+        nodes,
+        visibleNodeIds,
+      ) {
+        const anchors = getFocusedGenerationOneAnchorNodes(nodes);
+        if (anchors.length <= 1) return;
+
+        const targetScreenSpan =
+          chartState.height *
+          getFocusedGenerationOneTargetScreenSpanRatio(anchors.length);
+        let lowerWorldSpan =
+          d3.max(anchors, (node) => node.y) -
+          d3.min(anchors, (node) => node.y);
+        let lowerScreenSpan = getGenerationOneProjectedScreenSpan(
+          anchors,
+          nodes,
+        );
+
+        if (lowerScreenSpan >= targetScreenSpan) return;
+
+        const maximumWorldSpan =
+          chartState.height *
+          CHART_SIZING.focusedGenerationOneMaximumWorldSpanRatio;
+        let upperWorldSpan = lowerWorldSpan;
+        let upperScreenSpan = lowerScreenSpan;
+
+        while (
+          upperScreenSpan < targetScreenSpan &&
+          upperWorldSpan < maximumWorldSpan
+        ) {
+          lowerWorldSpan = upperWorldSpan;
+          upperWorldSpan = Math.min(
+            maximumWorldSpan,
+            Math.max(upperWorldSpan * 1.5, upperWorldSpan + chartState.height * 0.25),
+          );
+          reflowFocusedColumnsFromGenerationOne(
+            nodes,
+            visibleNodeIds,
+            upperWorldSpan,
+          );
+          upperScreenSpan = getGenerationOneProjectedScreenSpan(
+            anchors,
+            nodes,
+          );
+        }
+
+        if (upperScreenSpan < targetScreenSpan) return;
+
+        for (let iteration = 0; iteration < 10; iteration += 1) {
+          const middleWorldSpan =
+            (lowerWorldSpan + upperWorldSpan) / 2;
+          reflowFocusedColumnsFromGenerationOne(
+            nodes,
+            visibleNodeIds,
+            middleWorldSpan,
+          );
+          const middleScreenSpan = getGenerationOneProjectedScreenSpan(
+            anchors,
+            nodes,
+          );
+
+          if (middleScreenSpan < targetScreenSpan) {
+            lowerWorldSpan = middleWorldSpan;
+          } else {
+            upperWorldSpan = middleWorldSpan;
+          }
+        }
+
+        reflowFocusedColumnsFromGenerationOne(
+          nodes,
+          visibleNodeIds,
+          upperWorldSpan,
+        );
       }
 
       function assignParentBalancedColumnPositions(
@@ -2172,11 +2364,10 @@
           const startY = (height - totalHeight) / 2;
 
           if (isFocusedChartLayoutActive() && generation === 1) {
-            // Gen1 is the focused-layout anchor. Three or more families
-            // spread through the middle 80% of the chart; one or two use
-            // restrained centred positions. Gen0 is positioned from these
-            // children afterwards, while later generations continue
-            // to centre as closely as possible on their visible parents.
+            // Gen1 is the focused-layout anchor. This first pass creates
+            // the family order and a provisional span; a screen-aware pass
+            // below expands that span to compensate for automatic zoom.
+            // Variants remain tucked beneath their base-strain anchor.
             assignFocusedGenerationOnePositions(
               nonVariantNodes,
               height,
@@ -2200,6 +2391,14 @@
         }
 
         calculateOriginPositions(nodes, chartState.indexes);
+
+        if (isFocusedChartLayoutActive()) {
+          // The automatic lineage fit can be limited by chart width, which
+          // visually compresses Gen1 even when it occupies most of the raw
+          // chart height. Reflow the family anchors until their projected
+          // post-zoom span matches the configured on-screen target.
+          makeFocusedGenerationOneScreenAware(nodes, visibleNodeIds);
+        }
       }
 
       function createChartCanvas() {
