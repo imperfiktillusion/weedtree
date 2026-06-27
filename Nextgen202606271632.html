@@ -440,7 +440,6 @@
       }
       .link.compare-shared {
         stroke: var(--chart-hover-highlight) !important;
-        stroke-width: 3px;
       }
       .node.dimmed rect,
       .node.dimmed text,
@@ -1019,10 +1018,16 @@
         sparseColumnMaximumNodes: 11,
         sparseColumnSpacingMultiplier: 1.5,
         focusedColumnSpacingMultiplier: 2,
-        focusedGenerationOneVerticalMarginRatio: 0.2,
+        // Focused Gen1 anchor layout:
+        // - one node is centred;
+        // - two nodes share a restrained central span;
+        // - three or more nodes occupy the middle 80% of the chart.
+        focusedGenerationOneVerticalMarginRatio: 0.1,
+        focusedGenerationOneTwoNodeSpanRatio: 0.28,
         variantSpacing: 2,
         linkWidth: 3,
         focusedLinkWidth: 4,
+        comparisonLinkWidth: 3,
         percentagePillWidth: 80,
         percentagePillOverlap: 24,
         percentageTextYOffset: 1,
@@ -1766,20 +1771,27 @@
       ) {
         if (!nonVariantNodes.length) return;
 
-        const marginRatio =
-          CHART_SIZING.focusedGenerationOneVerticalMarginRatio;
-        const topY = height * marginRatio;
-        const bottomY = height * (1 - marginRatio);
-        const step =
-          nonVariantNodes.length > 1
-            ? (bottomY - topY) / (nonVariantNodes.length - 1)
-            : 0;
+        const nodeCount = nonVariantNodes.length;
+        const centreY = height / 2;
+        let positions;
+
+        if (nodeCount === 1) {
+          positions = [centreY];
+        } else if (nodeCount === 2) {
+          const totalSpan =
+            height * CHART_SIZING.focusedGenerationOneTwoNodeSpanRatio;
+          positions = [centreY - totalSpan / 2, centreY + totalSpan / 2];
+        } else {
+          const marginRatio =
+            CHART_SIZING.focusedGenerationOneVerticalMarginRatio;
+          const topY = height * marginRatio;
+          const bottomY = height * (1 - marginRatio);
+          const step = (bottomY - topY) / (nodeCount - 1);
+          positions = nonVariantNodes.map((_, index) => topY + step * index);
+        }
 
         nonVariantNodes.forEach((node, index) => {
-          node.y =
-            nonVariantNodes.length === 1
-              ? height / 2
-              : topY + step * index;
+          node.y = positions[index];
 
           const variants = getVisibleVariantsForBase(node, visibleNodeIds);
           variants.forEach((variant, variantIndex) => {
@@ -2160,9 +2172,10 @@
           const startY = (height - totalHeight) / 2;
 
           if (isFocusedChartLayoutActive() && generation === 1) {
-            // Gen1 is the focused-layout anchor: spread its families evenly
-            // through the middle 60% of the chart. Gen0 is positioned from
-            // these children afterwards, while later generations continue
+            // Gen1 is the focused-layout anchor. Three or more families
+            // spread through the middle 80% of the chart; one or two use
+            // restrained centred positions. Gen0 is positioned from these
+            // children afterwards, while later generations continue
             // to centre as closely as possible on their visible parents.
             assignFocusedGenerationOnePositions(
               nonVariantNodes,
@@ -2729,7 +2742,7 @@
             const inSecond =
               secondLineage.has(link.source) && secondLineage.has(link.target);
             return inFirst || inSecond
-              ? CHART_SIZING.focusedLinkWidth
+              ? CHART_SIZING.comparisonLinkWidth
               : CHART_SIZING.linkWidth;
           });
 
