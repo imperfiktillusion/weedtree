@@ -1019,8 +1019,8 @@
         sparseColumnMaximumNodes: 11,
         sparseColumnSpacingMultiplier: 1.5,
         focusedColumnSpacingMultiplier: 2,
-        focusedGenerationOneSpacingMultiplier: 6,
-        variantSpacing: 1,
+        focusedGenerationOneVerticalMarginRatio: 0.2,
+        variantSpacing: 2,
         linkWidth: 3,
         focusedLinkWidth: 4,
         percentagePillWidth: 80,
@@ -1759,6 +1759,39 @@
         });
       }
 
+      function assignFocusedGenerationOnePositions(
+        nonVariantNodes,
+        height,
+        visibleNodeIds,
+      ) {
+        if (!nonVariantNodes.length) return;
+
+        const marginRatio =
+          CHART_SIZING.focusedGenerationOneVerticalMarginRatio;
+        const topY = height * marginRatio;
+        const bottomY = height * (1 - marginRatio);
+        const step =
+          nonVariantNodes.length > 1
+            ? (bottomY - topY) / (nonVariantNodes.length - 1)
+            : 0;
+
+        nonVariantNodes.forEach((node, index) => {
+          node.y =
+            nonVariantNodes.length === 1
+              ? height / 2
+              : topY + step * index;
+
+          const variants = getVisibleVariantsForBase(node, visibleNodeIds);
+          variants.forEach((variant, variantIndex) => {
+            variant.x = node.x;
+            variant.y =
+              node.y +
+              (variantIndex + 1) *
+                (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
+          });
+        });
+      }
+
       function assignParentBalancedColumnPositions(
         nonVariantNodes,
         startY,
@@ -2116,12 +2149,8 @@
             ? CHART_SIZING.nodeHeight *
               CHART_SIZING.sparseColumnSpacingMultiplier
             : CHART_SIZING.columnSpacing;
-          const focusedSpacingMultiplier =
-            generation === 1
-              ? CHART_SIZING.focusedGenerationOneSpacingMultiplier
-              : CHART_SIZING.focusedColumnSpacingMultiplier;
           const spacing = isFocusedChartLayoutActive()
-            ? baseSpacing * focusedSpacingMultiplier
+            ? baseSpacing * CHART_SIZING.focusedColumnSpacingMultiplier
             : baseSpacing;
 
           const totalHeight =
@@ -2130,7 +2159,17 @@
               (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
           const startY = (height - totalHeight) / 2;
 
-          if (isFocusedChartLayoutActive() && generation >= 2) {
+          if (isFocusedChartLayoutActive() && generation === 1) {
+            // Gen1 is the focused-layout anchor: spread its families evenly
+            // through the middle 60% of the chart. Gen0 is positioned from
+            // these children afterwards, while later generations continue
+            // to centre as closely as possible on their visible parents.
+            assignFocusedGenerationOnePositions(
+              nonVariantNodes,
+              height,
+              visibleNodeIds,
+            );
+          } else if (isFocusedChartLayoutActive() && generation >= 2) {
             assignParentBalancedColumnPositions(
               nonVariantNodes,
               startY,
