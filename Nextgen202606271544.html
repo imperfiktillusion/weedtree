@@ -398,7 +398,10 @@
         -webkit-user-select: none;
         user-select: none;
       }
-      .node { cursor: pointer; }
+      .node {
+        cursor: pointer;
+        touch-action: none;
+      }
       .node-hitbox {
         fill: transparent;
         pointer-events: all;
@@ -743,6 +746,14 @@
         overflow-wrap: anywhere;
       }
 
+      .comparison-panel-products {
+        margin-bottom: calc(10px * var(--info-panel-scale));
+      }
+
+      .comparison-panel-products .info-panel-values {
+        margin-top: calc(2px * var(--info-panel-scale));
+      }
+
       .comparison-contributors-grid {
         display: grid;
         grid-template-columns: max-content calc(10px * var(--info-panel-scale)) minmax(0, 1fr);
@@ -1028,7 +1039,8 @@
         zoomTransitionDuration: 750,
         lineageZoomScale: 0.9,
         hoverScale: 1.4,
-        hoverTransitionDuration: 180,
+        hoverTransitionDuration: 80,
+        nodeLongPressDelay: 450,
         linkDarkenAmount: 2,
         variantBlendAmount: 0.5,
         comparisonRelationshipMaximumGenerations: 3,
@@ -1653,6 +1665,149 @@
           .map(({ node }) => node);
       }
 
+      function getVisibleParentNodes(
+        node,
+        visibleNodeIds,
+        indexes = chartState.indexes,
+      ) {
+        const parents = getParentNodes(node, indexes).filter((parent) =>
+          visibleNodeIds.has(parent.id),
+        );
+
+        if (node.variant) {
+          const baseNode = indexes.nodesByName.get(node.variant);
+          if (baseNode && visibleNodeIds.has(baseNode.id)) parents.push(baseNode);
+        }
+
+        return parents;
+      }
+
+      // Find the closest set of vertical positions to the parent midpoints
+      // while preserving the existing column order and required node gaps.
+      // This is a one-dimensional isotonic regression with variable offsets.
+      function solveParentBalancedPositions(targets, offsets) {
+        const blocks = [];
+
+        targets.forEach((target, index) => {
+          blocks.push({
+            start: index,
+            end: index,
+            weight: 1,
+            weightedTotal: target - offsets[index],
+          });
+
+          while (blocks.length >= 2) {
+            const right = blocks[blocks.length - 1];
+            const left = blocks[blocks.length - 2];
+            const leftMean = left.weightedTotal / left.weight;
+            const rightMean = right.weightedTotal / right.weight;
+            if (leftMean <= rightMean) break;
+
+            blocks.splice(blocks.length - 2, 2, {
+              start: left.start,
+              end: right.end,
+              weight: left.weight + right.weight,
+              weightedTotal: left.weightedTotal + right.weightedTotal,
+            });
+          }
+        });
+
+        const positions = new Array(targets.length);
+        blocks.forEach((block) => {
+          const mean = block.weightedTotal / block.weight;
+          for (let index = block.start; index <= block.end; index += 1) {
+            positions[index] = mean + offsets[index];
+          }
+        });
+
+        return positions;
+      }
+
+      function getVisibleVariantsForBase(node, visibleNodeIds) {
+        return (
+          chartState.indexes.variantsByBaseName.get(node.name) || []
+        ).filter((variant) => visibleNodeIds.has(variant.id));
+      }
+
+      function assignStandardColumnPositions(
+        nonVariantNodes,
+        startY,
+        spacing,
+        visibleNodeIds,
+      ) {
+        let yOffset = 0;
+
+        nonVariantNodes.forEach((node) => {
+          node.y = startY + yOffset;
+          yOffset += CHART_SIZING.nodeHeight + spacing;
+
+          const variants = getVisibleVariantsForBase(node, visibleNodeIds);
+
+          variants.forEach((variant, index) => {
+            variant.x = node.x;
+            variant.y =
+              node.y +
+              (index + 1) *
+                (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
+          });
+
+          yOffset +=
+            variants.length *
+            (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
+        });
+      }
+
+      function assignParentBalancedColumnPositions(
+        nonVariantNodes,
+        startY,
+        spacing,
+        visibleNodeIds,
+      ) {
+        if (!nonVariantNodes.length) return;
+
+        const fallbackTargets = [];
+        const offsets = [];
+        let yOffset = 0;
+
+        nonVariantNodes.forEach((node, index) => {
+          fallbackTargets.push(startY + yOffset);
+          offsets.push(index ? yOffset : 0);
+
+          const variants = getVisibleVariantsForBase(node, visibleNodeIds);
+          yOffset +=
+            CHART_SIZING.nodeHeight +
+            spacing +
+            variants.length *
+              (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
+        });
+
+        const targets = nonVariantNodes.map((node, index) => {
+          const parents = getVisibleParentNodes(
+            node,
+            visibleNodeIds,
+            chartState.indexes,
+          );
+          return parents.length
+            ? d3.mean(parents, (parent) => parent.y)
+            : fallbackTargets[index];
+        });
+
+        const positions = solveParentBalancedPositions(targets, offsets);
+
+        nonVariantNodes.forEach((node, index) => {
+          node.y = positions[index];
+          const variants = getVisibleVariantsForBase(node, visibleNodeIds);
+
+          variants.forEach((variant, variantIndex) => {
+            variant.x = node.x;
+            variant.y =
+              node.y +
+              (variantIndex + 1) *
+                (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
+          });
+        });
+      }
+
       function calculateOriginPositions(
         nodes,
         indexes = buildGraphIndexes(nodes),
@@ -1874,6 +2029,7 @@
 
       function calculateChartLayout() {
         const nodes = chartState.visibleNodes;
+        const visibleNodeIds = new Set(nodes.map((node) => node.id));
         const { width, height } = chartState;
 
         chartState.standardNodeWidth = Math.max(
@@ -1911,27 +2067,40 @@
           if (generation === 1) {
             generationNodes.sort(sortByDominanceAndLandrace);
           } else if (generation >= 2) {
-            const dominanceGroups = d3.groups(
-              generationNodes,
-              (node) => node.dominance?.toLowerCase() || "unknown",
-            );
+            if (isFocusedChartLayoutActive()) {
+              // In focused mode, review the complete visible column together
+              // so lineage geometry takes priority over the full-chart
+              // dominance bands. The subsequent positioning pass then places
+              // each node as close as possible to its parents' midpoint.
+              generationNodes = barycentricSort(
+                generationNodes,
+                nodes,
+                "parents",
+                chartState.indexes,
+              );
+            } else {
+              const dominanceGroups = d3.groups(
+                generationNodes,
+                (node) => node.dominance?.toLowerCase() || "unknown",
+              );
 
-            dominanceGroups.sort(
-              ([aDominance], [bDominance]) =>
-                (DOMINANCE_ORDER[aDominance] ?? 99) -
-                (DOMINANCE_ORDER[bDominance] ?? 99),
-            );
+              dominanceGroups.sort(
+                ([aDominance], [bDominance]) =>
+                  (DOMINANCE_ORDER[aDominance] ?? 99) -
+                  (DOMINANCE_ORDER[bDominance] ?? 99),
+              );
 
-            generationNodes = dominanceGroups
-              .map(([, groupNodes]) =>
-                barycentricSort(
-                  groupNodes,
-                  nodes,
-                  "parents",
-                  chartState.indexes,
-                ),
-              )
-              .flat();
+              generationNodes = dominanceGroups
+                .map(([, groupNodes]) =>
+                  barycentricSort(
+                    groupNodes,
+                    nodes,
+                    "parents",
+                    chartState.indexes,
+                  ),
+                )
+                .flat();
+            }
           }
 
           const nonVariantNodes = generationNodes.filter(
@@ -1954,27 +2123,22 @@
             variantCount *
               (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
           const startY = (height - totalHeight) / 2;
-          let yOffset = 0;
 
-          nonVariantNodes.forEach((node) => {
-            node.y = startY + yOffset;
-            yOffset += CHART_SIZING.nodeHeight + spacing;
-
-            const variants =
-              chartState.indexes.variantsByBaseName.get(node.name) || [];
-
-            variants.forEach((variant, index) => {
-              variant.x = node.x;
-              variant.y =
-                node.y +
-                (index + 1) *
-                  (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
-            });
-
-            yOffset +=
-              variants.length *
-              (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing);
-          });
+          if (isFocusedChartLayoutActive() && generation >= 2) {
+            assignParentBalancedColumnPositions(
+              nonVariantNodes,
+              startY,
+              spacing,
+              visibleNodeIds,
+            );
+          } else {
+            assignStandardColumnPositions(
+              nonVariantNodes,
+              startY,
+              spacing,
+              visibleNodeIds,
+            );
+          }
         }
 
         calculateOriginPositions(nodes, chartState.indexes);
@@ -2178,11 +2342,6 @@
 
       function attachNodeInteractions() {
         chartState.nodeSelection
-          .on("pointerdown.selection", (event) => {
-            // Prevent SVG text selection and native drag behaviour without
-            // suppressing the subsequent node click or D3 shift/touch drag.
-            event.preventDefault();
-          })
           // mouseenter/mouseleave do not fire when moving between a node's
           // rectangle, text, and other child elements. This prevents the
           // expand/shrink loop caused by bubbling mouseover/mouseout events.
@@ -2190,6 +2349,20 @@
           .on("mouseleave", handleNodeMouseLeave)
           .on("click", handleNodeClick)
           .call(createNodeDragBehaviour());
+      }
+
+      function setNodeHitboxScale(element, node, scale) {
+        const width = getNodeWidth(node) * scale;
+        const height = CHART_SIZING.nodeHeight * scale;
+
+        d3.select(element)
+          .select(".node-hitbox")
+          .attr("x", -width / 2)
+          .attr("y", -height / 2)
+          .attr("width", width)
+          .attr("height", height)
+          .attr("rx", height / 2)
+          .attr("ry", height / 2);
       }
 
       function setNodeVisualScale(element, node, scale, { animate = true } = {}) {
@@ -2216,6 +2389,7 @@
       function resetAllNodeHoverStates({ animate = false } = {}) {
         chartState.nodeSelection?.each(function (node) {
           node.isPointerInside = false;
+          setNodeHitboxScale(this, node, 1);
           setNodeVisualScale(this, node, 1, { animate });
         });
         clearHoverHighlight();
@@ -2227,6 +2401,10 @@
 
         node.isPointerInside = true;
         d3.select(this).raise();
+
+        // Expand the interactive area immediately to match the enlarged
+        // visual, so the visible node remains clickable throughout hover.
+        setNodeHitboxScale(this, node, CHART_BEHAVIOUR.hoverScale);
         setNodeVisualScale(this, node, CHART_BEHAVIOUR.hoverScale);
         highlightHoverLineage(node);
       }
@@ -2234,6 +2412,7 @@
       function handleNodeMouseLeave(event, node) {
         node.isPointerInside = false;
         clearHoverHighlight();
+        setNodeHitboxScale(this, node, 1);
 
         // Always issue the reset. Do not rely on currentScale because an
         // interrupted transition may leave the rendered transform between
@@ -2243,41 +2422,73 @@
 
       function resetNodeHoverForSelection(element, node) {
         node.isPointerInside = false;
+        setNodeHitboxScale(element, node, 1);
         setNodeVisualScale(element, node, 1, { animate: false });
         clearHoverHighlight();
       }
 
       function handleNodeClick(event, node) {
         event.stopPropagation();
+
+        if (performance.now() < (node.suppressClickUntil || 0)) return;
+
         resetNodeHoverForSelection(this, node);
         handleStrainSelection(node);
+      }
+
+      function isTouchInputEvent(event) {
+        const sourceEvent = event?.sourceEvent || event;
+        return Boolean(
+          sourceEvent &&
+            (sourceEvent.pointerType === "touch" ||
+              sourceEvent.type?.startsWith("touch")),
+        );
       }
 
       function createNodeDragBehaviour() {
         return d3
           .drag()
-          .filter(
-            (event) =>
-              event.shiftKey || event.sourceEvent.type.startsWith("touch"),
-          )
+          .filter((event) => event.shiftKey || isTouchInputEvent(event))
+          .clickDistance(6)
           .on("start", startNodeDrag)
           .on("drag", dragNode)
           .on("end", finishNodeDrag);
       }
 
-      function startNodeDrag(event, node) {
-        chartState.isDragging = true;
-        node.dragging = true;
-        node.isPointerInside = false;
-        setNodeVisualScale(this, node, 1, { animate: false });
-        clearHoverHighlight();
-        d3.select(this).raise();
+      function prepareNodeDrag(node) {
         node.variantOffsets = (
           chartState.indexes.variantsByBaseName.get(node.name) || []
         ).map((variant) => ({
-            id: variant.id,
-            offsetY: variant.y - node.y,
-          }));
+          id: variant.id,
+          offsetY: variant.y - node.y,
+        }));
+      }
+
+      function activateNodeDrag(element, node) {
+        if (node.dragging) return;
+
+        chartState.isDragging = true;
+        node.dragging = true;
+        node.isPointerInside = false;
+        setNodeHitboxScale(element, node, 1);
+        setNodeVisualScale(element, node, 1, { animate: false });
+        clearHoverHighlight();
+        d3.select(element).raise();
+      }
+
+      function startNodeDrag(event, node) {
+        node.dragGestureActive = true;
+        node.dragging = false;
+        prepareNodeDrag(node);
+
+        if (!isTouchInputEvent(event)) {
+          activateNodeDrag(this, node);
+          return;
+        }
+
+        node.longPressTimer = window.setTimeout(() => {
+          if (node.dragGestureActive) activateNodeDrag(this, node);
+        }, CHART_BEHAVIOUR.nodeLongPressDelay);
       }
 
       function dragNode(event, node) {
@@ -2300,8 +2511,13 @@
       }
 
       function finishNodeDrag(event, node) {
+        window.clearTimeout(node.longPressTimer);
+        node.longPressTimer = null;
+        node.dragGestureActive = false;
+
         if (!node.dragging) return;
         node.dragging = false;
+        node.suppressClickUntil = performance.now() + 500;
         chartState.isDragging = false;
       }
 
@@ -4037,6 +4253,21 @@
         container.appendChild(grid);
       }
 
+      function appendComparisonProducts(container, node) {
+        const products = getProductsForStrainAndVariants(node);
+        if (!products.length) return;
+
+        const productSection = document.createElement("div");
+        productSection.className = "comparison-panel-products";
+        appendInfoPanelHeading(
+          productSection,
+          "NZ Medical Cannabis Products",
+          "info-panel-heading--products",
+        );
+        appendLineSeparatedValues(productSection, products);
+        container.appendChild(productSection);
+      }
+
       function renderComparisonPanel(firstNode, secondNode) {
         const panel = document.getElementById("comparisonPanel");
         const body = document.getElementById("comparisonPanelBody");
@@ -4082,6 +4313,7 @@
         firstTitle.className = "comparison-panel-column-title";
         firstTitle.textContent = firstNode.name;
         firstColumn.appendChild(firstTitle);
+        appendComparisonProducts(firstColumn, firstNode);
 
         const secondColumn = document.createElement("section");
         secondColumn.className = "comparison-panel-column";
@@ -4089,6 +4321,7 @@
         secondTitle.className = "comparison-panel-column-title";
         secondTitle.textContent = secondNode.name;
         secondColumn.appendChild(secondTitle);
+        appendComparisonProducts(secondColumn, secondNode);
 
         if (sharedAncestors.length) {
           appendComparisonContributorRows(
