@@ -27,7 +27,7 @@
       const APP_CONFIG = Object.freeze({
         dataUrl:
           "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978",
-        strainUrlBase: "https://weedtree.fyi/test2.html?focus=",
+        strainUrlBase: "https://weedtree.fyi/test2.html?strain=",
       });
 
       function showCopiedPopup() {
@@ -57,10 +57,23 @@
 
       function copyStrainURL(strainName, event) {
         event?.preventDefault();
-        const url =
-          APP_CONFIG.strainUrlBase +
-          encodeURIComponent(strainName.trim().replace(/\s+/g, "_"));
-        copyTextToClipboard(url);
+        const url = new URL(window.location.href);
+        ["focus", "strain", "mode", "compare", "with"].forEach((parameter) =>
+          url.searchParams.delete(parameter),
+        );
+        url.searchParams.set("strain", strainName.trim().replace(/\s+/g, "_"));
+
+        const focusedScopeButton = document.querySelector(
+          '[data-chart-scope="focused"].is-active',
+        );
+        const singleModeButton = document.querySelector(
+          '[data-selection-mode="single"].is-active',
+        );
+        if (focusedScopeButton && singleModeButton) {
+          url.searchParams.set("mode", "focused");
+        }
+
+        copyTextToClipboard(url.href);
       }
 
       function copyStrainContributors(strainName, event) {
@@ -1092,7 +1105,6 @@
         standardNodeWidth: CHART_SIZING.minimumNodeWidth,
         isDragging: false,
         hoveredNodeElement: null,
-        isViewportMoving: false,
         isPrepared: false,
         indexes: {
           nodesById: new Map(),
@@ -2428,15 +2440,6 @@
             CHART_BEHAVIOUR.zoomMinimum,
             CHART_BEHAVIOUR.zoomMaximum,
           ])
-          .on("start.hover-reset", function () {
-            // Nodes can move beneath a stationary pointer during automatic
-            // fitting, comparison rerenders, manual zooming, or panning.
-            // Suspend enlargement and clear any active transform before the
-            // viewport starts moving so a missing pointerleave cannot leave a
-            // node visually enlarged.
-            chartState.isViewportMoving = true;
-            resetAllNodeHoverStates({ animate: false });
-          })
           .on("zoom", function (event) {
             let transform = event.transform;
             const previousTransform =
@@ -2472,12 +2475,6 @@
 
             chartState.currentTransform = transform;
             chartState.group.attr("transform", transform);
-          })
-          .on("end.hover-reset", function () {
-            // Do not infer a hover from the pointer's old screen position.
-            // The user must move back over a node after the chart settles.
-            resetAllNodeHoverStates({ animate: false });
-            chartState.isViewportMoving = false;
           });
 
         chartState.svg.call(chartState.zoom);
@@ -2599,12 +2596,6 @@
       function renderChartCanvas() {
         if (!chartState.isPrepared) return;
 
-        // A rerender replaces the SVG elements, so clear any enlarged visual
-        // before the old nodes are detached. This applies equally to full,
-        // focused single, full comparison, and focused comparison layouts.
-        resetAllNodeHoverStates({ animate: false });
-        chartState.isViewportMoving = true;
-
         updateVisibleGraph();
         createChartCanvas();
         calculateChartLayout();
@@ -2675,7 +2666,6 @@
       function handleNodePointerEnter(event, node) {
         if (
           chartState.isDragging ||
-          chartState.isViewportMoving ||
           (event.pointerType && event.pointerType !== "mouse")
         ) {
           return;
@@ -2823,11 +2813,6 @@
       }
 
       function raiseProductNodes() {
-        // Zoom lifecycle events can fire while the SVG canvas is being
-        // created, before renderNodes() has populated nodeSelection.
-        // Treat that startup state as an empty selection.
-        if (!chartState.nodeSelection) return;
-
         chartState.nodeSelection.each(function (node) {
           if (node.product) d3.select(this).raise();
         });
@@ -2838,13 +2823,9 @@
           if (!event.defaultPrevented) clearChartFocus();
         });
 
-        chartState.svg
-          .on("pointerleave.hover-reset", () => {
-            resetAllNodeHoverStates({ animate: false });
-          })
-          .on("pointercancel.hover-reset", () => {
-            resetAllNodeHoverStates({ animate: false });
-          });
+        chartState.svg.on("pointerleave.hover-reset", () => {
+          resetAllNodeHoverStates({ animate: false });
+        });
       }
 
       function applySingleSelectionPresentation(
@@ -2918,7 +2899,7 @@
 
         if (pageState.chartScope === "focused") renderChartCanvas();
         applySingleSelectionPresentation(node, lineage);
-        updateUrlForFocusedStrain(node);
+        updateUrlForSelectedStrain(node);
       }
 
       function applyComparisonPresentation(
@@ -4827,7 +4808,6 @@
 
         chartState.currentTransform = initialTransform;
         chartState.svg.call(chartState.zoom.transform, initialTransform);
-        chartState.isViewportMoving = false;
       }
 
       function zoomToLineage(lineage) {
@@ -4910,7 +4890,9 @@
 
       const BASE_DOCUMENT_TITLE = document.title;
       const SELECTION_URL_PARAMETERS = Object.freeze([
-        "focus",
+        "focus", // Legacy single-strain links remain readable.
+        "strain",
+        "mode",
         "compare",
         "with",
       ]);
@@ -4927,9 +4909,12 @@
         return url;
       }
 
-      function createFocusUrl(strainName) {
+      function createStrainUrl(strainName, chartScope = "full") {
         const url = getSelectionUrlBase();
-        url.searchParams.set("focus", encodeStrainUrlValue(strainName));
+        url.searchParams.set("strain", encodeStrainUrlValue(strainName));
+        if (chartScope === "focused") {
+          url.searchParams.set("mode", "focused");
+        }
         return url;
       }
 
@@ -4948,12 +4933,9 @@
 
       function replaceBrowserUrl(url, title = BASE_DOCUMENT_TITLE) {
         document.title = title;
-
         try {
           window.history.replaceState(null, "", url.href);
         } catch (error) {
-          // Some local-file/browser combinations restrict History API URL
-          // changes. The deployed page is same-origin and will update normally.
           console.warn("Unable to update browser URL", error);
         }
       }
@@ -4962,9 +4944,9 @@
         replaceBrowserUrl(getSelectionUrlBase(), BASE_DOCUMENT_TITLE);
       }
 
-      function updateUrlForFocusedStrain(node) {
+      function updateUrlForSelectedStrain(node) {
         replaceBrowserUrl(
-          createFocusUrl(node.name),
+          createStrainUrl(node.name, pageState.chartScope),
           `${node.name} | WeedTree`,
         );
       }
@@ -4989,11 +4971,13 @@
           };
         }
 
-        const focusName = parameters.get("focus");
-        if (focusName) {
+        const strainName = parameters.get("strain") || parameters.get("focus");
+        if (strainName) {
           return {
-            type: "focus",
-            name: normaliseStrainName(focusName),
+            type: "strain",
+            name: normaliseStrainName(strainName),
+            mode:
+              parameters.get("mode") === "focused" ? "focused" : "full",
           };
         }
 
@@ -5050,14 +5034,14 @@
             }
           }
 
-          if (requestedLocation.type === "focus") {
+          if (requestedLocation.type === "strain") {
             const targetNode = findNodeByNormalisedName(
               requestedLocation.name,
             );
 
             if (targetNode) {
               pageState.selectionMode = "single";
-              pageState.chartScope = "full";
+              pageState.chartScope = requestedLocation.mode;
               syncSelectionModeButtons();
               syncChartScopeButtons();
               selectNode(targetNode);
@@ -5155,6 +5139,10 @@
         // the second strain completes the comparison.
         if (wasFocusedLayoutActive || isFocusedLayoutActive) {
           rerenderChartForCurrentSelection();
+        }
+
+        if (chartState.focusedNode && !chartState.comparison) {
+          updateUrlForSelectedStrain(chartState.focusedNode);
         }
       }
 
@@ -5317,7 +5305,7 @@
         const searchPopup = document.getElementById("popup2");
         const aboutPopup = document.getElementById("popup3");
         const suppressAutomaticSearchPopup = Boolean(
-          getRequestedFocusStrain(),
+          getRequestedChartLocation(),
         );
 
         function closeAboutPopup() {
@@ -5439,14 +5427,6 @@
           });
 
         window.addEventListener("resize", handleWindowResize);
-        window.addEventListener("blur", () => {
-          resetAllNodeHoverStates({ animate: false });
-        });
-        document.addEventListener("visibilitychange", () => {
-          if (document.hidden) {
-            resetAllNodeHoverStates({ animate: false });
-          }
-        });
       }
 
       // -----------------------------------------------------------------------
