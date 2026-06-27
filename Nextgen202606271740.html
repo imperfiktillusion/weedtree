@@ -1090,6 +1090,7 @@
         standardNodeWidth: CHART_SIZING.minimumNodeWidth,
         isDragging: false,
         hoveredNodeElement: null,
+        isViewportMoving: false,
         isPrepared: false,
         indexes: {
           nodesById: new Map(),
@@ -2425,6 +2426,15 @@
             CHART_BEHAVIOUR.zoomMinimum,
             CHART_BEHAVIOUR.zoomMaximum,
           ])
+          .on("start.hover-reset", function () {
+            // Nodes can move beneath a stationary pointer during automatic
+            // fitting, comparison rerenders, manual zooming, or panning.
+            // Suspend enlargement and clear any active transform before the
+            // viewport starts moving so a missing pointerleave cannot leave a
+            // node visually enlarged.
+            chartState.isViewportMoving = true;
+            resetAllNodeHoverStates({ animate: false });
+          })
           .on("zoom", function (event) {
             let transform = event.transform;
             const previousTransform =
@@ -2460,6 +2470,12 @@
 
             chartState.currentTransform = transform;
             chartState.group.attr("transform", transform);
+          })
+          .on("end.hover-reset", function () {
+            // Do not infer a hover from the pointer's old screen position.
+            // The user must move back over a node after the chart settles.
+            resetAllNodeHoverStates({ animate: false });
+            chartState.isViewportMoving = false;
           });
 
         chartState.svg.call(chartState.zoom);
@@ -2581,6 +2597,12 @@
       function renderChartCanvas() {
         if (!chartState.isPrepared) return;
 
+        // A rerender replaces the SVG elements, so clear any enlarged visual
+        // before the old nodes are detached. This applies equally to full,
+        // focused single, full comparison, and focused comparison layouts.
+        resetAllNodeHoverStates({ animate: false });
+        chartState.isViewportMoving = true;
+
         updateVisibleGraph();
         createChartCanvas();
         calculateChartLayout();
@@ -2651,6 +2673,7 @@
       function handleNodePointerEnter(event, node) {
         if (
           chartState.isDragging ||
+          chartState.isViewportMoving ||
           (event.pointerType && event.pointerType !== "mouse")
         ) {
           return;
@@ -2808,9 +2831,13 @@
           if (!event.defaultPrevented) clearChartFocus();
         });
 
-        chartState.svg.on("pointerleave.hover-reset", () => {
-          resetAllNodeHoverStates({ animate: false });
-        });
+        chartState.svg
+          .on("pointerleave.hover-reset", () => {
+            resetAllNodeHoverStates({ animate: false });
+          })
+          .on("pointercancel.hover-reset", () => {
+            resetAllNodeHoverStates({ animate: false });
+          });
       }
 
       function applySingleSelectionPresentation(
@@ -4789,6 +4816,7 @@
 
         chartState.currentTransform = initialTransform;
         chartState.svg.call(chartState.zoom.transform, initialTransform);
+        chartState.isViewportMoving = false;
       }
 
       function zoomToLineage(lineage) {
@@ -5268,6 +5296,14 @@
           });
 
         window.addEventListener("resize", handleWindowResize);
+        window.addEventListener("blur", () => {
+          resetAllNodeHoverStates({ animate: false });
+        });
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) {
+            resetAllNodeHoverStates({ animate: false });
+          }
+        });
       }
 
       // -----------------------------------------------------------------------
