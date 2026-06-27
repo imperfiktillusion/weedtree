@@ -2821,6 +2821,11 @@
       }
 
       function raiseProductNodes() {
+        // Zoom lifecycle events can fire while the SVG canvas is being
+        // created, before renderNodes() has populated nodeSelection.
+        // Treat that startup state as an empty selection.
+        if (!chartState.nodeSelection) return;
+
         chartState.nodeSelection.each(function (node) {
           if (node.product) d3.select(this).raise();
         });
