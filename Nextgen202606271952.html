@@ -55,25 +55,9 @@
           .catch((error) => console.error("Clipboard error", error));
       }
 
-      function copyStrainURL(strainName, event) {
+      function copyCurrentStateURL(event) {
         event?.preventDefault();
-        const url = new URL(window.location.href);
-        ["focus", "strain", "mode", "compare", "with"].forEach((parameter) =>
-          url.searchParams.delete(parameter),
-        );
-        url.searchParams.set("strain", strainName.trim().replace(/\s+/g, "_"));
-
-        const focusedScopeButton = document.querySelector(
-          '[data-chart-scope="focused"].is-active',
-        );
-        const singleModeButton = document.querySelector(
-          '[data-selection-mode="single"].is-active',
-        );
-        if (focusedScopeButton && singleModeButton) {
-          url.searchParams.set("mode", "focused");
-        }
-
-        copyTextToClipboard(url.href);
+        copyTextToClipboard(window.location.href);
       }
 
       function copyStrainContributors(strainName, event) {
@@ -226,7 +210,7 @@
         border: 0;
         background: transparent;
         color: #fff;
-        font: 600 0.82em "Poppins", Arial, sans-serif;
+        font: 400 0.82em "Poppins", Arial, sans-serif;
         cursor: pointer;
         transition: background 0.2s ease, color 0.2s ease;
       }
@@ -493,6 +477,37 @@
         background: var(--chart-panel-background);
         color: #222;
         font-family: "Roboto", Arial, sans-serif;
+      }
+
+      .info-panel-resize-handle {
+        position: relative;
+        flex: 0 0 9px;
+        width: 100%;
+        cursor: ns-resize;
+        touch-action: none;
+        user-select: none;
+      }
+
+      .info-panel-resize-handle::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 50%;
+        width: calc(42px * var(--info-panel-scale));
+        height: 2px;
+        border-radius: 2px;
+        background: rgba(60, 60, 60, 0.28);
+        transform: translateX(-50%);
+        transition: background-color 0.15s ease;
+      }
+
+      .info-panel-resize-handle:hover::after,
+      .info-panel.is-resizing .info-panel-resize-handle::after {
+        background: rgba(40, 40, 40, 0.65);
+      }
+
+      .info-panel.is-resizing {
+        user-select: none;
       }
 
       .info-panel[hidden] { display: none; }
@@ -875,6 +890,7 @@
     </div>
 
     <aside id="infoPanel" class="info-panel" aria-live="polite" hidden>
+      <div class="info-panel-resize-handle" data-panel-resize-handle title="Drag to resize panel vertically; double-click to reset"></div>
       <div class="info-panel-topbar">
         <div id="infoPanelTitle" class="info-panel-title"></div>
         <div class="info-panel-zoom-controls" aria-label="Info panel zoom controls">
@@ -905,6 +921,7 @@
     </aside>
 
     <aside id="comparisonPanel" class="info-panel" aria-live="polite" hidden>
+      <div class="info-panel-resize-handle" data-panel-resize-handle title="Drag to resize panel vertically; double-click to reset"></div>
       <div class="info-panel-topbar">
         <div id="comparisonPanelTitle" class="info-panel-title">Shared Ancestor Contributions</div>
         <div class="info-panel-zoom-controls" aria-label="Comparison panel controls">
@@ -3544,9 +3561,7 @@
         const copyUrlLink = document.createElement("a");
         copyUrlLink.href = "#";
         copyUrlLink.textContent = "Copy strain URL";
-        copyUrlLink.addEventListener("click", (event) =>
-          copyStrainURL(node.name, event),
-        );
+        copyUrlLink.addEventListener("click", copyCurrentStateURL);
 
         const copyContributorsLink = document.createElement("a");
         copyContributorsLink.href = "#";
@@ -3779,7 +3794,8 @@
 
       function syncFocusedInfoColumnHeight() {
         const panel = document.getElementById("infoPanel");
-        if (!panel || panel.hidden) return;
+        const body = document.getElementById("infoPanelBody");
+        if (!panel || !body || panel.hidden) return;
 
         const primaryColumn = panel.querySelector(
           ".focused-info-column:not(.focused-info-column--related)",
@@ -3793,8 +3809,19 @@
         relatedColumn.style.maxHeight = "none";
 
         const primaryHeight = Math.ceil(primaryColumn.getBoundingClientRect().height);
-        relatedColumn.style.height = `${primaryHeight}px`;
-        relatedColumn.style.maxHeight = `${primaryHeight}px`;
+        let targetHeight = primaryHeight;
+
+        if (panel.classList.contains("is-user-resized")) {
+          const bodyStyles = window.getComputedStyle(body);
+          const availableHeight =
+            body.clientHeight -
+            (parseFloat(bodyStyles.paddingTop) || 0) -
+            (parseFloat(bodyStyles.paddingBottom) || 0);
+          targetHeight = Math.max(primaryHeight, Math.floor(availableHeight));
+        }
+
+        relatedColumn.style.height = `${targetHeight}px`;
+        relatedColumn.style.maxHeight = `${targetHeight}px`;
       }
 
       function renderInfoPanel(node, ancestorContributions) {
@@ -4725,6 +4752,15 @@
         columns.append(firstColumn, secondColumn);
         body.appendChild(columns);
 
+        const actions = document.createElement("div");
+        actions.className = "info-panel-actions";
+        const copyComparisonUrlLink = document.createElement("a");
+        copyComparisonUrlLink.href = "#";
+        copyComparisonUrlLink.textContent = "Copy comparison URL";
+        copyComparisonUrlLink.addEventListener("click", copyCurrentStateURL);
+        actions.appendChild(copyComparisonUrlLink);
+        body.appendChild(actions);
+
         clearInfoPanel();
         setPanelZoom("comparison", pageState.comparisonPanelZoom);
         panel.hidden = false;
@@ -5369,7 +5405,71 @@
         }, 120);
       }
 
+      function setupPanelResizeHandles() {
+        document.querySelectorAll("[data-panel-resize-handle]").forEach((handle) => {
+          const panel = handle.closest(".info-panel");
+          if (!panel) return;
+
+          handle.addEventListener("pointerdown", (event) => {
+            if (event.button !== undefined && event.button !== 0) return;
+
+            event.preventDefault();
+            handle.setPointerCapture?.(event.pointerId);
+
+            const startY = event.clientY;
+            const startHeight = panel.getBoundingClientRect().height;
+            const computedPanel = window.getComputedStyle(panel);
+            const panelBottom = parseFloat(computedPanel.bottom) || 0;
+            const maximumHeight = Math.max(
+              160,
+              window.innerHeight - panelBottom - CHART_SIZING.infoPanelViewportGap,
+            );
+            const minimumHeight = Math.min(180, maximumHeight);
+
+            panel.style.height = `${startHeight}px`;
+            panel.classList.add("is-user-resized", "is-resizing");
+
+            const handlePointerMove = (moveEvent) => {
+              const requestedHeight = startHeight + startY - moveEvent.clientY;
+              const nextHeight = Math.min(
+                maximumHeight,
+                Math.max(minimumHeight, requestedHeight),
+              );
+              panel.style.height = `${Math.round(nextHeight)}px`;
+
+              if (panel.id === "infoPanel") {
+                window.requestAnimationFrame(syncFocusedInfoColumnHeight);
+              }
+            };
+
+            const finishResize = () => {
+              panel.classList.remove("is-resizing");
+              handle.removeEventListener("pointermove", handlePointerMove);
+              handle.removeEventListener("pointerup", finishResize);
+              handle.removeEventListener("pointercancel", finishResize);
+              if (panel.id === "infoPanel") {
+                window.requestAnimationFrame(syncFocusedInfoColumnHeight);
+              }
+            };
+
+            handle.addEventListener("pointermove", handlePointerMove);
+            handle.addEventListener("pointerup", finishResize);
+            handle.addEventListener("pointercancel", finishResize);
+          });
+
+          handle.addEventListener("dblclick", () => {
+            panel.style.removeProperty("height");
+            panel.classList.remove("is-user-resized", "is-resizing");
+            if (panel.id === "infoPanel") {
+              window.requestAnimationFrame(syncFocusedInfoColumnHeight);
+            }
+          });
+        });
+      }
+
       function setupPageControls() {
+        setupPanelResizeHandles();
+
         document.querySelectorAll("[data-chart-scope]").forEach((button) => {
           button.addEventListener("click", () =>
             setChartScope(button.dataset.chartScope),
