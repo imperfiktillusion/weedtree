@@ -27,7 +27,7 @@
       const APP_CONFIG = Object.freeze({
         dataUrl:
           "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978",
-        strainUrlBase: "https://weedtree.fyi/test2.html?focus=",
+        strainUrlBase: "https://weedtree.fyi/test2.html?strain=",
       });
 
       function showCopiedPopup() {
@@ -4910,7 +4910,8 @@
 
       const BASE_DOCUMENT_TITLE = document.title;
       const SELECTION_URL_PARAMETERS = Object.freeze([
-        "focus",
+        "strain",
+        "mode",
         "compare",
         "with",
       ]);
@@ -4927,9 +4928,12 @@
         return url;
       }
 
-      function createFocusUrl(strainName) {
+      function createStrainUrl(strainName, chartScope = "full") {
         const url = getSelectionUrlBase();
-        url.searchParams.set("focus", encodeStrainUrlValue(strainName));
+        url.searchParams.set("strain", encodeStrainUrlValue(strainName));
+        if (chartScope === "focused") {
+          url.searchParams.set("mode", "focused");
+        }
         return url;
       }
 
@@ -4964,7 +4968,7 @@
 
       function updateUrlForFocusedStrain(node) {
         replaceBrowserUrl(
-          createFocusUrl(node.name),
+          createStrainUrl(node.name, pageState.chartScope),
           `${node.name} | WeedTree`,
         );
       }
@@ -4989,11 +4993,13 @@
           };
         }
 
-        const focusName = parameters.get("focus");
-        if (focusName) {
+        const strainName = parameters.get("strain");
+        if (strainName) {
           return {
-            type: "focus",
-            name: normaliseStrainName(focusName),
+            type: "strain",
+            name: normaliseStrainName(strainName),
+            mode:
+              parameters.get("mode") === "focused" ? "focused" : "full",
           };
         }
 
@@ -5050,14 +5056,14 @@
             }
           }
 
-          if (requestedLocation.type === "focus") {
+          if (requestedLocation.type === "strain") {
             const targetNode = findNodeByNormalisedName(
               requestedLocation.name,
             );
 
             if (targetNode) {
               pageState.selectionMode = "single";
-              pageState.chartScope = "full";
+              pageState.chartScope = requestedLocation.mode;
               syncSelectionModeButtons();
               syncChartScopeButtons();
               selectNode(targetNode);
