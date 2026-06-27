@@ -27,7 +27,7 @@
       const APP_CONFIG = Object.freeze({
         dataUrl:
           "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978",
-        strainUrlBase: "https://weedtree.fyi/test2.html?strain=",
+        strainUrlBase: "https://weedtree.fyi/test2.html?focus=",
       });
 
       function showCopiedPopup() {
@@ -2625,10 +2625,10 @@
 
       function attachNodeInteractions() {
         chartState.nodeSelection
-          // Dragging remains attached to the individual node elements, but
-          // ordinary hover and click selection are resolved centrally from
-          // chart coordinates. This prevents a raised node's transparent
-          // hitbox from blocking another visible node.
+          // Keep hover detection tied to the node's fixed, unscaled hitbox.
+          // Pointer events let us ignore touch-generated sticky hover states.
+          .on("pointerenter", handleNodePointerEnter)
+          .on("pointerleave", handleNodePointerLeave)
           .on("pointercancel.hover-reset", function (event, node) {
             resetNodeHoverForSelection(this, node);
           })
@@ -2637,6 +2637,7 @@
               resetNodeHoverForSelection(this, node);
             }
           })
+          .on("click", handleNodeClick)
           .call(createNodeDragBehaviour());
       }
 
@@ -2723,120 +2724,6 @@
         }
         setNodeVisualScale(element, node, 1, { animate: false });
         clearHoverHighlight();
-      }
-
-      function getChartPointerPosition(event) {
-        const svgElement = chartState.svg?.node();
-        if (!svgElement) return null;
-
-        const screenPosition = d3.pointer(event, svgElement);
-        const transform =
-          chartState.currentTransform || d3.zoomTransform(svgElement);
-        return transform.invert(screenPosition);
-      }
-
-      function getNodeHitScore(node, chartX, chartY, useVisualScale = false) {
-        const scale = useVisualScale
-          ? Math.max(1, Number(node.currentScale) || 1)
-          : 1;
-        const halfWidth = (getNodeWidth(node) * scale) / 2;
-        const halfHeight = (CHART_SIZING.nodeHeight * scale) / 2;
-        const deltaX = chartX - node.x;
-        const deltaY = chartY - node.y;
-
-        if (Math.abs(deltaX) > halfWidth || Math.abs(deltaY) > halfHeight) {
-          return null;
-        }
-
-        // Normalised centre distance chooses the node the pointer is most
-        // clearly aimed at when two fixed rectangles overlap.
-        return (
-          (deltaX / halfWidth) ** 2 +
-          (deltaY / halfHeight) ** 2
-        );
-      }
-
-      function findNodeAtChartPointer(event, { useVisualScale = false } = {}) {
-        const chartPosition = getChartPointerPosition(event);
-        if (!chartPosition) return null;
-
-        const [chartX, chartY] = chartPosition;
-        let closestMatch = null;
-
-        chartState.visibleNodes.forEach((node) => {
-          const score = getNodeHitScore(
-            node,
-            chartX,
-            chartY,
-            useVisualScale,
-          );
-          if (score === null) return;
-
-          if (!closestMatch || score < closestMatch.score) {
-            closestMatch = { node, score };
-          }
-        });
-
-        return closestMatch?.node || null;
-      }
-
-      function getRenderedNodeElement(node) {
-        return chartState.nodeSelection
-          ?.filter((candidate) => candidate.id === node.id)
-          .node();
-      }
-
-      function handleChartPointerMove(event) {
-        if (
-          chartState.isDragging ||
-          chartState.isViewportMoving ||
-          (event.pointerType && event.pointerType !== "mouse")
-        ) {
-          return;
-        }
-
-        const node = findNodeAtChartPointer(event);
-        const element = node ? getRenderedNodeElement(node) : null;
-
-        if (element === chartState.hoveredNodeElement) return;
-
-        if (chartState.hoveredNodeElement) {
-          const previousElement = chartState.hoveredNodeElement;
-          const previousNode = d3.select(previousElement).datum();
-          if (previousNode) {
-            resetNodeHoverForSelection(previousElement, previousNode);
-          }
-        }
-
-        if (!node || !element) {
-          clearHoverHighlight();
-          return;
-        }
-
-        chartState.hoveredNodeElement = element;
-        node.isPointerInside = true;
-        d3.select(element).raise();
-        setNodeVisualScale(element, node, CHART_BEHAVIOUR.hoverScale);
-        highlightHoverLineage(node);
-      }
-
-      function handleChartClick(event) {
-        if (event.defaultPrevented) return;
-
-        const node = findNodeAtChartPointer(event, {
-          useVisualScale: true,
-        });
-
-        if (!node) {
-          clearChartFocus();
-          return;
-        }
-
-        if (performance.now() < (node.suppressClickUntil || 0)) return;
-
-        event.stopPropagation();
-        resetAllNodeHoverStates({ animate: false });
-        handleStrainSelection(node);
       }
 
       function handleNodeClick(event, node) {
@@ -2947,9 +2834,11 @@
       }
 
       function attachChartCanvasInteractions() {
+        chartState.svg.on("click", (event) => {
+          if (!event.defaultPrevented) clearChartFocus();
+        });
+
         chartState.svg
-          .on("click.node-hit-test", handleChartClick)
-          .on("pointermove.node-hit-test", handleChartPointerMove)
           .on("pointerleave.hover-reset", () => {
             resetAllNodeHoverStates({ animate: false });
           })
@@ -5021,8 +4910,7 @@
 
       const BASE_DOCUMENT_TITLE = document.title;
       const SELECTION_URL_PARAMETERS = Object.freeze([
-        "strain",
-        "mode",
+        "focus",
         "compare",
         "with",
       ]);
@@ -5039,12 +4927,9 @@
         return url;
       }
 
-      function createStrainUrl(strainName, chartScope = "full") {
+      function createFocusUrl(strainName) {
         const url = getSelectionUrlBase();
-        url.searchParams.set("strain", encodeStrainUrlValue(strainName));
-        if (chartScope === "focused") {
-          url.searchParams.set("mode", "focused");
-        }
+        url.searchParams.set("focus", encodeStrainUrlValue(strainName));
         return url;
       }
 
@@ -5079,7 +4964,7 @@
 
       function updateUrlForFocusedStrain(node) {
         replaceBrowserUrl(
-          createStrainUrl(node.name, pageState.chartScope),
+          createFocusUrl(node.name),
           `${node.name} | WeedTree`,
         );
       }
@@ -5104,13 +4989,11 @@
           };
         }
 
-        const strainName = parameters.get("strain");
-        if (strainName) {
+        const focusName = parameters.get("focus");
+        if (focusName) {
           return {
-            type: "strain",
-            name: normaliseStrainName(strainName),
-            mode:
-              parameters.get("mode") === "focused" ? "focused" : "full",
+            type: "focus",
+            name: normaliseStrainName(focusName),
           };
         }
 
@@ -5167,14 +5050,14 @@
             }
           }
 
-          if (requestedLocation.type === "strain") {
+          if (requestedLocation.type === "focus") {
             const targetNode = findNodeByNormalisedName(
               requestedLocation.name,
             );
 
             if (targetNode) {
               pageState.selectionMode = "single";
-              pageState.chartScope = requestedLocation.mode;
+              pageState.chartScope = "full";
               syncSelectionModeButtons();
               syncChartScopeButtons();
               selectNode(targetNode);
