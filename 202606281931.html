@@ -6057,27 +6057,57 @@
         }
       }
 
-      function prepareExportSnapshotClone(
-        clone,
-        targetViewportHeight,
-        verticalChartShift,
-      ) {
+      function synchroniseExportNodeTextMetrics(clone) {
+        const sourceLabels = Array.from(
+          document.querySelectorAll("#lineageChart svg .strain-name"),
+        );
+        const clonedLabels = Array.from(
+          clone.querySelectorAll("#lineageChart svg .strain-name"),
+        );
+
+        sourceLabels.forEach((sourceLabel, index) => {
+          const clonedLabel = clonedLabels[index];
+          if (!clonedLabel) return;
+
+          const computed = window.getComputedStyle(sourceLabel);
+          clonedLabel.style.fontFamily = computed.fontFamily;
+          clonedLabel.style.fontSize = computed.fontSize;
+          clonedLabel.style.fontWeight = computed.fontWeight;
+          clonedLabel.style.fontStyle = computed.fontStyle;
+          clonedLabel.style.letterSpacing = computed.letterSpacing;
+          clonedLabel.style.fill = computed.fill;
+
+          try {
+            const renderedLength = sourceLabel.getComputedTextLength();
+            if (Number.isFinite(renderedLength) && renderedLength > 0) {
+              clonedLabel.setAttribute("textLength", renderedLength);
+              clonedLabel.setAttribute("lengthAdjust", "spacingAndGlyphs");
+            }
+          } catch (error) {
+            console.warn("Unable to preserve a node label width for export", error);
+          }
+        });
+      }
+
+      function prepareExportSnapshotClone(clone) {
         clone.querySelectorAll("script").forEach((script) => script.remove());
 
         const root = clone;
         root.style.setProperty("--visual-viewport-top", "0px");
         root.style.setProperty(
           "--visual-viewport-height",
-          `${targetViewportHeight}px`,
+          `${Math.max(1, window.innerHeight)}px`,
         );
         root.style.setProperty(
           "--visual-viewport-center-y",
-          `${targetViewportHeight / 2}px`,
+          `${Math.max(1, window.innerHeight) / 2}px`,
         );
         root.style.setProperty(
           "--visual-viewport-quarter-y",
-          `${targetViewportHeight * 0.25}px`,
+          `${Math.max(1, window.innerHeight) * 0.25}px`,
         );
+
+        synchroniseExportNodeTextMetrics(clone);
 
         const body = clone.querySelector("body");
         body?.classList.remove("export-render-mode");
@@ -6122,22 +6152,6 @@
             }
           });
 
-        if (Math.abs(verticalChartShift) > 0.01) {
-          const chartGroup = clone.querySelector("#lineageChart svg > g");
-          if (chartGroup?.parentNode) {
-            const wrapper = clone.ownerDocument.createElementNS(
-              "http://www.w3.org/2000/svg",
-              "g",
-            );
-            wrapper.setAttribute(
-              "transform",
-              `translate(0 ${verticalChartShift})`,
-            );
-            chartGroup.parentNode.insertBefore(wrapper, chartGroup);
-            wrapper.appendChild(chartGroup);
-          }
-        }
-
         const snapshotStyle = clone.ownerDocument.createElement("style");
         snapshotStyle.textContent = `
           *, *::before, *::after {
@@ -6146,20 +6160,17 @@
             caret-color: transparent !important;
           }
           html, body { background: #fff !important; }
+          .info-panel-actions a {
+            text-decoration-thickness: 1px !important;
+            text-underline-offset: 2px !important;
+          }
         `;
         clone.querySelector("head")?.appendChild(snapshotStyle);
       }
 
-      function buildFrozenSnapshotHtml(
-        targetViewportHeight,
-        verticalChartShift,
-      ) {
+      function buildFrozenSnapshotHtml() {
         const clone = document.documentElement.cloneNode(true);
-        prepareExportSnapshotClone(
-          clone,
-          targetViewportHeight,
-          verticalChartShift,
-        );
+        prepareExportSnapshotClone(clone);
         return `<!doctype html>${clone.outerHTML}`;
       }
 
@@ -6197,13 +6208,19 @@
       }
 
       async function waitForSnapshotFonts(frameDocument) {
-        if (frameDocument.fonts?.ready) {
+        if (frameDocument.fonts) {
           await Promise.race([
-            frameDocument.fonts.ready,
-            waitForDelay(3000),
+            Promise.all([
+              frameDocument.fonts.load('600 24px "Poppins"'),
+              frameDocument.fonts.load('400 14px "Roboto"'),
+              frameDocument.fonts.load('700 15px "Roboto"'),
+              frameDocument.fonts.load('700 15px "Roboto Condensed"'),
+              frameDocument.fonts.ready,
+            ]),
+            waitForDelay(5000),
           ]);
         }
-        await waitForDelay(80);
+        await waitForDelay(120);
       }
 
       async function renderCurrentViewToPng(kind, triggerLink) {
@@ -6229,14 +6246,12 @@
         // alter this download.
         const snapshotWidth = Math.max(1, window.innerWidth);
         const snapshotHeight = Math.max(1, window.innerHeight);
-        const exportScale = EXPORT_RENDER_WIDTH / snapshotWidth;
-        const targetViewportHeight = EXPORT_RENDER_HEIGHT / exportScale;
-        const verticalChartShift =
-          (targetViewportHeight - snapshotHeight) / 2;
-        const snapshotHtml = buildFrozenSnapshotHtml(
-          targetViewportHeight,
-          verticalChartShift,
+        const fitScale = Math.min(
+          EXPORT_RENDER_WIDTH / snapshotWidth,
+          EXPORT_RENDER_HEIGHT / snapshotHeight,
         );
+        const renderScale = fitScale * 1.25;
+        const snapshotHtml = buildFrozenSnapshotHtml();
         const filename = buildExportFilename(kind, request);
 
         const originalText = triggerLink?.textContent || "";
@@ -6249,7 +6264,7 @@
         const iframe = createExportFrame(
           snapshotHtml,
           snapshotWidth,
-          targetViewportHeight,
+          snapshotHeight,
         );
 
         try {
@@ -6269,20 +6284,50 @@
             {
               backgroundColor: "#ffffff",
               width: snapshotWidth,
-              height: targetViewportHeight,
+              height: snapshotHeight,
               windowWidth: snapshotWidth,
-              windowHeight: targetViewportHeight,
-              scale: exportScale,
+              windowHeight: snapshotHeight,
+              scale: renderScale,
               scrollX: 0,
               scrollY: 0,
               useCORS: true,
               allowTaint: false,
+              foreignObjectRendering: true,
               logging: false,
               imageTimeout: 10000,
             },
           );
 
-          const pngBlob = await canvasToPngBlob(capturedCanvas);
+          const outputCanvas = document.createElement("canvas");
+          outputCanvas.width = EXPORT_RENDER_WIDTH;
+          outputCanvas.height = EXPORT_RENDER_HEIGHT;
+          const outputContext = outputCanvas.getContext("2d", { alpha: false });
+          if (!outputContext) {
+            throw new Error("The browser could not prepare the 4K image canvas.");
+          }
+
+          outputContext.fillStyle = "#ffffff";
+          outputContext.fillRect(0, 0, EXPORT_RENDER_WIDTH, EXPORT_RENDER_HEIGHT);
+          outputContext.imageSmoothingEnabled = true;
+          outputContext.imageSmoothingQuality = "high";
+
+          const renderedWidth = snapshotWidth * fitScale;
+          const renderedHeight = snapshotHeight * fitScale;
+          const offsetX = (EXPORT_RENDER_WIDTH - renderedWidth) / 2;
+          const offsetY = (EXPORT_RENDER_HEIGHT - renderedHeight) / 2;
+          outputContext.drawImage(
+            capturedCanvas,
+            0,
+            0,
+            capturedCanvas.width,
+            capturedCanvas.height,
+            offsetX,
+            offsetY,
+            renderedWidth,
+            renderedHeight,
+          );
+
+          const pngBlob = await canvasToPngBlob(outputCanvas);
           downloadBlob(pngBlob, filename);
         } catch (error) {
           console.error("4K PNG export failed:", error);
