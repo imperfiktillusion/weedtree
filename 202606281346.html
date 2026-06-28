@@ -118,17 +118,162 @@
       }
 
       .header-ribbon {
+        position: relative;
+        z-index: 1100;
         display: flex;
+        flex-wrap: nowrap;
         align-items: center;
         justify-content: space-between;
+        box-sizing: border-box;
+        width: 100%;
         padding: 10px;
+        gap: 16px;
+        overflow: visible;
         background: #434343;
         color: #fff;
       }
 
-      .header-ribbon h1 { margin: 0 0 0 6px; color: #fff; font-size: 1.8em; }
+      .header-title {
+        min-width: 0;
+        margin: 0 0 0 6px;
+        overflow: hidden;
+        color: #fff;
+        font-size: 1.8em;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+
+      .header-title-short { display: none; }
       .subhead { margin-left: 3px; font-size: 0.4em; font-weight: 400; }
-      .header-buttons { display: flex; align-items: center; gap: 10px; }
+
+      .header-buttons {
+        display: flex;
+        flex: 0 0 auto;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 10px;
+        white-space: nowrap;
+      }
+
+      .header-menu { position: relative; display: none; }
+
+      .header-menu-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .menu-button-icon {
+        width: 15px;
+        height: 15px;
+        flex: 0 0 auto;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+      }
+
+      .header-menu-panel {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 1101;
+        box-sizing: border-box;
+        width: max-content;
+        min-width: 270px;
+        max-width: calc(100vw - 20px);
+        padding: 14px;
+        border: 1px solid #aaa;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.98);
+        color: #434343;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.24);
+      }
+
+      .header-menu-panel[hidden] { display: none; }
+
+      .header-menu-section + .header-menu-section {
+        margin-top: 13px;
+        padding-top: 13px;
+        border-top: 1px solid #ddd;
+      }
+
+      .header-menu-label {
+        margin-bottom: 6px;
+        font-size: 0.78em;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .header-menu-panel .header-mode-toggle {
+        width: 100%;
+        border-color: #434343;
+      }
+
+      .header-menu-panel .header-mode-option {
+        flex: 1 1 0;
+        color: #434343;
+      }
+
+      .header-menu-panel .header-mode-option + .header-mode-option {
+        border-left-color: rgba(67, 67, 67, 0.55);
+      }
+
+      .header-menu-panel .header-mode-option:hover {
+        background: rgba(67, 67, 67, 0.1);
+      }
+
+      .header-menu-panel .header-mode-option.is-active {
+        background: #434343;
+        color: #fff;
+      }
+
+      .header-menu-actions {
+        display: grid;
+        gap: 8px;
+      }
+
+      .header-menu-action {
+        width: 100%;
+        border-color: #434343;
+        color: #434343;
+        text-align: center;
+      }
+
+      .header-menu-action:hover { background: rgba(67, 67, 67, 0.1); }
+
+      body.header-compact .header-desktop-control { display: none; }
+      body.header-compact .header-menu { display: block; }
+      body.header-compact .subhead { display: none; }
+      body.header-compact .chart-fullscreen-button { display: none; }
+
+      body.header-narrow .header-title-full { display: none; }
+      body.header-narrow .header-title-short { display: inline; }
+      body.header-narrow .search-button-label { display: none; }
+      body.header-narrow .go-to-strain-button {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+      }
+      body.header-narrow .chart-zoom-button {
+        min-width: 36px;
+        padding: 5px 10px;
+        font-size: 0;
+      }
+      body.header-narrow .zoom-label-short { display: inline; font-size: 16px; line-height: 1; }
+      body:not(.header-narrow) .zoom-label-short { display: none; }
+
+      body.header-icon-menu .menu-button-label { display: none; }
+      body.header-icon-menu .header-menu-toggle {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+      }
 
       .btn {
         padding: 5px 15px;
@@ -842,12 +987,13 @@
   <body>
     <!-- Header -->
     <div class="header-ribbon">
-      <h1>
-        WeedTree.fyi Strain Lineage Chart
+      <h1 class="header-title">
+        <span class="header-title-full">WeedTree.fyi Strain Lineage Chart</span>
+        <span class="header-title-short">WeedTree.fyi</span>
         <span class="subhead">Work in progress, errors probable</span>
       </h1>
       <div class="header-buttons">
-        <div class="header-mode-toggle" role="group" aria-label="Chart display scope">
+        <div class="header-mode-toggle header-desktop-control" role="group" aria-label="Chart display scope">
           <button
             type="button"
             class="header-mode-option is-active"
@@ -865,7 +1011,7 @@
             Focused
           </button>
         </div>
-        <div class="header-mode-toggle" role="group" aria-label="Strain selection mode">
+        <div class="header-mode-toggle header-desktop-control" role="group" aria-label="Strain selection mode">
           <button
             type="button"
             class="header-mode-option is-active"
@@ -883,14 +1029,57 @@
             Compare strains
           </button>
         </div>
-        <button id="btn2" class="btn go-to-strain-button">
+        <button id="btn2" class="btn go-to-strain-button" type="button" aria-label="Go to strain" title="Go to strain">
           <svg class="search-button-icon" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="10.5" cy="10.5" r="6.5"></circle>
             <line x1="15.5" y1="15.5" x2="21" y2="21"></line>
           </svg>
-          <span>Go to strain</span>
+          <span class="search-button-label">Go to strain</span>
         </button>
-        <button id="btn3" class="btn">About</button>
+        <button id="btn3" class="btn header-desktop-control about-button" type="button">About</button>
+
+        <div class="header-menu">
+          <button
+            id="headerMenuToggle"
+            class="btn header-menu-toggle"
+            type="button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="headerMenuPanel"
+          >
+            <svg class="menu-button-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <line x1="3" y1="5" x2="17" y2="5"></line>
+              <line x1="3" y1="10" x2="17" y2="10"></line>
+              <line x1="3" y1="15" x2="17" y2="15"></line>
+            </svg>
+            <span class="menu-button-label">Menu</span>
+          </button>
+
+          <div id="headerMenuPanel" class="header-menu-panel" role="menu" hidden>
+            <div class="header-menu-section">
+              <div class="header-menu-label">View</div>
+              <div class="header-mode-toggle" role="group" aria-label="Chart display scope">
+                <button type="button" class="header-mode-option is-active" data-chart-scope="full" aria-pressed="true">Full</button>
+                <button type="button" class="header-mode-option" data-chart-scope="focused" aria-pressed="false">Focused</button>
+              </div>
+            </div>
+
+            <div class="header-menu-section">
+              <div class="header-menu-label">Selection</div>
+              <div class="header-mode-toggle" role="group" aria-label="Strain selection mode">
+                <button type="button" class="header-mode-option is-active" data-selection-mode="single" aria-pressed="true">Single strain</button>
+                <button type="button" class="header-mode-option" data-selection-mode="compare" aria-pressed="false">Compare strains</button>
+              </div>
+            </div>
+
+            <div class="header-menu-section header-menu-actions">
+              <button class="btn header-menu-action fullscreen-action" type="button" data-fullscreen-action>
+                <span data-fullscreen-label>Full screen</span>
+              </button>
+              <button class="btn header-menu-action about-button" type="button">About</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -908,10 +1097,10 @@
         <!-- Chart Controls -->
         <div class="chart-controls" aria-label="Chart controls">
           <div class="chart-zoom-toggle" role="group" aria-label="Chart zoom controls">
-            <button id="zoomInButton" class="chart-zoom-button" type="button">Zoom in</button>
-            <button id="zoomOutButton" class="chart-zoom-button" type="button">Zoom out</button>
+            <button id="zoomInButton" class="chart-zoom-button" type="button" aria-label="Zoom chart in" title="Zoom chart in"><span class="zoom-label-full">Zoom in</span><span class="zoom-label-short" aria-hidden="true">+</span></button>
+            <button id="zoomOutButton" class="chart-zoom-button" type="button" aria-label="Zoom chart out" title="Zoom chart out"><span class="zoom-label-full">Zoom out</span><span class="zoom-label-short" aria-hidden="true">−</span></button>
           </div>
-          <button id="fullscreenToggle" class="btn chart-fullscreen-button" type="button">Full screen</button>
+          <button id="fullscreenToggle" class="btn chart-fullscreen-button fullscreen-action" type="button" data-fullscreen-action><span data-fullscreen-label>Full screen</span></button>
         </div>
       </div>
     </div>
@@ -5457,12 +5646,18 @@
           if (!suppressAutomaticSearchPopup) showPopup(searchPopup);
         }
 
-        document
-          .getElementById("btn3")
-          .addEventListener("click", () => showPopup(aboutPopup));
+        document.querySelectorAll(".about-button").forEach((button) => {
+          button.addEventListener("click", () => {
+            closeHeaderMenu();
+            showPopup(aboutPopup);
+          });
+        });
         document
           .getElementById("btn2")
-          .addEventListener("click", () => showPopup(searchPopup));
+          .addEventListener("click", () => {
+            closeHeaderMenu();
+            showPopup(searchPopup);
+          });
 
         aboutPopup
           .querySelector(".close-button")
@@ -5486,15 +5681,117 @@
         showPopup(aboutPopup);
       }
 
+      function closeHeaderMenu() {
+        const toggle = document.getElementById("headerMenuToggle");
+        const panel = document.getElementById("headerMenuPanel");
+        if (!toggle || !panel) return;
+        panel.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+      }
+
+      function toggleHeaderMenu() {
+        const toggle = document.getElementById("headerMenuToggle");
+        const panel = document.getElementById("headerMenuPanel");
+        const willOpen = panel.hidden;
+        panel.hidden = !willOpen;
+        toggle.setAttribute("aria-expanded", String(willOpen));
+      }
+
+      function headerLayoutFits() {
+        const ribbon = document.querySelector(".header-ribbon");
+        const title = document.querySelector(".header-title");
+        const buttons = document.querySelector(".header-buttons");
+        if (!ribbon || !title || !buttons) return true;
+
+        const ribbonStyle = window.getComputedStyle(ribbon);
+        const availableWidth =
+          ribbon.clientWidth -
+          (parseFloat(ribbonStyle.paddingLeft) || 0) -
+          (parseFloat(ribbonStyle.paddingRight) || 0);
+        const gap = parseFloat(ribbonStyle.columnGap || ribbonStyle.gap) || 0;
+        const requiredWidth = title.scrollWidth + buttons.scrollWidth + gap;
+
+        return requiredWidth <= availableWidth + 0.5;
+      }
+
+      function updateResponsiveHeader() {
+        document.body.classList.remove(
+          "header-compact",
+          "header-narrow",
+          "header-icon-menu",
+        );
+
+        if (!headerLayoutFits()) {
+          document.body.classList.add("header-compact");
+        }
+
+        if (!headerLayoutFits()) {
+          document.body.classList.add("header-narrow");
+        }
+
+        if (!headerLayoutFits()) {
+          document.body.classList.add("header-icon-menu");
+        }
+
+        if (!document.body.classList.contains("header-compact")) {
+          closeHeaderMenu();
+        }
+      }
+
+      function syncFullscreenControls() {
+        const isFullscreen = Boolean(document.fullscreenElement);
+        const label = isFullscreen ? "Exit full screen" : "Full screen";
+        document.querySelectorAll("[data-fullscreen-label]").forEach((element) => {
+          element.textContent = label;
+        });
+      }
+
       function toggleFullScreen() {
+        closeHeaderMenu();
         if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen();
+          document.documentElement.requestFullscreen?.();
         } else if (document.exitFullscreen) {
           document.exitFullscreen();
         }
       }
 
+      function setupResponsiveHeader() {
+        const toggle = document.getElementById("headerMenuToggle");
+        const menu = document.querySelector(".header-menu");
+        const fullscreenSupported = Boolean(
+          document.fullscreenEnabled && document.documentElement.requestFullscreen,
+        );
+
+        document.querySelectorAll("[data-fullscreen-action]").forEach((button) => {
+          button.hidden = !fullscreenSupported;
+          button.addEventListener("click", toggleFullScreen);
+        });
+
+        toggle.addEventListener("click", (event) => {
+          event.stopPropagation();
+          toggleHeaderMenu();
+        });
+
+        document.addEventListener("click", (event) => {
+          if (!menu.contains(event.target)) closeHeaderMenu();
+        });
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") closeHeaderMenu();
+        });
+
+        document.addEventListener("fullscreenchange", () => {
+          syncFullscreenControls();
+          window.requestAnimationFrame(updateResponsiveHeader);
+        });
+
+        syncFullscreenControls();
+        updateResponsiveHeader();
+        document.fonts?.ready.then(updateResponsiveHeader);
+      }
+
       function handleWindowResize() {
+        updateResponsiveHeader();
         window.clearTimeout(pageState.resizeTimer);
         pageState.resizeTimer = window.setTimeout(() => {
           if (chartState.isPrepared) rerenderChartForCurrentSelection();
@@ -5571,6 +5868,7 @@
 
       function setupPageControls() {
         setupPanelResizeHandles();
+        setupResponsiveHeader();
         updateComparisonSelectionMessage();
 
         document.querySelectorAll("[data-chart-scope]").forEach((button) => {
@@ -5585,9 +5883,6 @@
           );
         });
 
-        document
-          .getElementById("fullscreenToggle")
-          .addEventListener("click", toggleFullScreen);
         document
           .getElementById("zoomInButton")
           .addEventListener("click", () =>
