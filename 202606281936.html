@@ -6160,10 +6160,6 @@
             caret-color: transparent !important;
           }
           html, body { background: #fff !important; }
-          .info-panel-actions a {
-            text-decoration-thickness: 1px !important;
-            text-underline-offset: 2px !important;
-          }
         `;
         clone.querySelector("head")?.appendChild(snapshotStyle);
       }
@@ -6246,11 +6242,8 @@
         // alter this download.
         const snapshotWidth = Math.max(1, window.innerWidth);
         const snapshotHeight = Math.max(1, window.innerHeight);
-        const fitScale = Math.min(
-          EXPORT_RENDER_WIDTH / snapshotWidth,
-          EXPORT_RENDER_HEIGHT / snapshotHeight,
-        );
-        const renderScale = fitScale * 1.25;
+        const exportScaleX = EXPORT_RENDER_WIDTH / snapshotWidth;
+        const exportScaleY = EXPORT_RENDER_HEIGHT / snapshotHeight;
         const snapshotHtml = buildFrozenSnapshotHtml();
         const filename = buildExportFilename(kind, request);
 
@@ -6287,12 +6280,11 @@
               height: snapshotHeight,
               windowWidth: snapshotWidth,
               windowHeight: snapshotHeight,
-              scale: renderScale,
+              scale: 1,
               scrollX: 0,
               scrollY: 0,
               useCORS: true,
               allowTaint: false,
-              foreignObjectRendering: true,
               logging: false,
               imageTimeout: 10000,
             },
@@ -6311,20 +6303,19 @@
           outputContext.imageSmoothingEnabled = true;
           outputContext.imageSmoothingQuality = "high";
 
-          const renderedWidth = snapshotWidth * fitScale;
-          const renderedHeight = snapshotHeight * fitScale;
-          const offsetX = (EXPORT_RENDER_WIDTH - renderedWidth) / 2;
-          const offsetY = (EXPORT_RENDER_HEIGHT - renderedHeight) / 2;
+          // Preserve the exact frozen page composition. Mapping its viewport
+          // directly to the 4K canvas keeps the ribbon at the top and the panel
+          // at the bottom instead of introducing letterboxing offsets.
           outputContext.drawImage(
             capturedCanvas,
             0,
             0,
             capturedCanvas.width,
             capturedCanvas.height,
-            offsetX,
-            offsetY,
-            renderedWidth,
-            renderedHeight,
+            0,
+            0,
+            snapshotWidth * exportScaleX,
+            snapshotHeight * exportScaleY,
           );
 
           const pngBlob = await canvasToPngBlob(outputCanvas);
