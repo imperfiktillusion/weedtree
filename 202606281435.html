@@ -194,18 +194,10 @@
       .header-menu-panel[hidden] { display: none; }
 
       .header-menu-section + .header-menu-section {
-        margin-top: 13px;
-        padding-top: 13px;
-        border-top: 1px solid #ddd;
+        margin-top: 20px;
       }
 
-      .header-menu-label {
-        margin-bottom: 6px;
-        font-size: 0.78em;
-        font-weight: 600;
-        letter-spacing: 0.03em;
-        text-transform: uppercase;
-      }
+      .header-menu-label { display: none; }
 
       .header-menu-panel .header-mode-toggle {
         width: 100%;
@@ -232,7 +224,7 @@
 
       .header-menu-actions {
         display: grid;
-        gap: 8px;
+        gap: 11px;
       }
 
       .header-menu-action {
@@ -1352,7 +1344,8 @@
         lineageZoomScale: 0.9,
         hoverScale: 1.4,
         hoverTransitionDuration: 80,
-        nodeLongPressDelay: 450,
+        nodeLongPressDelay: 850,
+        nodeLongPressMovementTolerance: 10,
         linkDarkenAmount: 2,
         variantBlendAmount: 0.5,
         comparisonRelationshipMaximumGenerations: 3,
@@ -3057,6 +3050,12 @@
         d3.select(element).raise();
       }
 
+      function cancelPendingNodeLongPress(node) {
+        window.clearTimeout(node.longPressTimer);
+        node.longPressTimer = null;
+        node.dragGestureActive = false;
+      }
+
       function startNodeDrag(event, node) {
         node.dragGestureActive = true;
         node.dragging = false;
@@ -3067,12 +3066,25 @@
           return;
         }
 
+        node.longPressStartX = event.x;
+        node.longPressStartY = event.y;
         node.longPressTimer = window.setTimeout(() => {
+          node.longPressTimer = null;
           if (node.dragGestureActive) activateNodeDrag(this, node);
         }, CHART_BEHAVIOUR.nodeLongPressDelay);
       }
 
       function dragNode(event, node) {
+        if (!node.dragging && node.longPressTimer) {
+          const movement = Math.hypot(
+            event.x - node.longPressStartX,
+            event.y - node.longPressStartY,
+          );
+          if (movement > CHART_BEHAVIOUR.nodeLongPressMovementTolerance) {
+            cancelPendingNodeLongPress(node);
+          }
+        }
+
         if (!node.dragging) return;
 
         node.y = event.y;
@@ -3092,9 +3104,9 @@
       }
 
       function finishNodeDrag(event, node) {
-        window.clearTimeout(node.longPressTimer);
-        node.longPressTimer = null;
-        node.dragGestureActive = false;
+        cancelPendingNodeLongPress(node);
+        node.longPressStartX = null;
+        node.longPressStartY = null;
 
         if (!node.dragging) return;
         node.dragging = false;
@@ -4004,6 +4016,12 @@
         label.hidden = false;
       }
 
+      function usesTouchRelatedProductsWording() {
+        return Boolean(
+          window.matchMedia?.("(hover: none), (pointer: coarse)").matches,
+        );
+      }
+
       function renderRelatedProductsModeContent() {
         const panel = document.getElementById("infoPanel");
         const content = infoPanelState.relatedContent;
@@ -4048,7 +4066,9 @@
 
         updateRelatedProductsSourceLabel();
         showRelatedProductsRolloverPlaceholder(
-          "Roll over a strain in the left column to show products from related strains.",
+          usesTouchRelatedProductsWording()
+            ? "Tap a strain in the left column to show products from related strains."
+            : "Roll over a strain in the left column to show products from related strains.",
         );
       }
 
@@ -4084,7 +4104,10 @@
 
         [
           ["list", "List"],
-          ["rollover", "Roll over"],
+          [
+            "rollover",
+            usesTouchRelatedProductsWording() ? "Tap strain" : "Roll over",
+          ],
         ].forEach(([mode, label]) => {
           const button = document.createElement("button");
           button.type = "button";
@@ -5163,15 +5186,10 @@
         const chartContainer = document.querySelector(".chart-container");
         if (!panel || !chartContainer) return fullViewport;
 
-        // Preserve the established large-screen baseline. Responsive
-        // panel-aware fitting begins below the desktop layout range.
-        if (
-          window.innerWidth >= 1920 &&
-          window.innerHeight >= 900 &&
-          !document.body.classList.contains("panel-bottom-sheet")
-        ) {
-          return fullViewport;
-        }
+        // Use the panel-aware viewport at every size. This avoids leaving a
+        // desktop-width dead zone between a focused lineage and a floating
+        // information panel, while preserving the full viewport when no panel
+        // overlaps the chart.
 
         const chartRect = chartContainer.getBoundingClientRect();
         const panelRect = panel.getBoundingClientRect();
