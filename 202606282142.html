@@ -6355,14 +6355,14 @@
         const snapshotHeight = Math.max(1, window.innerHeight);
         const exportScaleX = EXPORT_RENDER_WIDTH / snapshotWidth;
         const exportScaleY = EXPORT_RENDER_HEIGHT / snapshotHeight;
+        const exportUniformScale = Math.min(exportScaleX, exportScaleY);
         // Render the frozen page at enough internal resolution that no part of
         // it has to be enlarged to reach the final 4K canvas. A 1920×1080
         // viewport therefore renders at 2×, while a native 4K viewport remains
         // at 1×.
         const captureScale = Math.max(
           EXPORT_CAPTURE_SUPERSAMPLE,
-          exportScaleX,
-          exportScaleY,
+          exportUniformScale,
         );
         const snapshotHtml = buildFrozenSnapshotHtml();
         const filename = buildExportFilename(kind, request);
@@ -6423,19 +6423,25 @@
           outputContext.imageSmoothingEnabled = true;
           outputContext.imageSmoothingQuality = "high";
 
-          // Preserve the exact frozen page composition. Mapping its viewport
-          // directly to the 4K canvas keeps the ribbon at the top and the panel
-          // at the bottom instead of introducing letterboxing offsets.
+          // Preserve the frozen viewport's true aspect ratio. A single uniform
+          // scale prevents round letters and controls from being stretched when
+          // the browser viewport is not exactly 16:9. Keep the ribbon flush to
+          // the top and centre any narrow side margin horizontally.
+          const renderedWidth = snapshotWidth * exportUniformScale;
+          const renderedHeight = snapshotHeight * exportUniformScale;
+          const renderedX = (EXPORT_RENDER_WIDTH - renderedWidth) / 2;
+          const renderedY = 0;
+
           outputContext.drawImage(
             capturedCanvas,
             0,
             0,
             capturedCanvas.width,
             capturedCanvas.height,
-            0,
-            0,
-            snapshotWidth * exportScaleX,
-            snapshotHeight * exportScaleY,
+            renderedX,
+            renderedY,
+            renderedWidth,
+            renderedHeight,
           );
 
           const pngBlob = await canvasToPngBlob(outputCanvas);
