@@ -6118,6 +6118,48 @@
         clonedElement.style.fontSynthesis = "none";
       }
 
+      function synchroniseExportHeaderControls(clone) {
+        const sourceControls = Array.from(
+          document.querySelectorAll(".header-ribbon button"),
+        );
+        const clonedControls = Array.from(
+          clone.querySelectorAll(".header-ribbon button"),
+        );
+
+        sourceControls.forEach((sourceControl, index) => {
+          const clonedControl = clonedControls[index];
+          if (!clonedControl) return;
+
+          const rect = sourceControl.getBoundingClientRect();
+          const computed = window.getComputedStyle(sourceControl);
+          clonedControl.style.boxSizing = "border-box";
+          clonedControl.style.width = `${rect.width}px`;
+          clonedControl.style.height = `${rect.height}px`;
+          clonedControl.style.minWidth = `${rect.width}px`;
+          clonedControl.style.flex = "0 0 auto";
+          clonedControl.style.display = "inline-flex";
+          clonedControl.style.alignItems = "center";
+          clonedControl.style.justifyContent = "center";
+          clonedControl.style.verticalAlign = "middle";
+          clonedControl.style.appearance = "none";
+          clonedControl.style.webkitAppearance = "none";
+          clonedControl.style.padding = computed.padding;
+          clonedControl.style.border = computed.border;
+          clonedControl.style.borderRadius = computed.borderRadius;
+          clonedControl.style.background = computed.background;
+          clonedControl.style.color = computed.color;
+          clonedControl.style.lineHeight = "1";
+        });
+
+        clone
+          .querySelectorAll(".header-ribbon button span")
+          .forEach((span) => {
+            span.style.display = "inline-block";
+            span.style.lineHeight = "1";
+            span.style.verticalAlign = "middle";
+          });
+      }
+
       function synchroniseExportTextMetrics(clone) {
         [
           ".header-ribbon *",
@@ -6143,12 +6185,16 @@
           const clonedLabel = clonedLabels[index];
           if (!clonedLabel) return;
 
+          const computed = window.getComputedStyle(sourceLabel);
           const isCondensed = sourceLabel.classList.contains("is-condensed");
           clonedLabel.classList.toggle("is-condensed", isCondensed);
-          clonedLabel.style.fontFamily = isCondensed
-            ? '"Roboto Condensed", Arial, sans-serif'
-            : '"Roboto", Arial, sans-serif';
-          clonedLabel.style.fontWeight = "700";
+          clonedLabel.style.fontFamily = computed.fontFamily;
+          clonedLabel.style.fontSize = computed.fontSize;
+          clonedLabel.style.fontWeight = computed.fontWeight;
+          clonedLabel.style.fontStyle = computed.fontStyle;
+          clonedLabel.style.fontStretch = computed.fontStretch;
+          clonedLabel.style.letterSpacing = computed.letterSpacing;
+          clonedLabel.style.fontSynthesis = "none";
           clonedLabel.removeAttribute("textLength");
           clonedLabel.removeAttribute("lengthAdjust");
         });
@@ -6181,6 +6227,11 @@
 
         synchroniseExportNodeGeometry(clone);
         synchroniseExportTextMetrics(clone);
+        synchroniseExportHeaderControls(clone);
+
+        clone.querySelectorAll(".chart-controls").forEach((controls) => {
+          controls.remove();
+        });
 
         const body = clone.querySelector("body");
         body?.classList.remove("export-render-mode");
@@ -6238,25 +6289,23 @@
             shape-rendering: geometricPrecision;
             text-rendering: geometricPrecision;
           }
-          .header-ribbon,
-          .header-ribbon *,
-          .chart-controls,
-          .chart-controls * {
-            font-family: "Poppins", Arial, sans-serif !important;
+          .header-ribbon button {
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            vertical-align: middle !important;
+            line-height: 1 !important;
             font-synthesis: none !important;
+          }
+          .header-ribbon button span {
+            line-height: 1 !important;
+            vertical-align: middle !important;
           }
           .info-panel,
-          .info-panel * {
-            font-family: "Roboto", Arial, sans-serif !important;
-            font-synthesis: none !important;
-          }
-          #lineageChart svg .strain-name:not(.is-condensed),
-          #lineageChart svg .pct-pill-text {
-            font-family: "Roboto", Arial, sans-serif !important;
-            font-synthesis: none !important;
-          }
-          #lineageChart svg .strain-name.is-condensed {
-            font-family: "Roboto Condensed", Arial, sans-serif !important;
+          .info-panel *,
+          #lineageChart svg text {
             font-synthesis: none !important;
           }
         `;
