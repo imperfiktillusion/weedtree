@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <base href="https://www.weedtree.fyi" />
 
     <script
@@ -106,6 +106,14 @@
         --chart-panel-background: rgba(255, 255, 255, 0.95);
         --chart-dimmed-opacity: 0.05;
         --header-height: 50px;
+        --safe-area-top: env(safe-area-inset-top, 0px);
+        --safe-area-right: env(safe-area-inset-right, 0px);
+        --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-area-left: env(safe-area-inset-left, 0px);
+        --visual-viewport-height: 100dvh;
+        --visual-viewport-top: 0px;
+        --visual-viewport-center-y: 50vh;
+        --visual-viewport-quarter-y: 25vh;
       }
 
       html,
@@ -127,7 +135,11 @@
         justify-content: space-between;
         box-sizing: border-box;
         width: 100%;
-        padding: 10px;
+        padding:
+          calc(10px + var(--safe-area-top))
+          calc(10px + var(--safe-area-right))
+          10px
+          calc(10px + var(--safe-area-left));
         gap: 16px;
         overflow: visible;
         background: #434343;
@@ -182,7 +194,7 @@
         box-sizing: border-box;
         width: max-content;
         min-width: 270px;
-        max-width: calc(100vw - 20px);
+        max-width: calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 20px);
         padding: 14px;
         border: 1px solid #aaa;
         border-radius: 10px;
@@ -306,7 +318,7 @@
 
       .popup {
         position: fixed;
-        top: 50%;
+        top: var(--visual-viewport-center-y, 50%);
         left: 50%;
         z-index: 1000;
         display: none;
@@ -322,7 +334,7 @@
       #popup3 { z-index: 1012; padding: 20px; }
 
       #popup2 {
-        top: 25vh;
+        top: var(--visual-viewport-quarter-y, 25vh);
         left: 50%;
         z-index: 1011;
         display: none;
@@ -443,20 +455,18 @@
       @media (max-width: 720px), (max-height: 560px) {
         .popup {
           box-sizing: border-box;
-          width: calc(100vw - 20px);
+          width: calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 20px);
           max-width: none;
-          max-height: calc(100vh - 20px);
-          max-height: calc(100dvh - 20px);
+          max-height: calc(var(--visual-viewport-height, 100dvh) - var(--safe-area-top) - var(--safe-area-bottom) - 20px);
           padding: 54px 18px 18px;
           border-radius: 8px;
           font-size: 13px;
         }
 
         #popup3 {
-          width: calc(100vw - 20px);
+          width: calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 20px);
           max-width: none;
-          max-height: calc(100vh - 20px);
-          max-height: calc(100dvh - 20px);
+          max-height: calc(var(--visual-viewport-height, 100dvh) - var(--safe-area-top) - var(--safe-area-bottom) - 20px);
           padding: 50px 18px 18px;
         }
 
@@ -467,13 +477,12 @@
         }
 
         #popup2 {
-          top: max(calc(var(--header-height) + 12px), 10vh);
+          top: calc(var(--visual-viewport-top, 0px) + var(--header-height) + 12px);
           box-sizing: border-box;
-          width: calc(100vw - 16px);
+          width: calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 16px);
           min-width: 0;
           max-width: none;
-          max-height: calc(100vh - var(--header-height) - 20px);
-          max-height: calc(100dvh - var(--header-height) - 20px);
+          max-height: calc(var(--visual-viewport-height, 100dvh) - var(--header-height) - var(--safe-area-bottom) - 20px);
           padding: 50px 8px 8px;
         }
 
@@ -495,7 +504,7 @@
 
         #strainDropdown {
           box-sizing: border-box;
-          max-width: calc(100vw - 16px);
+          max-width: calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 16px);
           overflow-y: auto;
           overscroll-behavior: contain;
           -webkit-overflow-scrolling: touch;
@@ -602,7 +611,7 @@
       .chart-controls {
         position: absolute;
         top: 10px;
-        right: 10px;
+        right: calc(10px + var(--safe-area-right));
         z-index: 997;
         display: flex;
         align-items: center;
@@ -714,15 +723,15 @@
       .info-panel {
         --info-panel-scale: 1;
         position: fixed;
-        right: var(--chart-info-panel-gap);
-        bottom: var(--chart-info-panel-gap);
+        right: calc(var(--chart-info-panel-gap) + var(--safe-area-right));
+        bottom: calc(var(--chart-info-panel-gap) + var(--safe-area-bottom));
         z-index: 998;
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
         width: max-content;
-        min-width: min(var(--info-panel-min-width, var(--chart-info-panel-width)), calc(100vw - 2 * var(--chart-info-panel-gap)));
-        max-width: calc(100vw - 2 * var(--chart-info-panel-gap));
+        min-width: min(var(--info-panel-min-width, var(--chart-info-panel-width)), calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 2 * var(--chart-info-panel-gap)));
+        max-width: calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 2 * var(--chart-info-panel-gap));
         max-height: calc(100vh - var(--header-height) - 2 * var(--chart-info-panel-gap));
         max-height: calc(100dvh - var(--header-height) - 2 * var(--chart-info-panel-gap));
         overflow: hidden;
@@ -1077,6 +1086,7 @@
 
       body.panel-bottom-sheet .info-panel-body {
         width: 100%;
+        padding-bottom: calc(16px * var(--info-panel-scale) + var(--safe-area-bottom));
       }
 
       body.panel-bottom-sheet .focused-info-columns,
@@ -1090,7 +1100,7 @@
 
       #copy-popup {
         position: fixed;
-        bottom: 100px;
+        bottom: calc(100px + var(--safe-area-bottom));
         left: 50%;
         z-index: 9999;
         padding: 6px 14px;
@@ -1105,6 +1115,69 @@
       }
 
       #copy-popup.is-visible { opacity: 1; }
+
+      :where(button, input, [tabindex], .related-products-rollover-source):focus-visible {
+        outline: 3px solid #1268d6;
+        outline-offset: 3px;
+      }
+
+      .header-menu-panel :focus-visible {
+        outline-color: #1268d6;
+      }
+
+      @media (pointer: coarse) {
+        .header-ribbon .btn,
+        .chart-controls .btn,
+        .header-mode-option,
+        .chart-zoom-button,
+        .header-menu-action,
+        .related-products-view-button {
+          min-height: 44px;
+        }
+
+        body.header-narrow .go-to-strain-button,
+        body.header-icon-menu .header-menu-toggle {
+          width: 44px;
+          height: 44px;
+        }
+
+        .info-panel-zoom-button {
+          width: max(44px, calc(28px * var(--info-panel-scale)));
+          height: max(44px, calc(28px * var(--info-panel-scale)));
+        }
+
+        .close-button {
+          width: 44px;
+          height: 44px;
+        }
+
+        #strainDropdown div {
+          box-sizing: border-box;
+          min-height: 44px;
+        }
+      }
+
+      @media (max-height: 500px) and (orientation: landscape) {
+        .comparison-selection-message {
+          top: 54px;
+          font-size: clamp(18px, 4.8vh, 25px);
+        }
+
+        #popup3 {
+          font-size: 12px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
     </style>
   </head>
   <body>
@@ -1178,7 +1251,7 @@
             <span class="menu-button-label">Menu</span>
           </button>
 
-          <div id="headerMenuPanel" class="header-menu-panel" role="menu" hidden>
+          <div id="headerMenuPanel" class="header-menu-panel" aria-label="Chart options" hidden>
             <div class="header-menu-section">
               <div class="header-menu-label">View</div>
               <div class="header-mode-toggle" role="group" aria-label="Chart display scope">
@@ -1294,7 +1367,7 @@
     <div class="popup-overlay"></div>
 
     <!-- Strain List Popup -->
-    <div id="popup2" class="popup">
+    <div id="popup2" class="popup" role="dialog" aria-modal="true" aria-label="Find a strain" tabindex="-1">
       <button class="close-button symbol-button symbol-close" type="button" aria-label="Close popup" title="Close"></button>
       <div class="popup2-center">
         <div class="search-container">
@@ -1304,10 +1377,10 @@
     </div>
 
     <!-- About / Welcome Popup -->
-    <div id="popup3" class="popup">
+    <div id="popup3" class="popup" role="dialog" aria-modal="true" aria-labelledby="welcomePopupTitle" tabindex="-1">
       <button class="close-button symbol-button symbol-close" type="button" aria-label="Close popup" title="Close"></button>
 
-      <h2>Welcome to Weedtree, the family tree of cannabis strains</h2>
+      <h2 id="welcomePopupTitle">Welcome to Weedtree, the family tree of cannabis strains</h2>
 
       <p>
         I've always wondered how strain lineage correlated with the strains I
@@ -1441,6 +1514,11 @@
       const CHART_COLOURS = window.CHART_COLOURS;
       const CHART_SIZING = window.CHART_SIZING;
       const CHART_BEHAVIOUR = window.CHART_BEHAVIOUR;
+      const reducedMotionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+
+      function getMotionDuration(duration) {
+        return reducedMotionQuery?.matches ? 0 : duration;
+      }
 
       const chartState = {
         strainData: [],
@@ -3096,7 +3174,7 @@
 
         visual
           .transition("hover")
-          .duration(CHART_BEHAVIOUR.hoverTransitionDuration)
+          .duration(getMotionDuration(CHART_BEHAVIOUR.hoverTransitionDuration))
           .ease(d3.easeCubicOut)
           .attr("transform", `scale(${scale})`)
           .on("end", () => {
@@ -5647,7 +5725,7 @@
 
         chartState.svg
           .transition()
-          .duration(CHART_BEHAVIOUR.zoomTransitionDuration)
+          .duration(getMotionDuration(CHART_BEHAVIOUR.zoomTransitionDuration))
           .call(
             chartState.zoom.transform,
             getLineageChartTransform(activeNodes),
@@ -5664,7 +5742,7 @@
         chartState.isLeftEdgeZoomLocked = true;
         chartState.svg
           .transition()
-          .duration(CHART_BEHAVIOUR.zoomTransitionDuration)
+          .duration(getMotionDuration(CHART_BEHAVIOUR.zoomTransitionDuration))
           .call(
             chartState.zoom.transform,
             getChartTransform(chartState.visibleNodes, 1, { anchorLeft: true }),
@@ -5681,7 +5759,7 @@
 
         const transition = chartState.svg
           .transition()
-          .duration(CHART_BEHAVIOUR.zoomButtonDuration);
+          .duration(getMotionDuration(CHART_BEHAVIOUR.zoomButtonDuration));
 
         if (!chartState.isLeftEdgeZoomLocked) {
           transition.call(chartState.zoom.scaleBy, factor);
@@ -6018,24 +6096,24 @@
         const searchInput = document.getElementById("strainSearch");
         const dropdown = document.getElementById("strainDropdown");
         const inputBounds = searchInput.getBoundingClientRect();
+        const viewport = window.visualViewport;
+        const viewportLeft = viewport?.offsetLeft || 0;
+        const viewportTop = viewport?.offsetTop || 0;
+        const viewportWidth = viewport?.width || window.innerWidth;
+        const viewportHeight = viewport?.height || window.innerHeight;
         const viewportGap = 8;
-        const maximumWidth = Math.max(
-          0,
-          window.innerWidth - viewportGap * 2,
-        );
+        const maximumWidth = Math.max(0, viewportWidth - viewportGap * 2);
         const dropdownWidth = Math.min(inputBounds.width, maximumWidth);
         const left = Math.min(
-          window.innerWidth - dropdownWidth - viewportGap,
+          viewportLeft + viewportWidth - dropdownWidth - viewportGap,
           Math.max(
-            viewportGap,
+            viewportLeft + viewportGap,
             inputBounds.left + inputBounds.width / 2 - dropdownWidth / 2,
           ),
         );
         const top = inputBounds.bottom + 5;
-        const maximumHeight = Math.max(
-          96,
-          window.innerHeight - top - viewportGap,
-        );
+        const viewportBottom = viewportTop + viewportHeight;
+        const maximumHeight = Math.max(72, viewportBottom - top - viewportGap);
 
         dropdown.style.width = `${dropdownWidth}px`;
         dropdown.style.left = `${left}px`;
@@ -6154,22 +6232,66 @@
       // Page controls and responsive behaviour
       // -----------------------------------------------------------------------
 
-      function showPopup(popup) {
-        const overlay = document.querySelector(".popup-overlay");
+      let activePopup = null;
+      let popupReturnFocus = null;
+
+      function getFocusableElements(container) {
+        return Array.from(
+          container.querySelectorAll(
+            'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((element) => !element.hidden && element.offsetParent !== null);
+      }
+
+      function syncVisualViewport() {
+        const viewport = window.visualViewport;
+        const top = viewport?.offsetTop || 0;
+        const height = viewport?.height || window.innerHeight;
+        const root = document.documentElement;
+        root.style.setProperty("--visual-viewport-top", `${top}px`);
+        root.style.setProperty("--visual-viewport-height", `${height}px`);
+        root.style.setProperty("--visual-viewport-center-y", `${top + height / 2}px`);
+        root.style.setProperty("--visual-viewport-quarter-y", `${top + height * 0.25}px`);
+
         const searchPopup = document.getElementById("popup2");
-
-        popup.style.display = popup === searchPopup ? "flex" : "block";
-        overlay.style.display = "block";
-
-        if (popup === searchPopup) {
-          startSearchPlaceholderBlink();
-          document.getElementById("strainSearch").focus();
+        if (searchPopup?.style.display === "flex") {
+          window.requestAnimationFrame(updateStrainDropdownPosition);
         }
       }
 
-      function hidePopup(popup) {
+      function showPopup(popup, opener = document.activeElement) {
+        const overlay = document.querySelector(".popup-overlay");
+        const searchPopup = document.getElementById("popup2");
+
+        if (opener instanceof HTMLElement && !popup.contains(opener)) {
+          popupReturnFocus = opener;
+        }
+        activePopup = popup;
+        popup.style.display = popup === searchPopup ? "flex" : "block";
+        overlay.style.display = "block";
+        syncVisualViewport();
+
+        window.requestAnimationFrame(() => {
+          if (popup === searchPopup) {
+            startSearchPlaceholderBlink();
+            document.getElementById("strainSearch").focus();
+          } else {
+            const focusables = getFocusableElements(popup);
+            (focusables[0] || popup).focus();
+          }
+        });
+      }
+
+      function hidePopup(popup, restoreFocus = true) {
         popup.style.display = "none";
+        document.getElementById("strainDropdown").style.display = "none";
         document.querySelector(".popup-overlay").style.display = "none";
+        if (activePopup === popup) activePopup = null;
+
+        if (restoreFocus && popupReturnFocus?.isConnected) {
+          popupReturnFocus.focus();
+        }
+        if (restoreFocus) popupReturnFocus = null;
       }
 
       function setupPopups() {
@@ -6181,21 +6303,26 @@
         );
 
         function closeAboutPopup() {
-          hidePopup(aboutPopup);
-          if (!suppressAutomaticSearchPopup) showPopup(searchPopup);
+          const openSearchNext = !suppressAutomaticSearchPopup;
+          hidePopup(aboutPopup, !openSearchNext);
+          if (openSearchNext) showPopup(searchPopup, popupReturnFocus);
         }
 
         document.querySelectorAll(".about-button").forEach((button) => {
           button.addEventListener("click", () => {
+            const opener = button.closest(".header-menu-panel")
+              ? document.getElementById("headerMenuToggle")
+              : button;
             closeHeaderMenu();
-            showPopup(aboutPopup);
+            showPopup(aboutPopup, opener);
           });
         });
         document
           .getElementById("btn2")
           .addEventListener("click", () => {
+            const opener = document.getElementById("btn2");
             closeHeaderMenu();
-            showPopup(searchPopup);
+            showPopup(searchPopup, opener);
           });
 
         aboutPopup
@@ -6217,15 +6344,46 @@
           popup.addEventListener("click", (event) => event.stopPropagation());
         });
 
-        showPopup(aboutPopup);
+        document.addEventListener("keydown", (event) => {
+          if (!activePopup) return;
+
+          if (event.key === "Escape") {
+            event.preventDefault();
+            if (activePopup === aboutPopup) closeAboutPopup();
+            else hidePopup(activePopup);
+            return;
+          }
+
+          if (event.key !== "Tab") return;
+          const focusables = getFocusableElements(activePopup);
+          if (!focusables.length) {
+            event.preventDefault();
+            activePopup.focus();
+            return;
+          }
+
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        });
+
+        showPopup(aboutPopup, null);
       }
 
-      function closeHeaderMenu() {
+      function closeHeaderMenu(restoreFocus = false) {
         const toggle = document.getElementById("headerMenuToggle");
         const panel = document.getElementById("headerMenuPanel");
         if (!toggle || !panel) return;
+        const wasOpen = !panel.hidden;
         panel.hidden = true;
         toggle.setAttribute("aria-expanded", "false");
+        if (restoreFocus && wasOpen) toggle.focus();
       }
 
       function toggleHeaderMenu() {
@@ -6234,6 +6392,11 @@
         const willOpen = panel.hidden;
         panel.hidden = !willOpen;
         toggle.setAttribute("aria-expanded", String(willOpen));
+        if (willOpen) {
+          window.requestAnimationFrame(() => {
+            getFocusableElements(panel)[0]?.focus();
+          });
+        }
       }
 
       function headerLayoutFits() {
@@ -6361,7 +6524,7 @@
         });
 
         document.addEventListener("keydown", (event) => {
-          if (event.key === "Escape") closeHeaderMenu();
+          if (event.key === "Escape" && !activePopup) closeHeaderMenu(true);
         });
 
         document.addEventListener("fullscreenchange", () => {
@@ -6527,6 +6690,9 @@
           .addEventListener("click", () => clearChartFocus());
 
 
+        syncVisualViewport();
+        window.visualViewport?.addEventListener("resize", syncVisualViewport);
+        window.visualViewport?.addEventListener("scroll", syncVisualViewport);
         window.addEventListener("resize", handleWindowResize);
       }
 
