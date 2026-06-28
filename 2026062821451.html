@@ -6353,6 +6353,10 @@
         // alter this download.
         const snapshotWidth = Math.max(1, window.innerWidth);
         const snapshotHeight = Math.max(1, window.innerHeight);
+        const snapshotHeaderHeight = Math.max(
+          0,
+          document.querySelector(".header-ribbon")?.getBoundingClientRect().height || 0,
+        );
         const exportScaleX = EXPORT_RENDER_WIDTH / snapshotWidth;
         const exportScaleY = EXPORT_RENDER_HEIGHT / snapshotHeight;
         const exportUniformScale = Math.min(exportScaleX, exportScaleY);
@@ -6426,22 +6430,54 @@
           // Preserve the frozen viewport's true aspect ratio. A single uniform
           // scale prevents round letters and controls from being stretched when
           // the browser viewport is not exactly 16:9. Keep the ribbon flush to
-          // the top and centre any narrow side margin horizontally.
+          // the top, but divide the unused vertical space evenly above and below
+          // the chart/panel area.
           const renderedWidth = snapshotWidth * exportUniformScale;
           const renderedHeight = snapshotHeight * exportUniformScale;
           const renderedX = (EXPORT_RENDER_WIDTH - renderedWidth) / 2;
-          const renderedY = 0;
+          const unusedVerticalSpace = Math.max(
+            0,
+            EXPORT_RENDER_HEIGHT - renderedHeight,
+          );
+          const contentOffsetY = unusedVerticalSpace / 2;
+          const sourceHeaderHeight = Math.min(
+            capturedCanvas.height,
+            snapshotHeaderHeight * captureScale,
+          );
+          const renderedHeaderHeight = snapshotHeaderHeight * exportUniformScale;
+          const sourceContentHeight = Math.max(
+            0,
+            capturedCanvas.height - sourceHeaderHeight,
+          );
+          const renderedContentHeight = Math.max(
+            0,
+            renderedHeight - renderedHeaderHeight,
+          );
+
+          if (sourceHeaderHeight > 0 && renderedHeaderHeight > 0) {
+            outputContext.drawImage(
+              capturedCanvas,
+              0,
+              0,
+              capturedCanvas.width,
+              sourceHeaderHeight,
+              renderedX,
+              0,
+              renderedWidth,
+              renderedHeaderHeight,
+            );
+          }
 
           outputContext.drawImage(
             capturedCanvas,
             0,
-            0,
+            sourceHeaderHeight,
             capturedCanvas.width,
-            capturedCanvas.height,
+            sourceContentHeight,
             renderedX,
-            renderedY,
+            renderedHeaderHeight + contentOffsetY,
             renderedWidth,
-            renderedHeight,
+            renderedContentHeight,
           );
 
           const pngBlob = await canvasToPngBlob(outputCanvas);
