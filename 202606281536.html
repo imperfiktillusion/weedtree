@@ -907,7 +907,10 @@
 
       .related-product-name {
         min-width: 0;
-        padding-left: calc(2px * var(--info-panel-scale));
+        /* Keep the first line aligned with the list while indenting wrapped
+           continuation lines by approximately two spaces. */
+        padding-left: 2ch;
+        text-indent: -2ch;
         font-weight: 400;
         line-height: 1.3;
         overflow-wrap: anywhere;
@@ -1126,31 +1129,9 @@
       }
 
       @media (pointer: coarse) {
-        .header-ribbon .btn,
-        .chart-controls .btn,
-        .header-mode-option,
-        .chart-zoom-button,
-        .header-menu-action,
-        .related-products-view-button {
-          min-height: 44px;
-        }
-
-        body.header-narrow .go-to-strain-button,
-        body.header-icon-menu .header-menu-toggle {
-          width: 44px;
-          height: 44px;
-        }
-
-        .info-panel-zoom-button {
-          width: max(44px, calc(28px * var(--info-panel-scale)));
-          height: max(44px, calc(28px * var(--info-panel-scale)));
-        }
-
-        .close-button {
-          width: 44px;
-          height: 44px;
-        }
-
+        /* Preserve the established visible button proportions. Search-result
+           rows can grow without changing the shape of the ribbon, chart, or
+           panel controls. */
         #strainDropdown div {
           box-sizing: border-box;
           min-height: 44px;
@@ -5550,6 +5531,15 @@
         );
       }
 
+      function setZoomExtentForAutomaticTransform(transform) {
+        if (!chartState.zoom || !transform) return;
+
+        chartState.zoom.scaleExtent([
+          Math.min(CHART_BEHAVIOUR.zoomMinimum, Math.max(0.001, transform.k)),
+          CHART_BEHAVIOUR.zoomMaximum,
+        ]);
+      }
+
       function applyInitialZoom() {
         chartState.leftEdgeScreenX = getInitialLeftEdgeScreenX();
         chartState.isLeftEdgeZoomLocked = true;
@@ -5560,6 +5550,7 @@
           { anchorLeft: true },
         );
 
+        setZoomExtentForAutomaticTransform(initialTransform);
         chartState.currentTransform = initialTransform;
         chartState.svg.call(chartState.zoom.transform, initialTransform);
       }
@@ -5636,7 +5627,7 @@
         const obstruction = getChartPanelObstruction();
         const clearance = CHART_SIZING.infoPanelViewportGap;
         const maximumHorizontalScale = Math.max(
-          CHART_BEHAVIOUR.zoomMinimum,
+          0.001,
           (chartState.width - leftEdge - padding) / horizontalRange,
         );
         const maximumScale = Math.min(
@@ -5679,7 +5670,10 @@
           };
         }
 
-        let lowerScale = CHART_BEHAVIOUR.zoomMinimum;
+        // Automatic fitting must be allowed below the normal interactive
+        // zoom floor. Long mobile lineages can otherwise be forced to 0.1,
+        // clipping later generations and producing an invalid vertical fit.
+        let lowerScale = 0.001;
         let upperScale = maximumScale;
         let bestScale = lowerScale;
 
@@ -5698,7 +5692,7 @@
         }
 
         const scale = Math.max(
-          CHART_BEHAVIOUR.zoomMinimum,
+          0.001,
           bestScale * CHART_BEHAVIOUR.lineageZoomScale,
         );
         const verticalRange = getVerticalRange(scale);
@@ -5723,13 +5717,13 @@
         chartState.leftEdgeScreenX = getInitialLeftEdgeScreenX();
         chartState.isLeftEdgeZoomLocked = true;
 
+        const lineageTransform = getLineageChartTransform(activeNodes);
+        setZoomExtentForAutomaticTransform(lineageTransform);
+
         chartState.svg
           .transition()
           .duration(getMotionDuration(CHART_BEHAVIOUR.zoomTransitionDuration))
-          .call(
-            chartState.zoom.transform,
-            getLineageChartTransform(activeNodes),
-          );
+          .call(chartState.zoom.transform, lineageTransform);
       }
 
       function resetZoom() {
@@ -5740,13 +5734,16 @@
         chartState.focusedLineage = null;
         chartState.leftEdgeScreenX = getInitialLeftEdgeScreenX();
         chartState.isLeftEdgeZoomLocked = true;
+        const resetTransform = getChartTransform(
+          chartState.visibleNodes,
+          1,
+          { anchorLeft: true },
+        );
+        setZoomExtentForAutomaticTransform(resetTransform);
         chartState.svg
           .transition()
           .duration(getMotionDuration(CHART_BEHAVIOUR.zoomTransitionDuration))
-          .call(
-            chartState.zoom.transform,
-            getChartTransform(chartState.visibleNodes, 1, { anchorLeft: true }),
-          );
+          .call(chartState.zoom.transform, resetTransform);
       }
 
       function zoomByFactor(factor) {
