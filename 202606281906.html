@@ -1202,13 +1202,6 @@
         outline: none;
       }
 
-      body.export-render-mode .popup-overlay,
-      body.export-render-mode .popup,
-      body.export-render-mode #strainDropdown,
-      body.export-render-mode #copy-popup {
-        display: none !important;
-      }
-
       @media (pointer: coarse) {
         /* Preserve the established visible button proportions. Search-result
            rows can grow without changing the shape of the ribbon, chart, or
@@ -5981,43 +5974,7 @@
 
       const EXPORT_RENDER_WIDTH = 3840;
       const EXPORT_RENDER_HEIGHT = 2160;
-      const EXPORT_RENDER_TIMEOUT = 25000;
-      const EXPORT_SETTLE_DELAY = 1300;
-
-      function getExportRenderRequest() {
-        return window.__WEEDTREE_EXPORT_REQUEST__ || null;
-      }
-
-      function isExportRenderMode() {
-        return Boolean(getExportRenderRequest()?.exportMode);
-      }
-
-      function waitForCondition(check, timeout = EXPORT_RENDER_TIMEOUT) {
-        return new Promise((resolve, reject) => {
-          const startedAt = performance.now();
-
-          function inspect() {
-            try {
-              if (check()) {
-                resolve();
-                return;
-              }
-            } catch (error) {
-              // The iframe may still be constructing its document. Retry until
-              // the timeout so transient access errors do not abort the export.
-            }
-
-            if (performance.now() - startedAt >= timeout) {
-              reject(new Error("The 4K render did not finish in time."));
-              return;
-            }
-
-            window.setTimeout(inspect, 50);
-          }
-
-          inspect();
-        });
-      }
+      const EXPORT_RENDER_TIMEOUT = 15000;
 
       function waitForDelay(milliseconds) {
         return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -6052,52 +6009,32 @@
           .replace(/^[-_.]+|[-_.]+$/g, "");
       }
 
-      function isSingleProductsColumnVisible() {
-        const column = document.querySelector(
-          "#infoPanel .focused-info-column--related",
-        );
-        return Boolean(column && !column.hidden);
-      }
-
-      function areComparisonProductsVisible() {
-        return Array.from(
-          document.querySelectorAll(
-            "#comparisonPanel .comparison-panel-products",
-          ),
-        ).some((section) => !section.hidden);
-      }
-
       function buildExportRequest(kind) {
+        const request = {
+          kind,
+          chartScope: pageState.chartScope,
+          selectionMode: pageState.selectionMode,
+        };
+
         if (kind === "comparison") {
           const [firstNode, secondNode] = chartState.comparisonSelections;
-          return {
-            exportMode: true,
-            type: "comparison",
-            firstName: firstNode?.name || "",
-            secondName: secondNode?.name || "",
-            productsVisible: false,
-          };
+          request.firstName = firstNode?.name || "";
+          request.secondName = secondNode?.name || "";
+        } else {
+          request.strainName = chartState.focusedNode?.name || "";
         }
 
-        return {
-          exportMode: true,
-          type: "strain",
-          strainName: chartState.focusedNode?.name || "",
-          chartScope: pageState.chartScope,
-          productsVisible: false,
-          relatedProductsMode: pageState.relatedProductsMode,
-        };
+        return request;
       }
 
       function buildExportFilename(kind, request) {
         if (kind === "comparison") {
-          const parts = [
+          return [
             "weedtree",
             `compare=${sanitiseExportFilenameValue(request.firstName)}`,
             `with=${sanitiseExportFilenameValue(request.secondName)}`,
-          ];
-          if (request.productsVisible) parts.push("products=shown");
-          return `${parts.join("_")}.png`;
+            `mode=${request.chartScope}`,
+          ].join("_") + ".png";
         }
 
         const parts = [
@@ -6105,121 +6042,146 @@
           `strain=${sanitiseExportFilenameValue(request.strainName)}`,
         ];
         if (request.chartScope === "focused") parts.push("mode=focused");
-        if (request.productsVisible) parts.push("products=shown");
         return `${parts.join("_")}.png`;
       }
 
-      function resetExportDocumentClone(clone) {
-        clone.removeAttribute("style");
+      function removePrecedingBreak(element) {
+        let sibling = element.previousSibling;
+        while (sibling && sibling.nodeType === Node.TEXT_NODE && !sibling.textContent.trim()) {
+          const previous = sibling.previousSibling;
+          sibling.remove();
+          sibling = previous;
+        }
+        if (sibling?.nodeType === Node.ELEMENT_NODE && sibling.tagName === "BR") {
+          sibling.remove();
+        }
+      }
+
+      function prepareExportSnapshotClone(clone) {
+        clone.querySelectorAll("script").forEach((script) => script.remove());
 
         const body = clone.querySelector("body");
-        if (body) {
-          body.className = "";
-          body.removeAttribute("style");
-        }
+        body?.classList.remove("export-render-mode");
 
-        const chart = clone.querySelector("#lineageChart");
-        chart?.replaceChildren();
-
-        ["infoPanel", "comparisonPanel"].forEach((panelId) => {
-          const panel = clone.querySelector(`#${panelId}`);
-          if (!panel) return;
-          panel.hidden = true;
-          panel.removeAttribute("style");
-          panel.className = "info-panel";
-        });
-
-        const infoTitle = clone.querySelector("#infoPanelTitle");
-        const comparisonTitle = clone.querySelector("#comparisonPanelTitle");
-        const infoBody = clone.querySelector("#infoPanelBody");
-        const comparisonBody = clone.querySelector("#comparisonPanelBody");
-        if (infoTitle) infoTitle.textContent = "";
-        if (comparisonTitle) {
-          comparisonTitle.textContent = "Shared Ancestor Contributions";
-        }
-        infoBody?.replaceChildren();
-        comparisonBody?.replaceChildren();
-
-        clone.querySelector("#strainDropdown")?.replaceChildren();
-        clone.querySelector("#copy-popup")?.remove();
-
-        clone.querySelectorAll(
-          ".popup, .popup-overlay, #loading-message, #strainDropdown",
-        ).forEach((element) => element.removeAttribute("style"));
+        clone
+          .querySelectorAll(
+            ".popup, .popup-overlay, #strainDropdown, #copy-popup, #loading-message",
+          )
+          .forEach((element) => {
+            element.style.display = "none";
+          });
 
         const menuPanel = clone.querySelector("#headerMenuPanel");
         if (menuPanel) menuPanel.hidden = true;
+        const menuToggle = clone.querySelector("#headerMenuToggle");
+        menuToggle?.setAttribute("aria-expanded", "false");
 
-        // The export renderer should not create extra analytics visits.
+        const focusedColumns = clone.querySelector(
+          "#infoPanel .focused-info-columns",
+        );
+        focusedColumns?.classList.remove("is-related-visible");
+
         clone
           .querySelectorAll(
-            'script[src*="counter.dev"], script[src*="googletagmanager.com"]',
+            "#infoPanel .focused-info-column--related, #comparisonPanel .comparison-panel-products",
           )
-          .forEach((script) => script.remove());
-      }
+          .forEach((section) => {
+            section.hidden = true;
+            section.style.display = "none";
+          });
 
-      function buildExportDocumentHtml(request) {
-        const clone = document.documentElement.cloneNode(true);
-        resetExportDocumentClone(clone);
-
-        const stateScript = document.createElement("script");
-        const serialisedRequest = JSON.stringify(request).replace(
-          /</g,
-          "\\u003c",
-        );
-        stateScript.textContent =
-          `window.__WEEDTREE_EXPORT_REQUEST__ = ${serialisedRequest};`;
-        clone.querySelector("head")?.prepend(stateScript);
-
-        return `<!doctype html>${clone.outerHTML}`;
-      }
-
-      function findExportProductsToggle(frameDocument) {
-        return Array.from(
-          frameDocument.querySelectorAll(".info-panel-actions a"),
-        ).find((link) =>
-          link.textContent.trim().startsWith("Show NZ Medical Cannabis Products"),
-        );
-      }
-
-      function removeExportProductsToggleLinks(exportDocument) {
-        exportDocument
+        clone
           .querySelectorAll(".info-panel-actions a")
           .forEach((link) => {
-            const text = link.textContent.trim();
+            const label = link.textContent.trim();
             if (
-              text === "Show NZ Medical Cannabis Products" ||
-              text === "Close NZ Medical Cannabis Products"
+              label === "Show NZ Medical Cannabis Products" ||
+              label === "Close NZ Medical Cannabis Products"
             ) {
-              const previous = link.previousSibling;
-              if (
-                previous &&
-                previous.nodeType === Node.ELEMENT_NODE &&
-                previous.tagName === "BR"
-              ) {
-                previous.remove();
-              }
+              removePrecedingBreak(link);
               link.remove();
             }
           });
+
+        const snapshotStyle = clone.ownerDocument.createElement("style");
+        snapshotStyle.textContent = `
+          *, *::before, *::after {
+            animation: none !important;
+            transition: none !important;
+            caret-color: transparent !important;
+          }
+          html, body { background: #fff !important; }
+        `;
+        clone.querySelector("head")?.appendChild(snapshotStyle);
       }
 
-      function isWeedTreeExportReady(kind) {
-        if (!chartState.isPrepared) return false;
-        if (!document.querySelector("#lineageChart svg")) return false;
+      function buildFrozenSnapshotHtml() {
+        const clone = document.documentElement.cloneNode(true);
+        prepareExportSnapshotClone(clone);
+        return `<!doctype html>${clone.outerHTML}`;
+      }
 
-        if (kind === "comparison") {
-          return Boolean(
-            chartState.comparison &&
-              chartState.comparisonSelections.length === 2 &&
-              !document.getElementById("comparisonPanel")?.hidden,
+      function createExportFrame(snapshotHtml, width, height) {
+        const iframe = document.createElement("iframe");
+        iframe.setAttribute("aria-hidden", "true");
+        iframe.tabIndex = -1;
+        iframe.style.position = "fixed";
+        iframe.style.left = "-100000px";
+        iframe.style.top = "0";
+        iframe.style.width = `${width}px`;
+        iframe.style.height = `${height}px`;
+        iframe.style.border = "0";
+        iframe.style.pointerEvents = "none";
+        iframe.style.background = "#fff";
+        iframe.srcdoc = snapshotHtml;
+        return iframe;
+      }
+
+      function waitForFrameLoad(iframe) {
+        return new Promise((resolve, reject) => {
+          const timeoutId = window.setTimeout(
+            () => reject(new Error("The image snapshot could not be prepared.")),
+            EXPORT_RENDER_TIMEOUT,
           );
+          iframe.addEventListener(
+            "load",
+            () => {
+              window.clearTimeout(timeoutId);
+              resolve();
+            },
+            { once: true },
+          );
+        });
+      }
+
+      async function waitForSnapshotFonts(frameDocument) {
+        if (frameDocument.fonts?.ready) {
+          await Promise.race([
+            frameDocument.fonts.ready,
+            waitForDelay(3000),
+          ]);
+        }
+        await waitForDelay(80);
+      }
+
+      function compose4kCanvas(sourceCanvas) {
+        if (
+          sourceCanvas.width === EXPORT_RENDER_WIDTH &&
+          sourceCanvas.height === EXPORT_RENDER_HEIGHT
+        ) {
+          return sourceCanvas;
         }
 
-        return Boolean(
-          chartState.focusedNode &&
-            !document.getElementById("infoPanel")?.hidden,
-        );
+        const output = document.createElement("canvas");
+        output.width = EXPORT_RENDER_WIDTH;
+        output.height = EXPORT_RENDER_HEIGHT;
+        const context = output.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, output.width, output.height);
+        const x = Math.round((output.width - sourceCanvas.width) / 2);
+        const y = Math.round((output.height - sourceCanvas.height) / 2);
+        context.drawImage(sourceCanvas, x, y);
+        return output;
       }
 
       async function renderCurrentViewToPng(kind, triggerLink) {
@@ -6235,6 +6197,19 @@
           return;
         }
 
+        if (typeof window.html2canvas !== "function") {
+          alert("The image exporter has not loaded yet. Please try again.");
+          return;
+        }
+
+        // Freeze the complete rendered DOM before any asynchronous work or
+        // visible status change. Later interaction with the live page cannot
+        // alter this download.
+        const snapshotWidth = Math.max(1, window.innerWidth);
+        const snapshotHeight = Math.max(1, window.innerHeight);
+        const snapshotHtml = buildFrozenSnapshotHtml();
+        const filename = buildExportFilename(kind, request);
+
         const originalText = triggerLink?.textContent || "";
         if (triggerLink) {
           triggerLink.dataset.exporting = "true";
@@ -6242,100 +6217,50 @@
           triggerLink.textContent = "Preparing 4K PNG…";
         }
 
-        const iframe = document.createElement("iframe");
-        iframe.setAttribute("aria-hidden", "true");
-        iframe.tabIndex = -1;
-        iframe.style.position = "fixed";
-        iframe.style.left = "-10000px";
-        iframe.style.top = "0";
-        iframe.style.width = `${EXPORT_RENDER_WIDTH}px`;
-        iframe.style.height = `${EXPORT_RENDER_HEIGHT}px`;
-        iframe.style.border = "0";
-        iframe.style.pointerEvents = "none";
-        iframe.style.background = "#fff";
-        iframe.style.zIndex = "-1";
+        const iframe = createExportFrame(
+          snapshotHtml,
+          snapshotWidth,
+          snapshotHeight,
+        );
 
         try {
-          const frameLoaded = new Promise((resolve, reject) => {
-            const timeoutId = window.setTimeout(
-              () => reject(new Error("The 4K renderer could not be loaded.")),
-              EXPORT_RENDER_TIMEOUT,
-            );
-            iframe.addEventListener(
-              "load",
-              () => {
-                window.clearTimeout(timeoutId);
-                resolve();
-              },
-              { once: true },
-            );
-          });
-
-          iframe.srcdoc = buildExportDocumentHtml(request);
+          const loaded = waitForFrameLoad(iframe);
           document.body.appendChild(iframe);
-          await frameLoaded;
+          await loaded;
 
-          const frameWindow = iframe.contentWindow;
           const frameDocument = iframe.contentDocument;
-          if (!frameWindow || !frameDocument) {
-            throw new Error("The browser blocked access to the 4K renderer.");
+          if (!frameDocument) {
+            throw new Error("The browser blocked access to the image snapshot.");
           }
 
-          await waitForCondition(
-            () => typeof frameWindow.html2canvas === "function",
+          await waitForSnapshotFonts(frameDocument);
+
+          const scale = Math.min(
+            EXPORT_RENDER_WIDTH / snapshotWidth,
+            EXPORT_RENDER_HEIGHT / snapshotHeight,
           );
-          await waitForCondition(() =>
-            frameWindow.isWeedTreeExportReady?.(kind),
-          );
 
-          if (frameDocument.fonts?.ready) {
-            await frameDocument.fonts.ready;
-          }
-
-          if (request.productsVisible) {
-            const productsToggle = findExportProductsToggle(frameDocument);
-            productsToggle?.click();
-          }
-
-          removeExportProductsToggleLinks(frameDocument);
-          await waitForDelay(EXPORT_SETTLE_DELAY);
-
-          // Re-run the responsive calculation after fonts and optional product
-          // content have settled, then wait for the chart fit transition.
-          frameWindow.dispatchEvent(new frameWindow.Event("resize"));
-          await waitForDelay(EXPORT_SETTLE_DELAY);
-
-          const canvas = await frameWindow.html2canvas(
+          const capturedCanvas = await window.html2canvas(
             frameDocument.documentElement,
             {
               backgroundColor: "#ffffff",
-              width: EXPORT_RENDER_WIDTH,
-              height: EXPORT_RENDER_HEIGHT,
-              windowWidth: EXPORT_RENDER_WIDTH,
-              windowHeight: EXPORT_RENDER_HEIGHT,
-              scale: 1,
+              width: snapshotWidth,
+              height: snapshotHeight,
+              windowWidth: snapshotWidth,
+              windowHeight: snapshotHeight,
+              scale,
               scrollX: 0,
               scrollY: 0,
               useCORS: true,
               allowTaint: false,
               logging: false,
-              imageTimeout: 15000,
-              onclone: (capturedDocument) => {
-                capturedDocument.body.classList.add("export-render-mode");
-                capturedDocument
-                  .querySelectorAll(
-                    ".popup, .popup-overlay, #strainDropdown, #copy-popup, #loading-message",
-                  )
-                  .forEach((element) => {
-                    element.style.display = "none";
-                  });
-                removeExportProductsToggleLinks(capturedDocument);
-              },
+              imageTimeout: 10000,
             },
           );
 
-          const pngBlob = await canvasToPngBlob(canvas);
-          downloadBlob(pngBlob, buildExportFilename(kind, request));
+          const outputCanvas = compose4kCanvas(capturedCanvas);
+          const pngBlob = await canvasToPngBlob(outputCanvas);
+          downloadBlob(pngBlob, filename);
         } catch (error) {
           console.error("4K PNG export failed:", error);
           alert(`Unable to create the 4K PNG: ${error.message}`);
@@ -6414,12 +6339,10 @@
       }
 
       function clearSelectionUrl() {
-        if (isExportRenderMode()) return;
         replaceBrowserUrl(getSelectionUrlBase(), BASE_DOCUMENT_TITLE);
       }
 
       function updateUrlForSelectedStrain(node) {
-        if (isExportRenderMode()) return;
         replaceBrowserUrl(
           createStrainUrl(node.name, pageState.chartScope),
           `${node.name} | WeedTree`,
@@ -6427,7 +6350,6 @@
       }
 
       function updateUrlForComparison(firstNode, secondNode) {
-        if (isExportRenderMode()) return;
         replaceBrowserUrl(
           createComparisonUrl(firstNode.name, secondNode.name),
           `${firstNode.name} vs ${secondNode.name} | WeedTree`,
@@ -6435,23 +6357,6 @@
       }
 
       function getRequestedChartLocation() {
-        const exportRequest = getExportRenderRequest();
-        if (exportRequest?.type === "comparison") {
-          return {
-            type: "comparison",
-            firstName: normaliseStrainName(exportRequest.firstName || ""),
-            secondName: normaliseStrainName(exportRequest.secondName || ""),
-          };
-        }
-
-        if (exportRequest?.type === "strain") {
-          return {
-            type: "strain",
-            name: normaliseStrainName(exportRequest.strainName || ""),
-            mode: exportRequest.chartScope === "focused" ? "focused" : "full",
-          };
-        }
-
         const parameters = new URLSearchParams(window.location.search);
         const comparisonName = parameters.get("compare");
         const comparisonWithName = parameters.get("with");
@@ -6887,14 +6792,6 @@
       function setupPopups() {
         const overlay = document.querySelector(".popup-overlay");
 
-        if (isExportRenderMode()) {
-          document.body.classList.add("export-render-mode");
-          document.querySelectorAll(".popup").forEach((popup) => {
-            popup.style.display = "none";
-          });
-          if (overlay) overlay.style.display = "none";
-          return;
-        }
         const searchPopup = document.getElementById("popup2");
         const aboutPopup = document.getElementById("popup3");
         const suppressAutomaticSearchPopup = Boolean(
@@ -7302,10 +7199,6 @@
       // -----------------------------------------------------------------------
       // Startup
       // -----------------------------------------------------------------------
-
-      if (isExportRenderMode()) {
-        document.body.classList.add("export-render-mode");
-      }
 
       applyChartTheme();
       setupPageControls();
