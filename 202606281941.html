@@ -6077,15 +6077,12 @@
           clonedLabel.style.letterSpacing = computed.letterSpacing;
           clonedLabel.style.fill = computed.fill;
 
-          try {
-            const renderedLength = sourceLabel.getComputedTextLength();
-            if (Number.isFinite(renderedLength) && renderedLength > 0) {
-              clonedLabel.setAttribute("textLength", renderedLength);
-              clonedLabel.setAttribute("lengthAdjust", "spacingAndGlyphs");
-            }
-          } catch (error) {
-            console.warn("Unable to preserve a node label width for export", error);
-          }
+          // Do not force SVG textLength/lengthAdjust here. html2canvas applies
+          // those attributes differently from the browser and can make every
+          // node label appear artificially condensed. The actual font metrics
+          // are preserved by the computed font properties above.
+          clonedLabel.removeAttribute("textLength");
+          clonedLabel.removeAttribute("lengthAdjust");
         });
       }
 
@@ -6244,6 +6241,11 @@
         const snapshotHeight = Math.max(1, window.innerHeight);
         const exportScaleX = EXPORT_RENDER_WIDTH / snapshotWidth;
         const exportScaleY = EXPORT_RENDER_HEIGHT / snapshotHeight;
+        // Render the frozen page at enough internal resolution that no part of
+        // it has to be enlarged to reach the final 4K canvas. A 1920×1080
+        // viewport therefore renders at 2×, while a native 4K viewport remains
+        // at 1×.
+        const captureScale = Math.max(1, exportScaleX, exportScaleY);
         const snapshotHtml = buildFrozenSnapshotHtml();
         const filename = buildExportFilename(kind, request);
 
@@ -6280,7 +6282,7 @@
               height: snapshotHeight,
               windowWidth: snapshotWidth,
               windowHeight: snapshotHeight,
-              scale: 1,
+              scale: captureScale,
               scrollX: 0,
               scrollY: 0,
               useCORS: true,
