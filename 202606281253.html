@@ -352,6 +352,23 @@
 
       .close-button:hover { background: #666; }
 
+      .comparison-selection-message {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        z-index: 996;
+        width: min(680px, calc(100% - 40px));
+        margin: 0;
+        background: transparent;
+        color: #d00000;
+        font: 600 1.05em/1.35 "Poppins", Arial, sans-serif;
+        text-align: center;
+        pointer-events: none;
+        transform: translateX(-50%);
+      }
+
+      .comparison-selection-message[hidden] { display: none; }
+
       .chart-controls {
         position: absolute;
         top: 10px;
@@ -881,6 +898,13 @@
     <div class="container">
       <div class="chart-container">
         <div id="lineageChart"></div>
+        <p
+          id="comparisonSelectionMessage"
+          class="comparison-selection-message"
+          role="status"
+          aria-live="polite"
+          hidden
+        ></p>
         <!-- Chart Controls -->
         <div class="chart-controls" aria-label="Chart controls">
           <div class="chart-zoom-toggle" role="group" aria-label="Chart zoom controls">
@@ -2916,6 +2940,7 @@
         chartState.comparison = null;
         chartState.comparisonSelections = [];
         chartState.focusedLineage = new Set(lineage);
+        updateComparisonSelectionMessage();
 
         if (pageState.chartScope === "focused") renderChartCanvas();
         applySingleSelectionPresentation(node, lineage);
@@ -3021,6 +3046,7 @@
         chartState.comparisonSelections = [firstNode, secondNode];
         chartState.comparison = comparison;
         chartState.focusedLineage = new Set(combinedLineage);
+        updateComparisonSelectionMessage();
 
         if (pageState.chartScope === "focused") renderChartCanvas();
         applyComparisonPresentation(
@@ -3060,6 +3086,7 @@
         chartState.focusedLineage = null;
         chartState.comparison = null;
         chartState.comparisonSelections = [];
+        updateComparisonSelectionMessage();
         removeChartOverlays();
         clearSelectionUrl();
 
@@ -3177,6 +3204,7 @@
           chartState.nodes,
           chartState.indexes,
         );
+        updateComparisonSelectionMessage();
 
         if (pageState.chartScope === "focused" && restoreFullChart) {
           renderChartCanvas();
@@ -5140,6 +5168,24 @@
         });
       }
 
+      function updateComparisonSelectionMessage() {
+        const message = document.getElementById(
+          "comparisonSelectionMessage",
+        );
+        if (!message) return;
+
+        const selectionCount = chartState.comparisonSelections.length;
+        const shouldShow =
+          pageState.selectionMode === "compare" && selectionCount < 2;
+
+        message.hidden = !shouldShow;
+        message.textContent = shouldShow
+          ? selectionCount === 0
+            ? "Select or search for first comparison strain"
+            : "Select or search for second comparison strain"
+          : "";
+      }
+
       function getSearchPrompt() {
         if (pageState.selectionMode === "single") return "go to strain";
         return chartState.comparisonSelections.length === 1
@@ -5251,6 +5297,8 @@
 
         if (firstComparisonNode) {
           showPendingComparisonSelection(firstComparisonNode);
+        } else {
+          updateComparisonSelectionMessage();
         }
 
         resetSearchInput();
@@ -5523,6 +5571,7 @@
 
       function setupPageControls() {
         setupPanelResizeHandles();
+        updateComparisonSelectionMessage();
 
         document.querySelectorAll("[data-chart-scope]").forEach((button) => {
           button.addEventListener("click", () =>
