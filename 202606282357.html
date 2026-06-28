@@ -6865,7 +6865,7 @@
         rootSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
         rootSvg.setAttribute(
           "style",
-          `display:block;width:${EXPORT_RENDER_WIDTH}px;height:${EXPORT_RENDER_HEIGHT}px;max-width:none;max-height:none;background:#fff;overflow:visible`,
+          `display:block;width:${EXPORT_RENDER_WIDTH}px;height:${EXPORT_RENDER_HEIGHT}px;margin:0 auto;max-width:none;max-height:none;background:#fff;overflow:visible`,
         );
 
         const background = document.createElementNS(SVG_NS, "rect");
@@ -6938,6 +6938,33 @@
           headerHeight * uniformScale + contentOffsetY,
           uniformScale,
         );
+
+        // Fit the fixed 3840×2160 SVG to the browser viewport once when it
+        // first opens. The dimensions are then left as explicit pixel values,
+        // so subsequent Chrome page zoom changes enlarge the artwork instead
+        // of causing it to continually refit itself to the window.
+        const initialFitScript = document.createElementNS(SVG_NS, "script");
+        initialFitScript.setAttribute("type", "application/ecmascript");
+        initialFitScript.textContent = `
+          (function () {
+            var svg = document.documentElement;
+            var naturalWidth = ${EXPORT_RENDER_WIDTH};
+            var naturalHeight = ${EXPORT_RENDER_HEIGHT};
+            var viewportWidth = Math.max(1, window.innerWidth || naturalWidth);
+            var viewportHeight = Math.max(1, window.innerHeight || naturalHeight);
+            var fitScale = Math.min(
+              1,
+              (viewportWidth - 2) / naturalWidth,
+              (viewportHeight - 2) / naturalHeight
+            );
+            svg.style.width = Math.max(1, naturalWidth * fitScale) + "px";
+            svg.style.height = Math.max(1, naturalHeight * fitScale) + "px";
+            svg.style.margin = "0 auto";
+            svg.style.maxWidth = "none";
+            svg.style.maxHeight = "none";
+          }());
+        `;
+        rootSvg.appendChild(initialFitScript);
 
         return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(rootSvg)}`;
       }
