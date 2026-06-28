@@ -6986,7 +6986,7 @@
         if (triggerLink) {
           triggerLink.dataset.exporting = "true";
           triggerLink.setAttribute("aria-disabled", "true");
-          triggerLink.textContent = "Preparing vector SVG…";
+          triggerLink.setAttribute("aria-busy", "true");
         }
 
         try {
@@ -7003,6 +7003,7 @@
           if (triggerLink) {
             delete triggerLink.dataset.exporting;
             triggerLink.removeAttribute("aria-disabled");
+            triggerLink.removeAttribute("aria-busy");
             triggerLink.textContent = originalText;
           }
         }
