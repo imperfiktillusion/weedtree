@@ -6541,6 +6541,407 @@
         ]);
       }
 
+      const EXPORT_FONT_STYLESHEET_URL =
+        "https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap";
+      let embeddedExportFontCssPromise = null;
+
+      async function fetchResourceAsDataUrl(url) {
+        const response = await fetch(url, {
+          mode: "cors",
+          cache: "force-cache",
+        });
+        if (!response.ok) {
+          throw new Error(`Unable to load export font resource (${response.status}).`);
+        }
+        return blobToDataUrl(await response.blob());
+      }
+
+      async function getEmbeddedExportFontCss() {
+        if (embeddedExportFontCssPromise) return embeddedExportFontCssPromise;
+
+        embeddedExportFontCssPromise = (async () => {
+          try {
+            const response = await fetch(EXPORT_FONT_STYLESHEET_URL, {
+              mode: "cors",
+              cache: "force-cache",
+            });
+            if (!response.ok) {
+              throw new Error(`Unable to load export font CSS (${response.status}).`);
+            }
+
+            let css = await response.text();
+            const matches = Array.from(
+              css.matchAll(/url\((['"]?)([^)'"\s]+)\1\)/g),
+            );
+            const replacements = new Map();
+
+            await Promise.all(
+              matches.map(async (match) => {
+                const rawUrl = match[2];
+                if (replacements.has(rawUrl)) return;
+                const absoluteUrl = new URL(
+                  rawUrl,
+                  EXPORT_FONT_STYLESHEET_URL,
+                ).href;
+                replacements.set(
+                  rawUrl,
+                  await fetchResourceAsDataUrl(absoluteUrl),
+                );
+              }),
+            );
+
+            replacements.forEach((dataUrl, rawUrl) => {
+              css = css.split(rawUrl).join(dataUrl);
+            });
+
+            return css.replace(/font-display:\s*swap/gi, "font-display:block");
+          } catch (error) {
+            console.warn("Falling back to linked export fonts:", error);
+            return `@import url("${EXPORT_FONT_STYLESHEET_URL}");`;
+          }
+        })();
+
+        return embeddedExportFontCssPromise;
+      }
+
+      function getExportPageCss() {
+        return Array.from(document.querySelectorAll("style"))
+          .map((style) => style.textContent || "")
+          .join("\n");
+      }
+
+      function setImportantStyle(element, property, value) {
+        if (!element || value === undefined || value === null || value === "") {
+          return;
+        }
+        element.style.setProperty(property, value, "important");
+      }
+
+      function copyMatchedComputedTypography(sourceRoot, cloneRoot, selector) {
+        const sourceElements = Array.from(sourceRoot.querySelectorAll(selector));
+        const clonedElements = Array.from(cloneRoot.querySelectorAll(selector));
+
+        sourceElements.forEach((sourceElement, index) => {
+          const clonedElement = clonedElements[index];
+          if (!clonedElement) return;
+          const computed = window.getComputedStyle(sourceElement);
+          setImportantStyle(clonedElement, "font-family", computed.fontFamily);
+          setImportantStyle(clonedElement, "font-size", computed.fontSize);
+          setImportantStyle(clonedElement, "font-weight", computed.fontWeight);
+          setImportantStyle(clonedElement, "font-style", computed.fontStyle);
+          setImportantStyle(clonedElement, "font-stretch", computed.fontStretch);
+          setImportantStyle(clonedElement, "letter-spacing", computed.letterSpacing);
+          setImportantStyle(clonedElement, "line-height", computed.lineHeight);
+          setImportantStyle(clonedElement, "font-variant", computed.fontVariant);
+          setImportantStyle(clonedElement, "font-synthesis", "none");
+        });
+      }
+
+      function freezeVectorNodeTypography(sourceRoot, cloneRoot) {
+        const sourceLabels = Array.from(
+          sourceRoot.querySelectorAll("#lineageChart svg .strain-name"),
+        );
+        const clonedLabels = Array.from(
+          cloneRoot.querySelectorAll("#lineageChart svg .strain-name"),
+        );
+
+        sourceLabels.forEach((sourceLabel, index) => {
+          const clonedLabel = clonedLabels[index];
+          if (!clonedLabel) return;
+
+          const computed = window.getComputedStyle(sourceLabel);
+          const condensed = sourceLabel.classList.contains("is-condensed");
+          const family = condensed
+            ? '"Roboto Condensed", Arial, sans-serif'
+            : '"Roboto", Arial, sans-serif';
+
+          clonedLabel.classList.toggle("is-condensed", condensed);
+          clonedLabel.setAttribute("font-family", family);
+          clonedLabel.setAttribute("font-size", computed.fontSize);
+          clonedLabel.setAttribute("font-weight", computed.fontWeight || "700");
+          setImportantStyle(clonedLabel, "font-family", family);
+          setImportantStyle(clonedLabel, "font-size", computed.fontSize);
+          setImportantStyle(
+            clonedLabel,
+            "font-weight",
+            computed.fontWeight || "700",
+          );
+          setImportantStyle(clonedLabel, "letter-spacing", computed.letterSpacing);
+          setImportantStyle(clonedLabel, "font-synthesis", "none");
+          clonedLabel.removeAttribute("textLength");
+          clonedLabel.removeAttribute("lengthAdjust");
+        });
+
+        const sourcePillText = Array.from(
+          sourceRoot.querySelectorAll("#lineageChart svg .pct-pill-text"),
+        );
+        const clonedPillText = Array.from(
+          cloneRoot.querySelectorAll("#lineageChart svg .pct-pill-text"),
+        );
+        sourcePillText.forEach((sourceLabel, index) => {
+          const clonedLabel = clonedPillText[index];
+          if (!clonedLabel) return;
+          const computed = window.getComputedStyle(sourceLabel);
+          const family = '"Roboto", Arial, sans-serif';
+          clonedLabel.setAttribute("font-family", family);
+          clonedLabel.setAttribute("font-size", computed.fontSize);
+          clonedLabel.setAttribute("font-weight", computed.fontWeight || "700");
+          setImportantStyle(clonedLabel, "font-family", family);
+          setImportantStyle(clonedLabel, "font-size", computed.fontSize);
+          setImportantStyle(
+            clonedLabel,
+            "font-weight",
+            computed.fontWeight || "700",
+          );
+          setImportantStyle(clonedLabel, "font-synthesis", "none");
+        });
+      }
+
+      function removeExportOnlyContent(root) {
+        root
+          .querySelectorAll(
+            ".chart-controls, .popup, .popup-overlay, #strainDropdown, #copy-popup, #loading-message, #export-capture-blocker",
+          )
+          .forEach((element) => element.remove());
+
+        const menuPanel = root.querySelector("#headerMenuPanel");
+        if (menuPanel) menuPanel.remove();
+        root.querySelector("#headerMenuToggle")?.setAttribute(
+          "aria-expanded",
+          "false",
+        );
+
+        const focusedColumns = root.querySelector(
+          "#infoPanel .focused-info-columns",
+        );
+        focusedColumns?.classList.remove("is-related-visible");
+
+        root
+          .querySelectorAll(
+            "#infoPanel .focused-info-column--related, #comparisonPanel .comparison-panel-products",
+          )
+          .forEach((section) => section.remove());
+
+        root.querySelectorAll(".info-panel-actions a").forEach((link) => {
+          const label = link.textContent.trim();
+          if (
+            label === "Show NZ Medical Cannabis Products" ||
+            label === "Close NZ Medical Cannabis Products"
+          ) {
+            removePrecedingBreak(link);
+            link.remove();
+          }
+        });
+      }
+
+      function freezeElementBox(sourceElement, clonedElement, originTop = 0) {
+        if (!sourceElement || !clonedElement) return;
+        const rect = sourceElement.getBoundingClientRect();
+        const computed = window.getComputedStyle(sourceElement);
+
+        setImportantStyle(clonedElement, "position", "absolute");
+        setImportantStyle(clonedElement, "inset", "auto");
+        setImportantStyle(clonedElement, "left", `${rect.left}px`);
+        setImportantStyle(clonedElement, "top", `${rect.top - originTop}px`);
+        setImportantStyle(clonedElement, "right", "auto");
+        setImportantStyle(clonedElement, "bottom", "auto");
+        setImportantStyle(clonedElement, "width", `${rect.width}px`);
+        setImportantStyle(clonedElement, "height", `${rect.height}px`);
+        setImportantStyle(clonedElement, "margin", "0");
+        setImportantStyle(clonedElement, "transform", "none");
+        setImportantStyle(clonedElement, "box-sizing", computed.boxSizing);
+        setImportantStyle(clonedElement, "z-index", computed.zIndex);
+      }
+
+      function createXhtmlExportBody(width, height, cssText) {
+        const XHTML_NS = "http://www.w3.org/1999/xhtml";
+        const body = document.createElementNS(XHTML_NS, "body");
+        body.setAttribute("class", document.body.className || "");
+        body.setAttribute("data-vector-export", "true");
+        body.setAttribute(
+          "style",
+          [
+            "position:relative",
+            `width:${width}px`,
+            `height:${height}px`,
+            "min-width:0",
+            "min-height:0",
+            "margin:0",
+            "padding:0",
+            "overflow:hidden",
+            "background:#fff",
+          ].join(";"),
+        );
+
+        const style = document.createElementNS(XHTML_NS, "style");
+        style.textContent = cssText;
+        body.appendChild(style);
+        return body;
+      }
+
+      function appendForeignObject(svg, body, width, height, x, y, scale) {
+        const SVG_NS = "http://www.w3.org/2000/svg";
+        const group = document.createElementNS(SVG_NS, "g");
+        group.setAttribute("transform", `translate(${x} ${y}) scale(${scale})`);
+
+        const foreignObject = document.createElementNS(
+          SVG_NS,
+          "foreignObject",
+        );
+        foreignObject.setAttribute("x", "0");
+        foreignObject.setAttribute("y", "0");
+        foreignObject.setAttribute("width", String(width));
+        foreignObject.setAttribute("height", String(height));
+        foreignObject.setAttribute("overflow", "hidden");
+        foreignObject.appendChild(body);
+        group.appendChild(foreignObject);
+        svg.appendChild(group);
+      }
+
+      async function buildTrueVectorSvgMarkup() {
+        const SVG_NS = "http://www.w3.org/2000/svg";
+        const snapshotWidth = Math.max(1, window.innerWidth);
+        const snapshotHeight = Math.max(1, window.innerHeight);
+        const headerSource = document.querySelector(".header-ribbon");
+        const containerSource = document.querySelector(".container");
+        if (!headerSource || !containerSource) {
+          throw new Error("The visible chart layout could not be captured.");
+        }
+
+        const headerHeight = Math.max(
+          1,
+          headerSource.getBoundingClientRect().height,
+        );
+        const contentHeight = Math.max(1, snapshotHeight - headerHeight);
+        const uniformScale = Math.min(
+          EXPORT_RENDER_WIDTH / snapshotWidth,
+          EXPORT_RENDER_HEIGHT / snapshotHeight,
+        );
+        const renderedWidth = snapshotWidth * uniformScale;
+        const renderedHeight = snapshotHeight * uniformScale;
+        const exportX = (EXPORT_RENDER_WIDTH - renderedWidth) / 2;
+        const unusedVerticalSpace = Math.max(
+          0,
+          EXPORT_RENDER_HEIGHT - renderedHeight,
+        );
+        const contentOffsetY = unusedVerticalSpace / 2;
+
+        const embeddedFontCss = await getEmbeddedExportFontCss();
+        const pageCss = getExportPageCss();
+        const exportCss = `
+          ${embeddedFontCss}
+          ${pageCss}
+          * , *::before, *::after {
+            animation: none !important;
+            transition: none !important;
+            caret-color: transparent !important;
+            font-synthesis: none !important;
+          }
+          html, body { background: #fff !important; }
+          [data-vector-export="true"] .chart-controls { display:none !important; }
+          [data-vector-export="true"] #lineageChart svg,
+          [data-vector-export="true"] #lineageChart svg * {
+            shape-rendering: geometricPrecision;
+            text-rendering: geometricPrecision;
+          }
+          [data-vector-export="true"] #lineageChart svg .strain-name:not(.is-condensed),
+          [data-vector-export="true"] #lineageChart svg .pct-pill-text {
+            font-family: "Roboto", Arial, sans-serif !important;
+          }
+          [data-vector-export="true"] #lineageChart svg .strain-name.is-condensed {
+            font-family: "Roboto Condensed", Arial, sans-serif !important;
+          }
+        `;
+
+        const rootSvg = document.createElementNS(SVG_NS, "svg");
+        rootSvg.setAttribute("xmlns", SVG_NS);
+        rootSvg.setAttribute("xmlns:xhtml", "http://www.w3.org/1999/xhtml");
+        rootSvg.setAttribute(
+          "viewBox",
+          `0 0 ${EXPORT_RENDER_WIDTH} ${EXPORT_RENDER_HEIGHT}`,
+        );
+        rootSvg.setAttribute("width", "100%");
+        rootSvg.setAttribute("height", "100%");
+        rootSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        rootSvg.setAttribute(
+          "style",
+          "display:block;width:100vw;height:100vh;max-width:100%;max-height:100%;background:#fff",
+        );
+
+        const background = document.createElementNS(SVG_NS, "rect");
+        background.setAttribute("x", "0");
+        background.setAttribute("y", "0");
+        background.setAttribute("width", String(EXPORT_RENDER_WIDTH));
+        background.setAttribute("height", String(EXPORT_RENDER_HEIGHT));
+        background.setAttribute("fill", "#ffffff");
+        rootSvg.appendChild(background);
+
+        const headerClone = headerSource.cloneNode(true);
+        removeExportOnlyContent(headerClone);
+        copyMatchedComputedTypography(headerSource, headerClone, "*");
+        freezeElementBox(headerSource, headerClone, 0);
+        setImportantStyle(headerClone, "left", "0px");
+        setImportantStyle(headerClone, "top", "0px");
+        setImportantStyle(headerClone, "width", `${snapshotWidth}px`);
+        setImportantStyle(headerClone, "height", `${headerHeight}px`);
+
+        const headerBody = createXhtmlExportBody(
+          snapshotWidth,
+          headerHeight,
+          exportCss,
+        );
+        headerBody.appendChild(headerClone);
+        appendForeignObject(
+          rootSvg,
+          headerBody,
+          snapshotWidth,
+          headerHeight,
+          exportX,
+          0,
+          uniformScale,
+        );
+
+        const contentBody = createXhtmlExportBody(
+          snapshotWidth,
+          contentHeight,
+          exportCss,
+        );
+
+        const containerClone = containerSource.cloneNode(true);
+        removeExportOnlyContent(containerClone);
+        copyMatchedComputedTypography(containerSource, containerClone, "*");
+        freezeVectorNodeTypography(containerSource, containerClone);
+        freezeElementBox(containerSource, containerClone, headerHeight);
+        contentBody.appendChild(containerClone);
+
+        ["#infoPanel", "#comparisonPanel"].forEach((selector) => {
+          const sourcePanel = document.querySelector(selector);
+          if (!sourcePanel || sourcePanel.hidden) return;
+          const panelStyle = window.getComputedStyle(sourcePanel);
+          if (panelStyle.display === "none" || panelStyle.visibility === "hidden") {
+            return;
+          }
+
+          const panelClone = sourcePanel.cloneNode(true);
+          removeExportOnlyContent(panelClone);
+          copyMatchedComputedTypography(sourcePanel, panelClone, "*");
+          freezeElementBox(sourcePanel, panelClone, headerHeight);
+          contentBody.appendChild(panelClone);
+        });
+
+        appendForeignObject(
+          rootSvg,
+          contentBody,
+          snapshotWidth,
+          contentHeight,
+          exportX,
+          headerHeight * uniformScale + contentOffsetY,
+          uniformScale,
+        );
+
+        return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(rootSvg)}`;
+      }
+
       async function renderCurrentViewToSvg(kind, triggerLink) {
         if (triggerLink?.dataset.exporting === "true") return;
 
@@ -6554,174 +6955,16 @@
           return;
         }
 
-        if (typeof window.html2canvas !== "function") {
-          alert("The image exporter has not loaded yet. Please try again.");
-          return;
-        }
-
         const originalText = triggerLink?.textContent || "";
         if (triggerLink) {
           triggerLink.dataset.exporting = "true";
           triggerLink.setAttribute("aria-disabled", "true");
-          triggerLink.textContent = "Preparing SVG…";
+          triggerLink.textContent = "Preparing vector SVG…";
         }
 
-        let restorePage = null;
         try {
           await waitForLiveFonts();
-
-          const snapshotWidth = Math.max(1, window.innerWidth);
-          const snapshotHeight = Math.max(1, window.innerHeight);
-          const snapshotHeaderHeight = Math.max(
-            0,
-            document
-              .querySelector(".header-ribbon")
-              ?.getBoundingClientRect().height || 0,
-          );
-          const exportUniformScale = Math.min(
-            EXPORT_RENDER_WIDTH / snapshotWidth,
-            EXPORT_RENDER_HEIGHT / snapshotHeight,
-          );
-          const captureScale = Math.max(
-            EXPORT_CAPTURE_SUPERSAMPLE,
-            exportUniformScale,
-          );
-
-          restorePage = prepareLivePageForExport();
-          await new Promise((resolve) =>
-            window.requestAnimationFrame(() =>
-              window.requestAnimationFrame(resolve),
-            ),
-          );
-
-          const capturedCanvas = await window.html2canvas(
-            document.documentElement,
-            {
-              backgroundColor: "#ffffff",
-              width: snapshotWidth,
-              height: snapshotHeight,
-              windowWidth: snapshotWidth,
-              windowHeight: snapshotHeight,
-              scale: captureScale,
-              scrollX: 0,
-              scrollY: 0,
-              useCORS: true,
-              allowTaint: false,
-              logging: false,
-              imageTimeout: 10000,
-              onclone: (capturedDocument) => {
-                capturedDocument
-                  .querySelector("#export-capture-blocker")
-                  ?.remove();
-                capturedDocument
-                  .querySelectorAll(
-                    ".popup, .popup-overlay, #strainDropdown, #copy-popup, #loading-message",
-                  )
-                  .forEach((element) => {
-                    element.style.display = "none";
-                  });
-
-                const style = capturedDocument.createElement("style");
-                style.textContent = `
-                  *, *::before, *::after {
-                    animation: none !important;
-                    transition: none !important;
-                    caret-color: transparent !important;
-                    font-synthesis: none !important;
-                  }
-                  #lineageChart svg,
-                  #lineageChart svg * {
-                    shape-rendering: geometricPrecision;
-                    text-rendering: geometricPrecision;
-                  }
-                  #lineageChart svg .strain-name:not(.is-condensed),
-                  #lineageChart svg .pct-pill-text {
-                    font-family: "Roboto", Arial, sans-serif !important;
-                  }
-                  #lineageChart svg .strain-name.is-condensed {
-                    font-family: "Roboto Condensed", Arial, sans-serif !important;
-                  }
-                `;
-                capturedDocument.head.appendChild(style);
-              },
-            },
-          );
-
-          const embedScale = 1.5;
-          const embeddedWidth = Math.round(EXPORT_RENDER_WIDTH * embedScale);
-          const embeddedHeight = Math.round(EXPORT_RENDER_HEIGHT * embedScale);
-          const outputCanvas = document.createElement("canvas");
-          outputCanvas.width = embeddedWidth;
-          outputCanvas.height = embeddedHeight;
-          const outputContext = outputCanvas.getContext("2d", { alpha: false });
-          if (!outputContext) {
-            throw new Error("The browser could not prepare the SVG image.");
-          }
-
-          outputContext.fillStyle = "#ffffff";
-          outputContext.fillRect(0, 0, embeddedWidth, embeddedHeight);
-          outputContext.imageSmoothingEnabled = true;
-          outputContext.imageSmoothingQuality = "high";
-
-          const embeddedUniformScale = Math.min(
-            embeddedWidth / snapshotWidth,
-            embeddedHeight / snapshotHeight,
-          );
-          const renderedWidth = snapshotWidth * embeddedUniformScale;
-          const renderedHeight = snapshotHeight * embeddedUniformScale;
-          const renderedX = (embeddedWidth - renderedWidth) / 2;
-          const unusedVerticalSpace = Math.max(
-            0,
-            embeddedHeight - renderedHeight,
-          );
-          const contentOffsetY = unusedVerticalSpace / 2;
-          const sourceHeaderHeight = Math.min(
-            capturedCanvas.height,
-            snapshotHeaderHeight * captureScale,
-          );
-          const renderedHeaderHeight =
-            snapshotHeaderHeight * embeddedUniformScale;
-          const sourceContentHeight = Math.max(
-            0,
-            capturedCanvas.height - sourceHeaderHeight,
-          );
-          const renderedContentHeight = Math.max(
-            0,
-            renderedHeight - renderedHeaderHeight,
-          );
-
-          if (sourceHeaderHeight > 0 && renderedHeaderHeight > 0) {
-            outputContext.drawImage(
-              capturedCanvas,
-              0,
-              0,
-              capturedCanvas.width,
-              sourceHeaderHeight,
-              renderedX,
-              0,
-              renderedWidth,
-              renderedHeaderHeight,
-            );
-          }
-
-          outputContext.drawImage(
-            capturedCanvas,
-            0,
-            sourceHeaderHeight,
-            capturedCanvas.width,
-            sourceContentHeight,
-            renderedX,
-            renderedHeaderHeight + contentOffsetY,
-            renderedWidth,
-            renderedContentHeight,
-          );
-
-          const pngBlob = await canvasToPngBlob(outputCanvas);
-          const embeddedImageUrl = await blobToDataUrl(pngBlob);
-          const svgMarkup = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${EXPORT_RENDER_WIDTH}" height="${EXPORT_RENDER_HEIGHT}" viewBox="0 0 ${EXPORT_RENDER_WIDTH} ${EXPORT_RENDER_HEIGHT}">
-  <image href="${embeddedImageUrl}" x="0" y="0" width="${EXPORT_RENDER_WIDTH}" height="${EXPORT_RENDER_HEIGHT}" preserveAspectRatio="none"/>
-</svg>`;
+          const svgMarkup = await buildTrueVectorSvgMarkup();
           const svgBlob = new Blob([svgMarkup], {
             type: "image/svg+xml;charset=utf-8",
           });
@@ -6730,7 +6973,6 @@
           console.error("SVG export failed:", error);
           alert(`Unable to create the SVG: ${error.message}`);
         } finally {
-          restorePage?.();
           if (triggerLink) {
             delete triggerLink.dataset.exporting;
             triggerLink.removeAttribute("aria-disabled");
