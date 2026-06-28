@@ -148,12 +148,14 @@
       }
 
       .header-title {
+        display: inline-block;
         min-width: 0;
         margin: 0 0 0 6px;
-        overflow: hidden;
+        overflow: visible;
+        padding-bottom: 0.08em;
         color: #fff;
         font-size: 1.8em;
-        line-height: 1.2;
+        line-height: 1.28;
         white-space: nowrap;
       }
 
@@ -5975,7 +5977,7 @@
       const EXPORT_RENDER_WIDTH = 3840;
       const EXPORT_RENDER_HEIGHT = 2160;
       const EXPORT_RENDER_TIMEOUT = 15000;
-      const EXPORT_CAPTURE_SUPERSAMPLE = 1.5;
+      const EXPORT_CAPTURE_SUPERSAMPLE = 1.75;
 
       function waitForDelay(milliseconds) {
         return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -6128,16 +6130,8 @@
           clonedLabel.style.letterSpacing = computed.letterSpacing;
           clonedLabel.style.fill = computed.fill;
 
-          if (isCondensed) {
-            const renderedLength = sourceLabel.getComputedTextLength();
-            if (Number.isFinite(renderedLength) && renderedLength > 0) {
-              clonedLabel.setAttribute("textLength", String(renderedLength));
-              clonedLabel.setAttribute("lengthAdjust", "spacingAndGlyphs");
-            }
-          } else {
-            clonedLabel.removeAttribute("textLength");
-            clonedLabel.removeAttribute("lengthAdjust");
-          }
+          clonedLabel.removeAttribute("textLength");
+          clonedLabel.removeAttribute("lengthAdjust");
         });
       }
 
@@ -6221,6 +6215,11 @@
           #lineageChart svg .strain-name.is-condensed {
             font-family: "Roboto Condensed", Arial, sans-serif !important;
           }
+          #lineageChart svg text,
+          .info-panel,
+          .info-panel * {
+            font-synthesis: none !important;
+          }
         `;
         clone.querySelector("head")?.appendChild(snapshotStyle);
       }
@@ -6266,18 +6265,30 @@
 
       async function waitForSnapshotFonts(frameDocument) {
         if (frameDocument.fonts) {
+          const requiredFonts = [
+            '600 24px "Poppins"',
+            '400 14px "Roboto"',
+            '700 15px "Roboto"',
+            '700 15px "Roboto Condensed"',
+          ];
+
           await Promise.race([
             Promise.all([
-              frameDocument.fonts.load('600 24px "Poppins"'),
-              frameDocument.fonts.load('400 14px "Roboto"'),
-              frameDocument.fonts.load('700 15px "Roboto"'),
-              frameDocument.fonts.load('700 15px "Roboto Condensed"'),
+              ...requiredFonts.map((font) => frameDocument.fonts.load(font)),
               frameDocument.fonts.ready,
             ]),
-            waitForDelay(5000),
+            waitForDelay(8000),
           ]);
+
+          const deadline = Date.now() + 8000;
+          while (
+            Date.now() < deadline &&
+            !requiredFonts.every((font) => frameDocument.fonts.check(font))
+          ) {
+            await waitForDelay(120);
+          }
         }
-        await waitForDelay(120);
+        await waitForDelay(180);
       }
 
       async function renderCurrentViewToPng(kind, triggerLink) {
