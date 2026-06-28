@@ -1128,6 +1128,13 @@
         outline-color: #1268d6;
       }
 
+      /* Dialog containers receive programmatic focus when opened so keyboard
+         navigation starts in the modal without drawing a focus ring around the
+         close button. Individual controls still show focus when reached by Tab. */
+      .popup:focus {
+        outline: none;
+      }
+
       @media (pointer: coarse) {
         /* Preserve the established visible button proportions. Search-result
            rows can grow without changing the shape of the ribbon, chart, or
@@ -5696,8 +5703,16 @@
           bestScale * CHART_BEHAVIOUR.lineageZoomScale,
         );
         const verticalRange = getVerticalRange(scale);
+        const isBottomSheet =
+          document.body.classList.contains("panel-bottom-sheet");
+        const availableTop = padding;
+        const availableBottom =
+          isBottomSheet && obstruction
+            ? Math.max(availableTop, obstruction.top - clearance)
+            : chartState.height - padding;
         const centredTranslateY =
-          chartState.height / 2 - scale * (minimumY + maximumY) / 2;
+          (availableTop + availableBottom) / 2 -
+          scale * (minimumY + maximumY) / 2;
         const translateY = Math.min(
           verticalRange.maximumTranslateY,
           Math.max(verticalRange.minimumTranslateY, centredTranslateY),
@@ -6273,8 +6288,7 @@
             startSearchPlaceholderBlink();
             document.getElementById("strainSearch").focus();
           } else {
-            const focusables = getFocusableElements(popup);
-            (focusables[0] || popup).focus();
+            popup.focus();
           }
         });
       }
