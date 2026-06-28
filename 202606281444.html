@@ -1314,12 +1314,16 @@
         sparseColumnMaximumNodes: 11,
         sparseColumnSpacingMultiplier: 1.5,
         focusedColumnSpacingMultiplier: 2,
+        focusedPortraitColumnSpacingMultiplier: 1.1,
         // Focused Gen1 anchor layout. These ratios describe the desired
         // on-screen span after the automatic lineage zoom, not raw chart
         // coordinates. Variants remain tucked beneath their base strain and
         // the base-plus-variants group counts as one Gen1 family anchor.
         focusedGenerationOneScreenSpanRatio: 0.7,
         focusedGenerationOneTwoNodeScreenSpanRatio: 0.5,
+        focusedPortraitGenerationOneScreenSpanRatio: 0.42,
+        focusedPortraitGenerationOneTwoNodeScreenSpanRatio: 0.3,
+        focusedPortraitGenerationOneFamilyGap: 10,
         focusedGenerationOneMaximumWorldSpanRatio: 8,
         variantSpacing: 2,
         linkWidth: 3,
@@ -2063,11 +2067,93 @@
         });
       }
 
+      function isPortraitFocusedLayout() {
+        return (
+          window.innerHeight > window.innerWidth &&
+          shouldUseBottomSheetPanel()
+        );
+      }
+
+      function shouldAutoFocusSelectedStrain() {
+        return shouldUseBottomSheetPanel();
+      }
+
       function getFocusedGenerationOneTargetScreenSpanRatio(nodeCount) {
         if (nodeCount <= 1) return 0;
+
+        if (isPortraitFocusedLayout()) {
+          return nodeCount === 2
+            ? CHART_SIZING.focusedPortraitGenerationOneTwoNodeScreenSpanRatio
+            : CHART_SIZING.focusedPortraitGenerationOneScreenSpanRatio;
+        }
+
         return nodeCount === 2
           ? CHART_SIZING.focusedGenerationOneTwoNodeScreenSpanRatio
           : CHART_SIZING.focusedGenerationOneScreenSpanRatio;
+      }
+
+      function getFocusedColumnSpacingMultiplier() {
+        return isPortraitFocusedLayout()
+          ? CHART_SIZING.focusedPortraitColumnSpacingMultiplier
+          : CHART_SIZING.focusedColumnSpacingMultiplier;
+      }
+
+      function getPortraitGenerationOnePositions(
+        nonVariantNodes,
+        height,
+        visibleNodeIds,
+        requestedWorldSpan,
+      ) {
+        const nodeCount = nonVariantNodes.length;
+        if (nodeCount === 1) return [height / 2];
+
+        const minimumSteps = nonVariantNodes
+          .slice(0, -1)
+          .map((node) => {
+            const variantCount = getVisibleVariantsForBase(
+              node,
+              visibleNodeIds,
+            ).length;
+            return (
+              CHART_SIZING.nodeHeight +
+              variantCount *
+                (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing) +
+              CHART_SIZING.focusedPortraitGenerationOneFamilyGap
+            );
+          });
+        const minimumSpan = d3.sum(minimumSteps);
+        const defaultSpan =
+          height * getFocusedGenerationOneTargetScreenSpanRatio(nodeCount);
+        const totalSpan = Math.max(
+          minimumSpan,
+          Number.isFinite(requestedWorldSpan)
+            ? requestedWorldSpan
+            : defaultSpan,
+        );
+        const additionalStep =
+          (totalSpan - minimumSpan) / Math.max(1, nodeCount - 1);
+        const positions = [0];
+
+        minimumSteps.forEach((minimumStep) => {
+          positions.push(
+            positions[positions.length - 1] + minimumStep + additionalStep,
+          );
+        });
+
+        const lastNode = nonVariantNodes[nodeCount - 1];
+        const lastVariantCount = getVisibleVariantsForBase(
+          lastNode,
+          visibleNodeIds,
+        ).length;
+        const footprintTop = -CHART_SIZING.nodeHeight / 2;
+        const footprintBottom =
+          positions[positions.length - 1] +
+          lastVariantCount *
+            (CHART_SIZING.nodeHeight + CHART_SIZING.variantSpacing) +
+          CHART_SIZING.nodeHeight / 2;
+        const offset = height / 2 - (footprintTop + footprintBottom) / 2;
+
+        return positions.map((position) => position + offset);
       }
 
       function assignFocusedGenerationOnePositions(
@@ -2082,7 +2168,14 @@
         const centreY = height / 2;
         let positions;
 
-        if (nodeCount === 1) {
+        if (isPortraitFocusedLayout()) {
+          positions = getPortraitGenerationOnePositions(
+            nonVariantNodes,
+            height,
+            visibleNodeIds,
+            requestedWorldSpan,
+          );
+        } else if (nodeCount === 1) {
           positions = [centreY];
         } else {
           const defaultSpan =
@@ -2128,7 +2221,7 @@
           ? CHART_SIZING.nodeHeight *
             CHART_SIZING.sparseColumnSpacingMultiplier
           : CHART_SIZING.columnSpacing;
-        return baseSpacing * CHART_SIZING.focusedColumnSpacingMultiplier;
+        return baseSpacing * getFocusedColumnSpacingMultiplier();
       }
 
       function reflowFocusedColumnsFromGenerationOne(
@@ -2653,7 +2746,7 @@
               CHART_SIZING.sparseColumnSpacingMultiplier
             : CHART_SIZING.columnSpacing;
           const spacing = isFocusedChartLayoutActive()
-            ? baseSpacing * CHART_SIZING.focusedColumnSpacingMultiplier
+            ? baseSpacing * getFocusedColumnSpacingMultiplier()
             : baseSpacing;
 
           const totalHeight =
@@ -3505,6 +3598,14 @@
       }
 
       function handleStrainSelection(node) {
+        if (
+          shouldAutoFocusSelectedStrain() &&
+          pageState.chartScope !== "focused"
+        ) {
+          pageState.chartScope = "focused";
+          syncChartScopeButtons();
+        }
+
         if (pageState.selectionMode === "compare") {
           handleComparisonSelection(node);
         } else {
@@ -5541,7 +5642,9 @@
 
             if (targetNode) {
               pageState.selectionMode = "single";
-              pageState.chartScope = requestedLocation.mode;
+              pageState.chartScope = shouldAutoFocusSelectedStrain()
+                ? "focused"
+                : requestedLocation.mode;
               syncSelectionModeButtons();
               syncChartScopeButtons();
               selectNode(targetNode);
@@ -6033,6 +6136,16 @@
 
       function handleWindowResize() {
         updateResponsiveHeader();
+
+        if (
+          shouldAutoFocusSelectedStrain() &&
+          pageState.chartScope !== "focused" &&
+          (chartState.focusedNode || chartState.comparison)
+        ) {
+          pageState.chartScope = "focused";
+          syncChartScopeButtons();
+        }
+
         window.clearTimeout(pageState.resizeTimer);
         pageState.resizeTimer = window.setTimeout(() => {
           if (chartState.isPrepared) rerenderChartForCurrentSelection();
