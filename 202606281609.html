@@ -789,7 +789,7 @@
 
       .info-panel-title {
         min-width: 0;
-        font-size: calc(20px * var(--info-panel-scale));
+        font-size: max(18px, calc(20px * var(--info-panel-scale)));
         font-weight: 400;
         line-height: 1.2;
         white-space: normal;
@@ -833,7 +833,7 @@
           0
           calc(16px * var(--info-panel-scale))
           calc(16px * var(--info-panel-scale));
-        font-size: calc(13px * var(--info-panel-scale));
+        font-size: max(13px, calc(13px * var(--info-panel-scale)));
         line-height: 1.3;
       }
 
@@ -962,6 +962,14 @@
       }
 
       .related-products-rollover-status[hidden] { display: none; }
+
+      .related-products-rollover-strain {
+        display: block;
+        margin-top: calc(2px * var(--info-panel-scale));
+        color: #222;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+      }
 
       .related-products-rollover-placeholder {
         margin-top: calc(9px * var(--info-panel-scale));
@@ -1099,6 +1107,22 @@
 
       body.panel-bottom-sheet .focused-info-columns {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+
+      @media (max-width: 600px) and (orientation: portrait) {
+        body.panel-bottom-sheet .focused-info-columns,
+        body.panel-bottom-sheet .comparison-panel-columns {
+          grid-template-columns: minmax(0, 1fr);
+          gap: calc(16px * var(--info-panel-scale));
+        }
+
+        body.panel-bottom-sheet .focused-info-column--related {
+          padding-top: calc(14px * var(--info-panel-scale));
+          padding-left: 0;
+          padding-right: 0;
+          border-top: 1px solid #aaa;
+          border-left: 0;
+        }
       }
 
       #copy-popup {
@@ -4254,7 +4278,12 @@
           return;
         }
 
-        label.textContent = `Showing products related to ${node.name}`;
+        label.replaceChildren();
+        label.appendChild(document.createTextNode("Showing products related to"));
+        const strainName = document.createElement("span");
+        strainName.className = "related-products-rollover-strain";
+        strainName.textContent = node.name;
+        label.appendChild(strainName);
         label.hidden = false;
       }
 
@@ -4377,6 +4406,13 @@
         renderRelatedProductsModeContent();
       }
 
+      function usesStackedInfoPanelColumns() {
+        return Boolean(
+          document.body.classList.contains("panel-bottom-sheet") &&
+          window.matchMedia?.("(max-width: 600px) and (orientation: portrait)").matches
+        );
+      }
+
       function syncFocusedInfoColumnHeight() {
         const panel = document.getElementById("infoPanel");
         const body = document.getElementById("infoPanelBody");
@@ -4392,6 +4428,8 @@
 
         relatedColumn.style.height = "auto";
         relatedColumn.style.maxHeight = "none";
+
+        if (usesStackedInfoPanelColumns()) return;
 
         const primaryHeight = Math.ceil(primaryColumn.getBoundingClientRect().height);
         let targetHeight = primaryHeight;
