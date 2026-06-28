@@ -440,6 +440,81 @@
 
       #strainDropdown div:hover { background: #f0f0f0; }
 
+      @media (max-width: 720px), (max-height: 560px) {
+        .popup {
+          box-sizing: border-box;
+          width: calc(100vw - 20px);
+          max-width: none;
+          max-height: calc(100vh - 20px);
+          max-height: calc(100dvh - 20px);
+          padding: 54px 18px 18px;
+          border-radius: 8px;
+          font-size: 13px;
+        }
+
+        #popup3 {
+          width: calc(100vw - 20px);
+          max-width: none;
+          max-height: calc(100vh - 20px);
+          max-height: calc(100dvh - 20px);
+          padding: 50px 18px 18px;
+        }
+
+        #popup3 h2 {
+          margin-top: 0;
+          font-size: clamp(19px, 5.6vw, 26px);
+          line-height: 1.2;
+        }
+
+        #popup2 {
+          top: max(calc(var(--header-height) + 12px), 10vh);
+          box-sizing: border-box;
+          width: calc(100vw - 16px);
+          min-width: 0;
+          max-width: none;
+          max-height: calc(100vh - var(--header-height) - 20px);
+          max-height: calc(100dvh - var(--header-height) - 20px);
+          padding: 50px 8px 8px;
+        }
+
+        #popup2 .popup2-center {
+          width: 100%;
+          height: auto;
+          gap: 10px;
+        }
+
+        #popup2 .search-container {
+          width: 100%;
+        }
+
+        #popup2 #strainSearch {
+          padding: 0.38em 0.75em;
+          border-width: 3px;
+          font-size: clamp(22px, 7vw, 34px);
+        }
+
+        #strainDropdown {
+          box-sizing: border-box;
+          max-width: calc(100vw - 16px);
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        #strainDropdown div {
+          padding: 9px 12px;
+          font-size: clamp(18px, 5.8vw, 28px);
+          line-height: 1.08;
+        }
+
+        .close-button {
+          top: 8px;
+          right: 8px;
+          width: 36px;
+          height: 36px;
+        }
+      }
+
       #loading-message {
         position: fixed;
         top: 40%;
@@ -1345,7 +1420,7 @@
         zoomButtonFactor: 1.05,
         zoomButtonDuration: 250,
         zoomTransitionDuration: 750,
-        lineageZoomScale: 0.9,
+        lineageZoomScale: 1,
         hoverScale: 1.4,
         hoverTransitionDuration: 80,
         nodeLongPressDelay: 850,
@@ -5411,6 +5486,157 @@
         chartState.svg.call(chartState.zoom.transform, initialTransform);
       }
 
+      function getNodeWorldRectangles(nodes) {
+        const elementsById = new Map(
+          Array.from(
+            document.querySelectorAll("#lineageChart .node"),
+          ).map((element) => [element.__data__?.id, element]),
+        );
+
+        return nodes.map((node) => {
+          const element = elementsById.get(node.id);
+
+          if (element?.getBBox) {
+            try {
+              const bounds = element.getBBox();
+              if (bounds.width > 0 && bounds.height > 0) {
+                return {
+                  left: node.x + bounds.x,
+                  right: node.x + bounds.x + bounds.width,
+                  top: node.y + bounds.y,
+                  bottom: node.y + bounds.y + bounds.height,
+                };
+              }
+            } catch (error) {
+              // Fall back to the configured node dimensions below.
+            }
+          }
+
+          const halfWidth = getNodeWidth(node) / 2;
+          const halfHeight = CHART_SIZING.nodeHeight / 2;
+          return {
+            left: node.x - halfWidth,
+            right: node.x + halfWidth,
+            top: node.y - halfHeight,
+            bottom: node.y + halfHeight,
+          };
+        });
+      }
+
+      function getChartPanelObstruction() {
+        const panel = getVisibleChartPanel();
+        const chartContainer = document.querySelector(".chart-container");
+        if (!panel || !chartContainer) return null;
+
+        const chartRect = chartContainer.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
+        const left = Math.max(0, panelRect.left - chartRect.left);
+        const right = Math.min(chartState.width, panelRect.right - chartRect.left);
+        const top = Math.max(0, panelRect.top - chartRect.top);
+        const bottom = Math.min(
+          chartState.height,
+          panelRect.bottom - chartRect.top,
+        );
+
+        if (right <= left || bottom <= top) return null;
+        return { left, right, top, bottom };
+      }
+
+      function getLineageChartTransform(nodes) {
+        const rectangles = getNodeWorldRectangles(nodes);
+        if (!rectangles.length) {
+          return getChartTransform(nodes, 1, { anchorLeft: true });
+        }
+
+        const padding = getResponsiveViewportPadding();
+        const minimumX = d3.min(rectangles, (rectangle) => rectangle.left);
+        const maximumX = d3.max(rectangles, (rectangle) => rectangle.right);
+        const minimumY = d3.min(rectangles, (rectangle) => rectangle.top);
+        const maximumY = d3.max(rectangles, (rectangle) => rectangle.bottom);
+        const horizontalRange = Math.max(1, maximumX - minimumX);
+        const leftEdge = getInitialLeftEdgeScreenX();
+        const obstruction = getChartPanelObstruction();
+        const clearance = CHART_SIZING.infoPanelViewportGap;
+        const maximumHorizontalScale = Math.max(
+          CHART_BEHAVIOUR.zoomMinimum,
+          (chartState.width - leftEdge - padding) / horizontalRange,
+        );
+        const maximumScale = Math.min(
+          CHART_BEHAVIOUR.zoomMaximum,
+          maximumHorizontalScale,
+        );
+
+        function getVerticalRange(scale) {
+          let minimumTranslateY = padding - scale * minimumY;
+          let maximumTranslateY =
+            chartState.height - padding - scale * maximumY;
+
+          if (obstruction) {
+            const obstructionLeft = obstruction.left - clearance;
+            const obstructionRight = obstruction.right + clearance;
+            const obstructionTop = obstruction.top - clearance;
+
+            rectangles.forEach((rectangle) => {
+              const screenLeft =
+                leftEdge + scale * (rectangle.left - minimumX);
+              const screenRight =
+                leftEdge + scale * (rectangle.right - minimumX);
+              const horizontallyOverlapsPanel =
+                screenRight > obstructionLeft &&
+                screenLeft < obstructionRight;
+
+              if (horizontallyOverlapsPanel) {
+                maximumTranslateY = Math.min(
+                  maximumTranslateY,
+                  obstructionTop - scale * rectangle.bottom,
+                );
+              }
+            });
+          }
+
+          return {
+            minimumTranslateY,
+            maximumTranslateY,
+            isFeasible: minimumTranslateY <= maximumTranslateY,
+          };
+        }
+
+        let lowerScale = CHART_BEHAVIOUR.zoomMinimum;
+        let upperScale = maximumScale;
+        let bestScale = lowerScale;
+
+        if (getVerticalRange(upperScale).isFeasible) {
+          bestScale = upperScale;
+        } else {
+          for (let iteration = 0; iteration < 24; iteration += 1) {
+            const middleScale = (lowerScale + upperScale) / 2;
+            if (getVerticalRange(middleScale).isFeasible) {
+              bestScale = middleScale;
+              lowerScale = middleScale;
+            } else {
+              upperScale = middleScale;
+            }
+          }
+        }
+
+        const scale = Math.max(
+          CHART_BEHAVIOUR.zoomMinimum,
+          bestScale * CHART_BEHAVIOUR.lineageZoomScale,
+        );
+        const verticalRange = getVerticalRange(scale);
+        const centredTranslateY =
+          chartState.height / 2 - scale * (minimumY + maximumY) / 2;
+        const translateY = Math.min(
+          verticalRange.maximumTranslateY,
+          Math.max(verticalRange.minimumTranslateY, centredTranslateY),
+        );
+        const translateX = leftEdge - scale * minimumX;
+
+        return d3.zoomIdentity
+          .translate(translateX, translateY)
+          .scale(scale);
+      }
+
       function zoomToLineage(lineage) {
         const activeNodes = chartState.visibleNodes.filter((node) =>
           lineage.has(node.id),
@@ -5424,11 +5650,7 @@
           .duration(CHART_BEHAVIOUR.zoomTransitionDuration)
           .call(
             chartState.zoom.transform,
-            getChartTransform(
-              activeNodes,
-              CHART_BEHAVIOUR.lineageZoomScale,
-              { anchorLeft: true },
-            ),
+            getLineageChartTransform(activeNodes),
           );
       }
 
@@ -5796,11 +6018,29 @@
         const searchInput = document.getElementById("strainSearch");
         const dropdown = document.getElementById("strainDropdown");
         const inputBounds = searchInput.getBoundingClientRect();
-        const dropdownWidth = inputBounds.width * 0.9;
+        const viewportGap = 8;
+        const maximumWidth = Math.max(
+          0,
+          window.innerWidth - viewportGap * 2,
+        );
+        const dropdownWidth = Math.min(inputBounds.width, maximumWidth);
+        const left = Math.min(
+          window.innerWidth - dropdownWidth - viewportGap,
+          Math.max(
+            viewportGap,
+            inputBounds.left + inputBounds.width / 2 - dropdownWidth / 2,
+          ),
+        );
+        const top = inputBounds.bottom + 5;
+        const maximumHeight = Math.max(
+          96,
+          window.innerHeight - top - viewportGap,
+        );
 
         dropdown.style.width = `${dropdownWidth}px`;
-        dropdown.style.top = `${inputBounds.bottom + 5}px`;
-        dropdown.style.left = `${inputBounds.left + inputBounds.width / 2 - dropdownWidth / 2}px`;
+        dropdown.style.left = `${left}px`;
+        dropdown.style.top = `${top}px`;
+        dropdown.style.maxHeight = `${maximumHeight}px`;
       }
 
       function getMatchingStrains(searchText) {
@@ -6136,6 +6376,11 @@
 
       function handleWindowResize() {
         updateResponsiveHeader();
+
+        const searchPopup = document.getElementById("popup2");
+        if (searchPopup?.style.display === "flex") {
+          updateStrainDropdownPosition();
+        }
 
         if (
           shouldAutoFocusSelectedStrain() &&
