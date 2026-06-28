@@ -3919,16 +3919,23 @@
         }
       }
 
+      function transformWorldRectangle(rectangle, transform) {
+        return {
+          left: transform.x + transform.k * rectangle.left,
+          right: transform.x + transform.k * rectangle.right,
+          top: transform.y + transform.k * rectangle.top,
+          bottom: transform.y + transform.k * rectangle.bottom,
+        };
+      }
+
       function adaptPanelHeightToLineage(panelType, nodes) {
         const config = PANEL_ZOOM_CONFIG[panelType];
         if (!config || !nodes?.length) return;
 
         const panel = document.getElementById(config.panelId);
-        const chartContainer = document.querySelector(".chart-container");
         if (
           !panel ||
           panel.hidden ||
-          !chartContainer ||
           panel.classList.contains("is-user-resized") ||
           document.body.classList.contains("panel-bottom-sheet")
         ) {
@@ -3936,54 +3943,77 @@
         }
 
         const rectangles = getNodeWorldRectangles(nodes);
-        if (!rectangles.length) return;
+        const obstruction = getChartPanelObstruction();
+        if (!rectangles.length || !obstruction) return;
 
-        const panelRect = panel.getBoundingClientRect();
-        const chartRect = chartContainer.getBoundingClientRect();
-        const minimumX = d3.min(rectangles, (rectangle) => rectangle.left);
-        const maximumX = d3.max(rectangles, (rectangle) => rectangle.right);
-        const minimumY = d3.min(rectangles, (rectangle) => rectangle.top);
-        const maximumY = d3.max(rectangles, (rectangle) => rectangle.bottom);
-        const horizontalRange = Math.max(1, maximumX - minimumX);
-        const verticalRange = Math.max(1, maximumY - minimumY);
-        const padding = getResponsiveViewportPadding();
-        const leftEdge = getInitialLeftEdgeScreenX();
-        const horizontalScale = Math.min(
-          CHART_BEHAVIOUR.zoomMaximum,
-          Math.max(
-            0.001,
-            (chartState.width - leftEdge - padding) / horizontalRange,
-          ),
+        const clearance = CHART_SIZING.infoPanelViewportGap;
+        const idealTransform = getLineageChartTransform(nodes, {
+          ignorePanel: true,
+        });
+        const idealScreenRectangles = rectangles.map((rectangle) =>
+          transformWorldRectangle(rectangle, idealTransform),
         );
-        const projectedLineageHeight =
-          verticalRange * horizontalScale + padding * 2;
-        const panelBottomInChart = Math.min(
-          chartState.height,
-          panelRect.bottom - chartRect.top,
+        const panelLeft = obstruction.left - clearance;
+        const panelRight = obstruction.right + clearance;
+        const panelTop = obstruction.top - clearance;
+
+        // Use the actual transformed node rectangles, not the lineage's outer
+        // bounding box. Empty space between sparse or centred nodes must not be
+        // treated as though it collides with the panel.
+        const nodesThatWouldEnterPanel = idealScreenRectangles.filter(
+          (rectangle) =>
+            rectangle.right > panelLeft &&
+            rectangle.left < panelRight &&
+            rectangle.bottom > panelTop &&
+            rectangle.top < obstruction.bottom,
         );
-        const maximumPanelHeightAboveLineage =
-          panelBottomInChart -
-          projectedLineageHeight -
-          CHART_SIZING.infoPanelViewportGap;
-        const minimumUsefulPanelHeight = Math.min(160, panelRect.height);
+
+        if (!nodesThatWouldEnterPanel.length) return;
+
+        const lowestRequiredClearance = d3.max(
+          nodesThatWouldEnterPanel,
+          (rectangle) => rectangle.bottom,
+        );
+        const naturalPanelHeight = obstruction.bottom - obstruction.top;
+        const minimumUsefulPanelHeight = Math.min(160, naturalPanelHeight);
         const nextHeight = Math.min(
-          panelRect.height,
-          maximumPanelHeightAboveLineage,
+          obstruction.bottom - lowestRequiredClearance - clearance,
+          naturalPanelHeight,
         );
 
-        // A wide, comparatively shallow lineage benefits from a shorter panel
-        // because it can use the full chart width above it. Tall lineages do
-        // not: shortening the panel would add little or no scale, so retain the
-        // panel's natural height and let the node-aware fit use space beside it.
         if (
           nextHeight < minimumUsefulPanelHeight ||
-          nextHeight >= panelRect.height - 8
+          nextHeight >= naturalPanelHeight - 8
         ) {
           return;
         }
 
+        const naturalTransform = getLineageChartTransform(nodes);
+        const originalInlineHeight = panel.style.height;
+        const originallyAutoConstrained = panel.classList.contains(
+          "is-auto-height-constrained",
+        );
+
         panel.style.height = `${Math.floor(nextHeight)}px`;
         panel.classList.add("is-auto-height-constrained");
+
+        const shortenedTransform = getLineageChartTransform(nodes);
+        const scaleGain =
+          shortenedTransform.k / Math.max(0.001, naturalTransform.k);
+        const minimumUsefulScaleGain = 1.1;
+
+        if (scaleGain < minimumUsefulScaleGain) {
+          if (originalInlineHeight) {
+            panel.style.height = originalInlineHeight;
+          } else {
+            panel.style.removeProperty("height");
+          }
+          panel.classList.toggle(
+            "is-auto-height-constrained",
+            originallyAutoConstrained,
+          );
+          return;
+        }
 
         if (panelType === "info") {
           syncFocusedInfoColumnHeight();
@@ -5631,7 +5661,10 @@
         return { left, right, top, bottom };
       }
 
-      function getLineageChartTransform(nodes) {
+      function getLineageChartTransform(
+        nodes,
+        { ignorePanel = false } = {},
+      ) {
         const rectangles = getNodeWorldRectangles(nodes);
         if (!rectangles.length) {
           return getChartTransform(nodes, 1, { anchorLeft: true });
@@ -5644,7 +5677,7 @@
         const maximumY = d3.max(rectangles, (rectangle) => rectangle.bottom);
         const horizontalRange = Math.max(1, maximumX - minimumX);
         const leftEdge = getInitialLeftEdgeScreenX();
-        const obstruction = getChartPanelObstruction();
+        const obstruction = ignorePanel ? null : getChartPanelObstruction();
         const clearance = CHART_SIZING.infoPanelViewportGap;
         const maximumHorizontalScale = Math.max(
           0.001,
@@ -6542,6 +6575,10 @@
           event.stopPropagation();
           toggleHeaderMenu();
         });
+
+        document
+          .getElementById("headerMenuPanel")
+          .addEventListener("click", () => closeHeaderMenu(true));
 
         document.addEventListener("click", (event) => {
           if (!menu.contains(event.target)) closeHeaderMenu();
