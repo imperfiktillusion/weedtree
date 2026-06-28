@@ -5237,12 +5237,21 @@
         const nextMode = mode === "compare" ? "compare" : "single";
         if (pageState.selectionMode === nextMode) return;
 
+        const firstComparisonNode =
+          pageState.selectionMode === "single" && nextMode === "compare"
+            ? chartState.focusedNode
+            : null;
+
         // Clear using the outgoing mode so an active focused subset is
         // restored to the full chart before the mode changes.
         clearChartFocus({ resetView: false });
         pageState.selectionMode = nextMode;
 
         syncSelectionModeButtons();
+
+        if (firstComparisonNode) {
+          showPendingComparisonSelection(firstComparisonNode);
+        }
 
         resetSearchInput();
       }
