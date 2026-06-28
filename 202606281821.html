@@ -331,7 +331,12 @@
         transform: translate(-50%, -50%);
       }
 
-      #popup3 { z-index: 1012; padding: 20px; }
+      #popup3 {
+        z-index: 1012;
+        width: min(860px, calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 40px));
+        max-width: 860px;
+        padding: 20px;
+      }
 
       #popup2 {
         top: var(--visual-viewport-quarter-y, 25vh);
@@ -1433,9 +1438,8 @@
 
       <p>
         With the massive variability in effects, I’ve always been curious about
-        how cannabis strain lineages relate between the strains I prefer; Indica
-        to Sativa, Kush to Afghani, Skunk to Thai. So I built the lineage chart I
-        couldn’t find elsewhere.
+        how cannabis strain lineages relate between the strains I prefer. So I
+        built the lineage chart I couldn’t find elsewhere.
       </p>
 
       <p>
@@ -1461,6 +1465,8 @@
         only and should not be relied upon when making health, treatment, legal,
         or purchasing decisions.
       </p>
+
+      <p>Please enjoy exploring the lineages and the patterns they make.</p>
     </div>
 
     <div id="strainDropdown"></div>
@@ -4219,10 +4225,20 @@
           copyStrainContributors(node.name, event),
         );
 
+        const downloadLineageLink = document.createElement("a");
+        downloadLineageLink.href = "#";
+        downloadLineageLink.textContent = "Download lineage image";
+        downloadLineageLink.addEventListener("click", (event) => {
+          event.preventDefault();
+          exportCurrentViewAsSvg("lineage");
+        });
+
         actions.append(
           copyUrlLink,
           document.createElement("br"),
           copyContributorsLink,
+          document.createElement("br"),
+          downloadLineageLink,
         );
         container.appendChild(actions);
         return actions;
@@ -5471,6 +5487,15 @@
         copyComparisonUrlLink.addEventListener("click", copyCurrentStateURL);
         actions.appendChild(copyComparisonUrlLink);
 
+        const downloadComparisonLink = document.createElement("a");
+        downloadComparisonLink.href = "#";
+        downloadComparisonLink.textContent = "Download comparison image";
+        downloadComparisonLink.addEventListener("click", (event) => {
+          event.preventDefault();
+          exportCurrentViewAsSvg("comparison");
+        });
+        actions.append(document.createElement("br"), downloadComparisonLink);
+
         if (firstProductsSection || secondProductsSection) {
           const productsToggle = document.createElement("a");
           productsToggle.href = "#";
@@ -5944,6 +5969,255 @@
             .translate(translateX, currentTransform.y)
             .scale(scale),
         );
+      }
+
+      function escapeSvgText(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function getMainStyleText() {
+        return document.querySelector("style")?.textContent || "";
+      }
+
+      function downloadTextFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      }
+
+      function buildExportFilename(kind) {
+        const safeValue = (value) =>
+          String(value || "")
+            .trim()
+            .replace(/\s+/g, "_")
+            .replace(/[^A-Za-z0-9._=-]+/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^[-_.]+|[-_.]+$/g, "");
+
+        if (kind === "comparison") {
+          const [firstNode, secondNode] = chartState.comparisonSelections;
+          const parts = [
+            "weedtree",
+            `compare=${safeValue(firstNode?.name || "comparison")}`,
+            `with=${safeValue(secondNode?.name || "comparison")}`,
+          ];
+          return `${parts.join("_")}.svg`;
+        }
+
+        const productsVisible = !document.querySelector(
+          "#infoPanel .focused-info-column--related[hidden]",
+        );
+        const parts = [
+          "weedtree",
+          `strain=${safeValue(chartState.focusedNode?.name || "lineage")}`,
+        ];
+        if (pageState.chartScope === "focused") {
+          parts.push("mode=focused");
+        }
+        if (productsVisible) {
+          parts.push("products=shown");
+        }
+        return `${parts.join("_")}.svg`;
+      }
+
+      function getExportPanelElement(kind) {
+        return document.getElementById(kind === "comparison" ? "comparisonPanel" : "infoPanel");
+      }
+
+      function getExportPanelMarkup(kind) {
+        const panel = getExportPanelElement(kind);
+        if (!panel || panel.hidden) return "";
+
+        const clone = panel.cloneNode(true);
+        clone.removeAttribute("hidden");
+        clone.querySelectorAll(".info-panel-resize-handle").forEach((element) => element.remove());
+        clone.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+        return new XMLSerializer().serializeToString(clone);
+      }
+
+      function getExportChartSvgMarkup(exportWidth, exportHeight, headerHeight) {
+        const sourceSvg = document.querySelector("#lineageChart svg");
+        if (!sourceSvg) return "";
+
+        const clonedSvg = sourceSvg.cloneNode(true);
+        clonedSvg.setAttribute("x", "0");
+        clonedSvg.setAttribute("y", String(headerHeight));
+        clonedSvg.setAttribute("width", String(exportWidth));
+        clonedSvg.setAttribute("height", String(exportHeight - headerHeight));
+        clonedSvg.setAttribute("preserveAspectRatio", "none");
+        clonedSvg.removeAttribute("style");
+        return new XMLSerializer().serializeToString(clonedSvg);
+      }
+
+      function createSvgButton(x, y, width, height, label, options = {}) {
+        const {
+          filled = false,
+          dark = false,
+          fontSize = 24,
+          rx = 28,
+        } = options;
+        const fill = filled ? "#ffffff" : dark ? "rgba(255,255,255,0.92)" : "transparent";
+        const stroke = dark ? "#434343" : "#ffffff";
+        const textFill = filled ? "#434343" : dark ? "#434343" : "#ffffff";
+        return `
+          <g>
+            <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${rx}" ry="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="4"/>
+            <text x="${x + width / 2}" y="${y + height / 2}" fill="${textFill}" font-family="Poppins, Arial, sans-serif" font-size="${fontSize}" font-weight="400" text-anchor="middle" dominant-baseline="middle">${escapeSvgText(label)}</text>
+          </g>`;
+      }
+
+      function createSvgSegmentedControl(x, y, labels, activeIndex, options = {}) {
+        const {
+          buttonWidth = 220,
+          height = 48,
+          fontSize = 22,
+          borderColor = "#ffffff",
+          activeFill = "#ffffff",
+          inactiveFill = "transparent",
+          activeText = "#434343",
+          inactiveText = "#ffffff",
+          dividerColor = "rgba(255,255,255,0.55)",
+          rx = 28,
+        } = options;
+        const totalWidth = buttonWidth * labels.length;
+        let markup = `<g><rect x="${x}" y="${y}" width="${totalWidth}" height="${height}" rx="${rx}" ry="${rx}" fill="transparent" stroke="${borderColor}" stroke-width="4"/>`;
+        labels.forEach((label, index) => {
+          const buttonX = x + index * buttonWidth;
+          if (index === activeIndex) {
+            markup += `<rect x="${buttonX}" y="${y}" width="${buttonWidth}" height="${height}" rx="${index === 0 || index === labels.length - 1 ? rx : 0}" ry="${index === 0 || index === labels.length - 1 ? rx : 0}" fill="${activeFill}"/>`;
+          } else if (inactiveFill !== "transparent") {
+            markup += `<rect x="${buttonX}" y="${y}" width="${buttonWidth}" height="${height}" fill="${inactiveFill}"/>`;
+          }
+          if (index > 0) {
+            markup += `<line x1="${buttonX}" y1="${y + 6}" x2="${buttonX}" y2="${y + height - 6}" stroke="${dividerColor}" stroke-width="2"/>`;
+          }
+          markup += `<text x="${buttonX + buttonWidth / 2}" y="${y + height / 2}" fill="${index === activeIndex ? activeText : inactiveText}" font-family="Poppins, Arial, sans-serif" font-size="${fontSize}" font-weight="400" text-anchor="middle" dominant-baseline="middle">${escapeSvgText(label)}</text>`;
+        });
+        markup += `</g>`;
+        return markup;
+      }
+
+      function createExportHeaderMarkup(exportWidth, headerHeight) {
+        const titleY = headerHeight / 2;
+        let markup = `<rect x="0" y="0" width="${exportWidth}" height="${headerHeight}" fill="#434343"/>`;
+        markup += `<text x="34" y="${titleY}" fill="#ffffff" font-family="Poppins, Arial, sans-serif" font-size="46" font-weight="600" dominant-baseline="middle">WeedTree.fyi Strain Lineage Chart</text>`;
+
+        const rightGap = 34;
+        const buttonY = 18;
+        const aboutWidth = 120;
+        const searchWidth = 210;
+        const selectionWidth = 440;
+        const scopeWidth = 320;
+        const gap = 18;
+        const totalWidth = scopeWidth + gap + selectionWidth + gap + searchWidth + gap + aboutWidth;
+        const startX = exportWidth - rightGap - totalWidth;
+        markup += createSvgSegmentedControl(
+          startX,
+          buttonY,
+          ["Full", "Focused"],
+          pageState.chartScope === "focused" ? 1 : 0,
+          { buttonWidth: 160, height: 50, fontSize: 22 }
+        );
+        markup += createSvgSegmentedControl(
+          startX + scopeWidth + gap,
+          buttonY,
+          ["Single strain", "Compare strains"],
+          pageState.selectionMode === "compare" ? 1 : 0,
+          { buttonWidth: 220, height: 50, fontSize: 22 }
+        );
+        markup += createSvgButton(startX + scopeWidth + gap + selectionWidth + gap, buttonY, searchWidth, 50, "Go to strain");
+        markup += createSvgButton(startX + scopeWidth + gap + selectionWidth + gap + searchWidth + gap, buttonY, aboutWidth, 50, "About");
+        return markup;
+      }
+
+      function createExportChartControlsMarkup(exportWidth, headerHeight) {
+        const gap = 18;
+        const y = headerHeight + 22;
+        const fullScreenWidth = 190;
+        const zoomButtonWidth = 160;
+        const zoomGroupWidth = zoomButtonWidth * 2;
+        const totalWidth = zoomGroupWidth + gap + fullScreenWidth;
+        const x = exportWidth - 34 - totalWidth;
+        let markup = "";
+        markup += createSvgSegmentedControl(
+          x,
+          y,
+          ["Zoom in", "Zoom out"],
+          -1,
+          {
+            buttonWidth: zoomButtonWidth,
+            height: 50,
+            fontSize: 22,
+            borderColor: "#434343",
+            inactiveText: "#434343",
+            dividerColor: "rgba(67,67,67,0.55)",
+          },
+        );
+        markup += createSvgButton(
+          x + zoomGroupWidth + gap,
+          y,
+          fullScreenWidth,
+          50,
+          document.fullscreenElement ? "Exit full screen" : "Full screen",
+          { dark: true },
+        );
+
+        const message = document.getElementById("comparisonSelectionMessage");
+        if (message && !message.hidden && message.textContent.trim()) {
+          markup += `<text x="${exportWidth / 2}" y="${headerHeight + 120}" fill="#d00000" font-family="Poppins, Arial, sans-serif" font-size="42" font-weight="600" text-anchor="middle">${escapeSvgText(message.textContent.trim())}</text>`;
+        }
+        return markup;
+      }
+
+      function buildPanelForeignObject(kind, exportWidth, exportHeight) {
+        const panel = getExportPanelElement(kind);
+        if (!panel || panel.hidden) return "";
+
+        const currentRect = panel.getBoundingClientRect();
+        const width = Math.max(620, Math.min(980, Math.round((currentRect.width / Math.max(window.innerWidth, 1)) * exportWidth)));
+        const maxHeight = exportHeight - 220;
+        const height = Math.max(420, Math.min(maxHeight, Math.round((currentRect.height / Math.max(window.innerHeight, 1)) * exportHeight)));
+        const x = exportWidth - 34 - width;
+        const y = exportHeight - 34 - height;
+        const styleText = getMainStyleText();
+        const panelMarkup = getExportPanelMarkup(kind);
+        return `
+          <foreignObject x="${x}" y="${y}" width="${width}" height="${height}">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;overflow:hidden;">
+              <style>${styleText}</style>
+              <div style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent;">
+                ${panelMarkup}
+              </div>
+            </div>
+          </foreignObject>`;
+      }
+
+      function exportCurrentViewAsSvg(kind = "lineage") {
+        const exportWidth = 3840;
+        const exportHeight = 2160;
+        const headerHeight = 88;
+        const styleText = getMainStyleText();
+        const svgMarkup = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="${exportWidth}" height="${exportHeight}" viewBox="0 0 ${exportWidth} ${exportHeight}">
+  <style>${styleText}</style>
+  <rect x="0" y="0" width="${exportWidth}" height="${exportHeight}" fill="#ffffff"/>
+  ${createExportHeaderMarkup(exportWidth, headerHeight)}
+  ${getExportChartSvgMarkup(exportWidth, exportHeight, headerHeight)}
+  ${createExportChartControlsMarkup(exportWidth, headerHeight)}
+  ${buildPanelForeignObject(kind, exportWidth, exportHeight)}
+</svg>`;
+        downloadTextFile(svgMarkup, buildExportFilename(kind), "image/svg+xml;charset=utf-8");
       }
 
       // -----------------------------------------------------------------------
