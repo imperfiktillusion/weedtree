@@ -6104,7 +6104,34 @@
         });
       }
 
-      function synchroniseExportNodeTextMetrics(clone) {
+      function copyComputedFontStyles(sourceElement, clonedElement) {
+        if (!sourceElement || !clonedElement) return;
+        const computed = window.getComputedStyle(sourceElement);
+        clonedElement.style.fontFamily = computed.fontFamily;
+        clonedElement.style.fontSize = computed.fontSize;
+        clonedElement.style.fontWeight = computed.fontWeight;
+        clonedElement.style.fontStyle = computed.fontStyle;
+        clonedElement.style.fontStretch = computed.fontStretch;
+        clonedElement.style.letterSpacing = computed.letterSpacing;
+        clonedElement.style.lineHeight = computed.lineHeight;
+        clonedElement.style.fontVariant = computed.fontVariant;
+        clonedElement.style.fontSynthesis = "none";
+      }
+
+      function synchroniseExportTextMetrics(clone) {
+        [
+          ".header-ribbon *",
+          ".chart-controls *",
+          ".info-panel *",
+          "#lineageChart svg text",
+        ].forEach((selector) => {
+          const sourceElements = Array.from(document.querySelectorAll(selector));
+          const clonedElements = Array.from(clone.querySelectorAll(selector));
+          sourceElements.forEach((sourceElement, index) => {
+            copyComputedFontStyles(sourceElement, clonedElements[index]);
+          });
+        });
+
         const sourceLabels = Array.from(
           document.querySelectorAll("#lineageChart svg .strain-name"),
         );
@@ -6116,23 +6143,22 @@
           const clonedLabel = clonedLabels[index];
           if (!clonedLabel) return;
 
-          const computed = window.getComputedStyle(sourceLabel);
           const isCondensed = sourceLabel.classList.contains("is-condensed");
-
           clonedLabel.classList.toggle("is-condensed", isCondensed);
           clonedLabel.style.fontFamily = isCondensed
             ? '"Roboto Condensed", Arial, sans-serif'
-            : computed.fontFamily;
-          clonedLabel.style.fontSize = computed.fontSize;
-          clonedLabel.style.fontWeight = computed.fontWeight;
-          clonedLabel.style.fontStyle = computed.fontStyle;
-          clonedLabel.style.fontStretch = computed.fontStretch;
-          clonedLabel.style.letterSpacing = computed.letterSpacing;
-          clonedLabel.style.fill = computed.fill;
-
+            : '"Roboto", Arial, sans-serif';
+          clonedLabel.style.fontWeight = "700";
           clonedLabel.removeAttribute("textLength");
           clonedLabel.removeAttribute("lengthAdjust");
         });
+
+        clone
+          .querySelectorAll("#lineageChart svg .pct-pill-text")
+          .forEach((label) => {
+            label.style.fontFamily = '"Roboto", Arial, sans-serif';
+            label.style.fontWeight = "700";
+          });
       }
 
       function prepareExportSnapshotClone(clone) {
@@ -6154,7 +6180,7 @@
         );
 
         synchroniseExportNodeGeometry(clone);
-        synchroniseExportNodeTextMetrics(clone);
+        synchroniseExportTextMetrics(clone);
 
         const body = clone.querySelector("body");
         body?.classList.remove("export-render-mode");
@@ -6212,12 +6238,25 @@
             shape-rendering: geometricPrecision;
             text-rendering: geometricPrecision;
           }
-          #lineageChart svg .strain-name.is-condensed {
-            font-family: "Roboto Condensed", Arial, sans-serif !important;
+          .header-ribbon,
+          .header-ribbon *,
+          .chart-controls,
+          .chart-controls * {
+            font-family: "Poppins", Arial, sans-serif !important;
+            font-synthesis: none !important;
           }
-          #lineageChart svg text,
           .info-panel,
           .info-panel * {
+            font-family: "Roboto", Arial, sans-serif !important;
+            font-synthesis: none !important;
+          }
+          #lineageChart svg .strain-name:not(.is-condensed),
+          #lineageChart svg .pct-pill-text {
+            font-family: "Roboto", Arial, sans-serif !important;
+            font-synthesis: none !important;
+          }
+          #lineageChart svg .strain-name.is-condensed {
+            font-family: "Roboto Condensed", Arial, sans-serif !important;
             font-synthesis: none !important;
           }
         `;
