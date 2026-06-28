@@ -4233,7 +4233,7 @@
         downloadLineageLink.textContent = "Download lineage image";
         downloadLineageLink.addEventListener("click", (event) => {
           event.preventDefault();
-          renderCurrentViewToPng("lineage", downloadLineageLink);
+          renderCurrentViewToSvg("lineage", downloadLineageLink);
         });
 
         actions.append(
@@ -5495,7 +5495,7 @@
         downloadComparisonLink.textContent = "Download comparison image";
         downloadComparisonLink.addEventListener("click", (event) => {
           event.preventDefault();
-          renderCurrentViewToPng("comparison", downloadComparisonLink);
+          renderCurrentViewToSvg("comparison", downloadComparisonLink);
         });
         actions.append(document.createElement("br"), downloadComparisonLink);
 
@@ -6037,7 +6037,7 @@
             `compare=${sanitiseExportFilenameValue(request.firstName)}`,
             `with=${sanitiseExportFilenameValue(request.secondName)}`,
             `mode=${request.chartScope}`,
-          ].join("_") + ".png";
+          ].join("_") + ".svg";
         }
 
         const parts = [
@@ -6045,7 +6045,7 @@
           `strain=${sanitiseExportFilenameValue(request.strainName)}`,
         ];
         if (request.chartScope === "focused") parts.push("mode=focused");
-        return `${parts.join("_")}.png`;
+        return `${parts.join("_")}.svg`;
       }
 
       function removePrecedingBreak(element) {
@@ -6379,7 +6379,169 @@
         await waitForDelay(180);
       }
 
-      async function renderCurrentViewToPng(kind, triggerLink) {
+      function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.addEventListener("load", () => resolve(reader.result), {
+            once: true,
+          });
+          reader.addEventListener(
+            "error",
+            () => reject(new Error("The browser could not encode the image.")),
+            { once: true },
+          );
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      function createExportCaptureBlocker() {
+        const blocker = document.createElement("div");
+        blocker.id = "export-capture-blocker";
+        blocker.setAttribute("aria-hidden", "true");
+        Object.assign(blocker.style, {
+          position: "fixed",
+          inset: "0",
+          zIndex: "2147483647",
+          background: "rgba(0, 0, 0, 0.16)",
+          cursor: "wait",
+          pointerEvents: "all",
+        });
+        document.body.appendChild(blocker);
+        return blocker;
+      }
+
+      function captureElementState(element) {
+        return {
+          element,
+          style: element.getAttribute("style"),
+          className: element.getAttribute("class"),
+          hidden: element.hidden,
+        };
+      }
+
+      function restoreCapturedElementState(record) {
+        const { element, style, className, hidden } = record;
+        if (style === null) element.removeAttribute("style");
+        else element.setAttribute("style", style);
+        if (className === null) element.removeAttribute("class");
+        else element.setAttribute("class", className);
+        element.hidden = hidden;
+      }
+
+      function inlineCurrentFont(element) {
+        const computed = window.getComputedStyle(element);
+        element.style.fontFamily = computed.fontFamily;
+        element.style.fontSize = computed.fontSize;
+        element.style.fontWeight = computed.fontWeight;
+        element.style.fontStyle = computed.fontStyle;
+        element.style.fontStretch = computed.fontStretch;
+        element.style.letterSpacing = computed.letterSpacing;
+        element.style.lineHeight = computed.lineHeight;
+        element.style.fontVariant = computed.fontVariant;
+        element.style.fontSynthesis = "none";
+      }
+
+      function prepareLivePageForExport() {
+        const records = [];
+        const record = (element) => {
+          if (!element || records.some((item) => item.element === element)) {
+            return;
+          }
+          records.push(captureElementState(element));
+        };
+
+        document.querySelectorAll(".chart-controls").forEach((element) => {
+          record(element);
+          element.style.display = "none";
+        });
+
+        const focusedColumns = document.querySelector(
+          "#infoPanel .focused-info-columns",
+        );
+        if (focusedColumns) {
+          record(focusedColumns);
+          focusedColumns.classList.remove("is-related-visible");
+        }
+
+        document
+          .querySelectorAll(
+            "#infoPanel .focused-info-column--related, #comparisonPanel .comparison-panel-products",
+          )
+          .forEach((element) => {
+            record(element);
+            element.hidden = true;
+            element.style.display = "none";
+          });
+
+        document
+          .querySelectorAll(".info-panel-actions a")
+          .forEach((link) => {
+            const label = link.textContent.trim();
+            if (
+              label === "Show NZ Medical Cannabis Products" ||
+              label === "Close NZ Medical Cannabis Products"
+            ) {
+              record(link);
+              link.style.display = "none";
+              let sibling = link.previousSibling;
+              while (
+                sibling &&
+                sibling.nodeType === Node.TEXT_NODE &&
+                !sibling.textContent.trim()
+              ) {
+                sibling = sibling.previousSibling;
+              }
+              if (
+                sibling?.nodeType === Node.ELEMENT_NODE &&
+                sibling.tagName === "BR"
+              ) {
+                record(sibling);
+                sibling.style.display = "none";
+              }
+            }
+          });
+
+        document
+          .querySelectorAll(
+            ".header-ribbon *, .info-panel *, #lineageChart svg text",
+          )
+          .forEach((element) => {
+            record(element);
+            inlineCurrentFont(element);
+          });
+
+        document
+          .querySelectorAll("#lineageChart svg .strain-name")
+          .forEach((label) => {
+            label.style.fontFamily = label.classList.contains("is-condensed")
+              ? '"Roboto Condensed", Arial, sans-serif'
+              : '"Roboto", Arial, sans-serif';
+            label.style.fontWeight = "700";
+          });
+
+        const blocker = createExportCaptureBlocker();
+
+        return () => {
+          blocker.remove();
+          records.reverse().forEach(restoreCapturedElementState);
+        };
+      }
+
+      async function waitForLiveFonts() {
+        if (!document.fonts) return;
+        await Promise.race([
+          Promise.all([
+            document.fonts.load('600 24px "Poppins"'),
+            document.fonts.load('400 14px "Roboto"'),
+            document.fonts.load('700 15px "Roboto"'),
+            document.fonts.load('700 15px "Roboto Condensed"'),
+            document.fonts.ready,
+          ]),
+          waitForDelay(5000),
+        ]);
+      }
+
+      async function renderCurrentViewToSvg(kind, triggerLink) {
         if (triggerLink?.dataset.exporting === "true") return;
 
         const request = buildExportRequest(kind);
@@ -6397,56 +6559,43 @@
           return;
         }
 
-        // Freeze the complete rendered DOM before any asynchronous work or
-        // visible status change. Later interaction with the live page cannot
-        // alter this download.
-        const snapshotWidth = Math.max(1, window.innerWidth);
-        const snapshotHeight = Math.max(1, window.innerHeight);
-        const snapshotHeaderHeight = Math.max(
-          0,
-          document.querySelector(".header-ribbon")?.getBoundingClientRect().height || 0,
-        );
-        const exportScaleX = EXPORT_RENDER_WIDTH / snapshotWidth;
-        const exportScaleY = EXPORT_RENDER_HEIGHT / snapshotHeight;
-        const exportUniformScale = Math.min(exportScaleX, exportScaleY);
-        // Render the frozen page at enough internal resolution that no part of
-        // it has to be enlarged to reach the final 4K canvas. A 1920×1080
-        // viewport therefore renders at 2×, while a native 4K viewport remains
-        // at 1×.
-        const captureScale = Math.max(
-          EXPORT_CAPTURE_SUPERSAMPLE,
-          exportUniformScale,
-        );
-        const snapshotHtml = buildFrozenSnapshotHtml();
-        const filename = buildExportFilename(kind, request);
-
         const originalText = triggerLink?.textContent || "";
         if (triggerLink) {
           triggerLink.dataset.exporting = "true";
           triggerLink.setAttribute("aria-disabled", "true");
-          triggerLink.textContent = "Preparing 4K PNG…";
+          triggerLink.textContent = "Preparing SVG…";
         }
 
-        const iframe = createExportFrame(
-          snapshotHtml,
-          snapshotWidth,
-          snapshotHeight,
-        );
-
+        let restorePage = null;
         try {
-          const loaded = waitForFrameLoad(iframe);
-          document.body.appendChild(iframe);
-          await loaded;
+          await waitForLiveFonts();
 
-          const frameDocument = iframe.contentDocument;
-          if (!frameDocument) {
-            throw new Error("The browser blocked access to the image snapshot.");
-          }
+          const snapshotWidth = Math.max(1, window.innerWidth);
+          const snapshotHeight = Math.max(1, window.innerHeight);
+          const snapshotHeaderHeight = Math.max(
+            0,
+            document
+              .querySelector(".header-ribbon")
+              ?.getBoundingClientRect().height || 0,
+          );
+          const exportUniformScale = Math.min(
+            EXPORT_RENDER_WIDTH / snapshotWidth,
+            EXPORT_RENDER_HEIGHT / snapshotHeight,
+          );
+          const captureScale = Math.max(
+            EXPORT_CAPTURE_SUPERSAMPLE,
+            exportUniformScale,
+          );
 
-          await waitForSnapshotFonts(frameDocument);
+          restorePage = prepareLivePageForExport();
+          await new Promise((resolve) =>
+            window.requestAnimationFrame(() =>
+              window.requestAnimationFrame(resolve),
+            ),
+          );
 
           const capturedCanvas = await window.html2canvas(
-            frameDocument.documentElement,
+            document.documentElement,
             {
               backgroundColor: "#ffffff",
               width: snapshotWidth,
@@ -6460,40 +6609,78 @@
               allowTaint: false,
               logging: false,
               imageTimeout: 10000,
+              onclone: (capturedDocument) => {
+                capturedDocument
+                  .querySelector("#export-capture-blocker")
+                  ?.remove();
+                capturedDocument
+                  .querySelectorAll(
+                    ".popup, .popup-overlay, #strainDropdown, #copy-popup, #loading-message",
+                  )
+                  .forEach((element) => {
+                    element.style.display = "none";
+                  });
+
+                const style = capturedDocument.createElement("style");
+                style.textContent = `
+                  *, *::before, *::after {
+                    animation: none !important;
+                    transition: none !important;
+                    caret-color: transparent !important;
+                    font-synthesis: none !important;
+                  }
+                  #lineageChart svg,
+                  #lineageChart svg * {
+                    shape-rendering: geometricPrecision;
+                    text-rendering: geometricPrecision;
+                  }
+                  #lineageChart svg .strain-name:not(.is-condensed),
+                  #lineageChart svg .pct-pill-text {
+                    font-family: "Roboto", Arial, sans-serif !important;
+                  }
+                  #lineageChart svg .strain-name.is-condensed {
+                    font-family: "Roboto Condensed", Arial, sans-serif !important;
+                  }
+                `;
+                capturedDocument.head.appendChild(style);
+              },
             },
           );
 
+          const embedScale = 1.5;
+          const embeddedWidth = Math.round(EXPORT_RENDER_WIDTH * embedScale);
+          const embeddedHeight = Math.round(EXPORT_RENDER_HEIGHT * embedScale);
           const outputCanvas = document.createElement("canvas");
-          outputCanvas.width = EXPORT_RENDER_WIDTH;
-          outputCanvas.height = EXPORT_RENDER_HEIGHT;
+          outputCanvas.width = embeddedWidth;
+          outputCanvas.height = embeddedHeight;
           const outputContext = outputCanvas.getContext("2d", { alpha: false });
           if (!outputContext) {
-            throw new Error("The browser could not prepare the 4K image canvas.");
+            throw new Error("The browser could not prepare the SVG image.");
           }
 
           outputContext.fillStyle = "#ffffff";
-          outputContext.fillRect(0, 0, EXPORT_RENDER_WIDTH, EXPORT_RENDER_HEIGHT);
+          outputContext.fillRect(0, 0, embeddedWidth, embeddedHeight);
           outputContext.imageSmoothingEnabled = true;
           outputContext.imageSmoothingQuality = "high";
 
-          // Preserve the frozen viewport's true aspect ratio. A single uniform
-          // scale prevents round letters and controls from being stretched when
-          // the browser viewport is not exactly 16:9. Keep the ribbon flush to
-          // the top, but divide the unused vertical space evenly above and below
-          // the chart/panel area.
-          const renderedWidth = snapshotWidth * exportUniformScale;
-          const renderedHeight = snapshotHeight * exportUniformScale;
-          const renderedX = (EXPORT_RENDER_WIDTH - renderedWidth) / 2;
+          const embeddedUniformScale = Math.min(
+            embeddedWidth / snapshotWidth,
+            embeddedHeight / snapshotHeight,
+          );
+          const renderedWidth = snapshotWidth * embeddedUniformScale;
+          const renderedHeight = snapshotHeight * embeddedUniformScale;
+          const renderedX = (embeddedWidth - renderedWidth) / 2;
           const unusedVerticalSpace = Math.max(
             0,
-            EXPORT_RENDER_HEIGHT - renderedHeight,
+            embeddedHeight - renderedHeight,
           );
           const contentOffsetY = unusedVerticalSpace / 2;
           const sourceHeaderHeight = Math.min(
             capturedCanvas.height,
             snapshotHeaderHeight * captureScale,
           );
-          const renderedHeaderHeight = snapshotHeaderHeight * exportUniformScale;
+          const renderedHeaderHeight =
+            snapshotHeaderHeight * embeddedUniformScale;
           const sourceContentHeight = Math.max(
             0,
             capturedCanvas.height - sourceHeaderHeight,
@@ -6530,12 +6717,20 @@
           );
 
           const pngBlob = await canvasToPngBlob(outputCanvas);
-          downloadBlob(pngBlob, filename);
+          const embeddedImageUrl = await blobToDataUrl(pngBlob);
+          const svgMarkup = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${EXPORT_RENDER_WIDTH}" height="${EXPORT_RENDER_HEIGHT}" viewBox="0 0 ${EXPORT_RENDER_WIDTH} ${EXPORT_RENDER_HEIGHT}">
+  <image href="${embeddedImageUrl}" x="0" y="0" width="${EXPORT_RENDER_WIDTH}" height="${EXPORT_RENDER_HEIGHT}" preserveAspectRatio="none"/>
+</svg>`;
+          const svgBlob = new Blob([svgMarkup], {
+            type: "image/svg+xml;charset=utf-8",
+          });
+          downloadBlob(svgBlob, buildExportFilename(kind, request));
         } catch (error) {
-          console.error("4K PNG export failed:", error);
-          alert(`Unable to create the 4K PNG: ${error.message}`);
+          console.error("SVG export failed:", error);
+          alert(`Unable to create the SVG: ${error.message}`);
         } finally {
-          iframe.remove();
+          restorePage?.();
           if (triggerLink) {
             delete triggerLink.dataset.exporting;
             triggerLink.removeAttribute("aria-disabled");
