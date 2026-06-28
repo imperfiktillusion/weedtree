@@ -874,13 +874,18 @@
 
       .focused-info-columns {
         display: grid;
+        grid-template-columns: minmax(0, max-content);
+        align-items: start;
+        gap: 0;
+        width: max-content;
+        max-width: 100%;
+      }
+
+      .focused-info-columns.is-related-visible {
         grid-template-columns:
           minmax(0, max-content)
           minmax(calc(220px * var(--info-panel-scale)), calc(330px * var(--info-panel-scale)));
-        align-items: start;
         gap: calc(20px * var(--info-panel-scale));
-        width: max-content;
-        max-width: 100%;
       }
 
       .focused-info-column {
@@ -1065,6 +1070,7 @@
       }
 
       .comparison-panel-products {
+        margin-top: calc(18px * var(--info-panel-scale));
         margin-bottom: calc(10px * var(--info-panel-scale));
       }
 
@@ -1121,6 +1127,10 @@
       }
 
       body.panel-bottom-sheet .focused-info-columns {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      body.panel-bottom-sheet .focused-info-columns.is-related-visible {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
 
@@ -1430,18 +1440,10 @@
 
       <p>
         WeedTree is a work in progress, compiled from many international sources,
-        which often disagree.
-      </p>
-
-      <p>
-        I have also made practical simplifications around cultivars, phenotypes,
-        clones, variants, renaming, and disputed pedigrees so the information can
-        be represented as a navigable family tree.
-      </p>
-
-      <p>
-        The chart is therefore likely to contain errors and remains far from
-        complete.
+        which often disagree. I have also made practical simplifications around
+        cultivars, phenotypes, clones, variants, renaming, and disputed pedigrees
+        so the information can be represented as a navigable family tree. The
+        chart is therefore likely to contain errors and remains far from complete.
       </p>
 
       <p>
@@ -4549,6 +4551,7 @@
           event.preventDefault();
           const willOpen = relatedColumn.hidden;
           relatedColumn.hidden = !willOpen;
+          columns.classList.toggle("is-related-visible", willOpen);
           productsToggle.textContent = willOpen
             ? "Close NZ Medical Cannabis Products"
             : "Show NZ Medical Cannabis Products";
