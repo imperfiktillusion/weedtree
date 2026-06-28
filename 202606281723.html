@@ -856,6 +856,21 @@
         white-space: normal;
       }
 
+      .info-panel-heading-link {
+        color: inherit;
+        text-decoration: underline;
+        text-underline-offset: 0.16em;
+      }
+
+      .info-panel-actions a {
+        cursor: pointer;
+      }
+
+      .focused-info-column--related[hidden],
+      .comparison-panel-products[hidden] {
+        display: none;
+      }
+
 
       .focused-info-columns {
         display: grid;
@@ -1407,33 +1422,42 @@
       <h2 id="welcomePopupTitle">Welcome to Weedtree, the family tree of cannabis strains</h2>
 
       <p>
-        I've always wondered how strain lineage correlated with the strains I
-        personally prefer. Indica vs Sativa, Kush vs Afghani, Skunk vs Thai. I
-        haven't been able to find much of a lineage chart anywhere online so
-        decided to create one myself.
+        With the massive variability in effects, I’ve always been curious about
+        how cannabis strain lineages relate between the strains I prefer; Indica
+        to Sativa, Kush to Afghani, Skunk to Thai. So I built the lineage chart I
+        couldn’t find elsewhere.
       </p>
 
       <p>
-        I don't claim that the chart is completely accurate. It is based on what
-        I could interpret from the multitude of often contradictory strain
-        database sites internationally, and I've made some simplifications
-        around phenotype/cultivar/clone/variant pedigree. Obviously, it is far
-        from complete.
+        WeedTree is a work in progress, compiled from many international sources,
+        which often disagree.
       </p>
 
       <p>
-        Ancestor contribution percentages are calculated from the lineage chart
-        and will be inaccurate as the chart cannot account for the nuances and
-        realities of gene expression and selective breeding.
+        I have also made practical simplifications around cultivars, phenotypes,
+        clones, variants, renaming, and disputed pedigrees so the information can
+        be represented as a navigable family tree.
       </p>
 
-      <p>Sorry it's a bit hard to use on mobile; best on a large screen.</p>
       <p>
-        <b>Controls</b><br />
-        Push F11 to toggle full screen.<br />
-        Use the mouse or controls to zoom in and out.<br />
-        Nodes are draggable within their column (press shift / long press on
-        mobile).
+        The chart is therefore likely to contain errors and remains far from
+        complete.
+      </p>
+
+      <p>
+        Ancestor contribution percentages are calculated directly from the
+        relationships recorded in the chart. They are useful for exploring
+        lineage, but they should not be interpreted as measured genetic
+        composition. They cannot account for selective breeding, gene expression,
+        phenotype selection, backcrossing, or inaccuracies in the underlying
+        pedigree information.
+      </p>
+
+      <p>
+        Nothing on this website should be taken as medical, legal, or other
+        professional advice. All information is provided for general interest
+        only and should not be relied upon when making health, treatment, legal,
+        or purchasing decisions.
       </p>
     </div>
 
@@ -4098,11 +4122,43 @@
         panel.appendChild(document.createElement("br"));
       }
 
+      function appendContributionsHeading(container) {
+        const heading = document.createElement("div");
+        heading.className =
+          "info-panel-heading info-panel-heading--contributors";
+        heading.appendChild(
+          document.createTextNode("Weedtree Calculated Ancestor "),
+        );
+
+        const aboutLink = document.createElement("a");
+        aboutLink.href = "#";
+        aboutLink.className = "info-panel-heading-link";
+        aboutLink.textContent = "Contributions*";
+        aboutLink.addEventListener("click", (event) => {
+          event.preventDefault();
+          showPopup(document.getElementById("popup3"), aboutLink);
+        });
+
+        heading.appendChild(aboutLink);
+        container.appendChild(heading);
+      }
+
+      function appendExactProductsSection(container, products) {
+        if (!products.length) return;
+
+        appendInfoPanelHeading(
+          container,
+          "NZ Medical Cannabis Products",
+          "info-panel-heading--products",
+        );
+        appendLineSeparatedValues(container, products);
+        appendInfoPanelSpacer(container);
+      }
+
       function appendPrimaryInfoPanelContent(
         container,
         node,
         alsoKnownAs,
-        products,
         contributors,
       ) {
         if (alsoKnownAs.length) {
@@ -4111,54 +4167,40 @@
           appendInfoPanelSpacer(container);
         }
 
-        if (products.length) {
-          appendInfoPanelHeading(
-            container,
-            "NZ Medical Cannabis Products",
-            "info-panel-heading--products",
-          );
-          appendLineSeparatedValues(container, products);
-          appendInfoPanelSpacer(container);
+        if (contributors.length) {
+          appendContributionsHeading(container);
+
+          const table = document.createElement("div");
+          table.id = "contributors-table";
+          table.className = "contributors-grid";
+
+          contributors.forEach((contributor) => {
+            const percentage = document.createElement("div");
+            percentage.className = "c-perc";
+            percentage.textContent = `${contributor.percentage}%`;
+
+            const dot = document.createElement("div");
+            dot.className = "c-dot";
+            dot.style.backgroundColor = getDominanceColour(
+              contributor.dominance,
+            );
+
+            const name = document.createElement("div");
+            name.className = "c-name related-products-rollover-source";
+            name.textContent = contributor.name;
+            name.tabIndex = 0;
+            name.addEventListener("pointerenter", () =>
+              previewRelatedProductsForNode(contributor.node),
+            );
+            name.addEventListener("focus", () =>
+              previewRelatedProductsForNode(contributor.node),
+            );
+
+            table.append(percentage, dot, name);
+          });
+
+          container.appendChild(table);
         }
-
-        if (!contributors.length) return;
-
-        appendInfoPanelHeading(
-          container,
-          "Weedtree Calculated Ancestor Contributions*",
-          "info-panel-heading--contributors",
-        );
-
-        const table = document.createElement("div");
-        table.id = "contributors-table";
-        table.className = "contributors-grid";
-
-        contributors.forEach((contributor) => {
-          const percentage = document.createElement("div");
-          percentage.className = "c-perc";
-          percentage.textContent = `${contributor.percentage}%`;
-
-          const dot = document.createElement("div");
-          dot.className = "c-dot";
-          dot.style.backgroundColor = getDominanceColour(
-            contributor.dominance,
-          );
-
-          const name = document.createElement("div");
-          name.className = "c-name related-products-rollover-source";
-          name.textContent = contributor.name;
-          name.tabIndex = 0;
-          name.addEventListener("pointerenter", () =>
-            previewRelatedProductsForNode(contributor.node),
-          );
-          name.addEventListener("focus", () =>
-            previewRelatedProductsForNode(contributor.node),
-          );
-
-          table.append(percentage, dot, name);
-        });
-
-        container.appendChild(table);
 
         const actions = document.createElement("div");
         actions.className = "info-panel-actions";
@@ -4181,6 +4223,7 @@
           copyContributorsLink,
         );
         container.appendChild(actions);
+        return actions;
       }
 
       function groupRelatedProductsByRelationship(relatedProducts) {
@@ -4431,7 +4474,7 @@
         const relatedColumn = panel.querySelector(
           ".focused-info-column--related",
         );
-        if (!primaryColumn || !relatedColumn) return;
+        if (!primaryColumn || !relatedColumn || relatedColumn.hidden) return;
 
         relatedColumn.style.height = "auto";
         relatedColumn.style.maxHeight = "none";
@@ -4484,18 +4527,45 @@
 
         const primaryColumn = document.createElement("section");
         primaryColumn.className = "focused-info-column";
-        appendPrimaryInfoPanelContent(
+        const actions = appendPrimaryInfoPanelContent(
           primaryColumn,
           node,
           alsoKnownAs,
-          products,
           contributors,
         );
 
         const relatedColumn = document.createElement("section");
         relatedColumn.className =
           "focused-info-column focused-info-column--related";
+        appendExactProductsSection(relatedColumn, products);
         appendRelatedProductsColumn(relatedColumn, relatedProducts);
+        relatedColumn.hidden = true;
+
+        const productsToggle = document.createElement("a");
+        productsToggle.href = "#";
+        productsToggle.textContent = "Show NZ Medical Cannabis Products";
+        productsToggle.setAttribute("aria-expanded", "false");
+        productsToggle.addEventListener("click", (event) => {
+          event.preventDefault();
+          const willOpen = relatedColumn.hidden;
+          relatedColumn.hidden = !willOpen;
+          productsToggle.textContent = willOpen
+            ? "Close NZ Medical Cannabis Products"
+            : "Show NZ Medical Cannabis Products";
+          productsToggle.setAttribute("aria-expanded", String(willOpen));
+
+          window.requestAnimationFrame(() => {
+            syncFocusedInfoColumnHeight();
+            if (chartState.focusedLineage) {
+              const activeNodes = chartState.visibleNodes.filter((candidate) =>
+                chartState.focusedLineage.has(candidate.id),
+              );
+              adaptPanelHeightToLineage("info", activeNodes);
+              zoomToLineage(chartState.focusedLineage);
+            }
+          });
+        });
+        actions.append(document.createElement("br"), productsToggle);
 
         columns.append(primaryColumn, relatedColumn);
         body.appendChild(columns);
@@ -5293,19 +5363,20 @@
         container.appendChild(grid);
       }
 
-      function appendComparisonProducts(container, node) {
+      function createComparisonProductsSection(node) {
         const products = getProductsForStrainAndVariants(node);
-        if (!products.length) return;
+        if (!products.length) return null;
 
         const productSection = document.createElement("div");
         productSection.className = "comparison-panel-products";
+        productSection.hidden = true;
         appendInfoPanelHeading(
           productSection,
           "NZ Medical Cannabis Products",
           "info-panel-heading--products",
         );
         appendLineSeparatedValues(productSection, products);
-        container.appendChild(productSection);
+        return productSection;
       }
 
       function renderComparisonPanel(firstNode, secondNode) {
@@ -5353,7 +5424,6 @@
         firstTitle.className = "comparison-panel-column-title";
         firstTitle.textContent = firstNode.name;
         firstColumn.appendChild(firstTitle);
-        appendComparisonProducts(firstColumn, firstNode);
 
         const secondColumn = document.createElement("section");
         secondColumn.className = "comparison-panel-column";
@@ -5361,7 +5431,6 @@
         secondTitle.className = "comparison-panel-column-title";
         secondTitle.textContent = secondNode.name;
         secondColumn.appendChild(secondTitle);
-        appendComparisonProducts(secondColumn, secondNode);
 
         if (sharedAncestors.length) {
           appendComparisonContributorRows(
@@ -5383,6 +5452,11 @@
           });
         }
 
+        const firstProductsSection = createComparisonProductsSection(firstNode);
+        const secondProductsSection = createComparisonProductsSection(secondNode);
+        if (firstProductsSection) firstColumn.appendChild(firstProductsSection);
+        if (secondProductsSection) secondColumn.appendChild(secondProductsSection);
+
         columns.append(firstColumn, secondColumn);
         body.appendChild(columns);
 
@@ -5393,6 +5467,40 @@
         copyComparisonUrlLink.textContent = "Copy comparison URL";
         copyComparisonUrlLink.addEventListener("click", copyCurrentStateURL);
         actions.appendChild(copyComparisonUrlLink);
+
+        if (firstProductsSection || secondProductsSection) {
+          const productsToggle = document.createElement("a");
+          productsToggle.href = "#";
+          productsToggle.textContent = "Show NZ Medical Cannabis Products";
+          productsToggle.setAttribute("aria-expanded", "false");
+          productsToggle.addEventListener("click", (event) => {
+            event.preventDefault();
+            const willOpen = Boolean(
+              firstProductsSection?.hidden ?? secondProductsSection?.hidden,
+            );
+            [firstProductsSection, secondProductsSection]
+              .filter(Boolean)
+              .forEach((section) => {
+                section.hidden = !willOpen;
+              });
+            productsToggle.textContent = willOpen
+              ? "Close NZ Medical Cannabis Products"
+              : "Show NZ Medical Cannabis Products";
+            productsToggle.setAttribute("aria-expanded", String(willOpen));
+
+            window.requestAnimationFrame(() => {
+              if (chartState.focusedLineage) {
+                const activeNodes = chartState.visibleNodes.filter((candidate) =>
+                  chartState.focusedLineage.has(candidate.id),
+                );
+                adaptPanelHeightToLineage("comparison", activeNodes);
+                zoomToLineage(chartState.focusedLineage);
+              }
+            });
+          });
+          actions.append(document.createElement("br"), productsToggle);
+        }
+
         body.appendChild(actions);
 
         clearInfoPanel();
