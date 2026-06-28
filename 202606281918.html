@@ -6057,8 +6057,27 @@
         }
       }
 
-      function prepareExportSnapshotClone(clone) {
+      function prepareExportSnapshotClone(
+        clone,
+        targetViewportHeight,
+        verticalChartShift,
+      ) {
         clone.querySelectorAll("script").forEach((script) => script.remove());
+
+        const root = clone;
+        root.style.setProperty("--visual-viewport-top", "0px");
+        root.style.setProperty(
+          "--visual-viewport-height",
+          `${targetViewportHeight}px`,
+        );
+        root.style.setProperty(
+          "--visual-viewport-center-y",
+          `${targetViewportHeight / 2}px`,
+        );
+        root.style.setProperty(
+          "--visual-viewport-quarter-y",
+          `${targetViewportHeight * 0.25}px`,
+        );
 
         const body = clone.querySelector("body");
         body?.classList.remove("export-render-mode");
@@ -6103,6 +6122,22 @@
             }
           });
 
+        if (Math.abs(verticalChartShift) > 0.01) {
+          const chartGroup = clone.querySelector("#lineageChart svg > g");
+          if (chartGroup?.parentNode) {
+            const wrapper = clone.ownerDocument.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "g",
+            );
+            wrapper.setAttribute(
+              "transform",
+              `translate(0 ${verticalChartShift})`,
+            );
+            chartGroup.parentNode.insertBefore(wrapper, chartGroup);
+            wrapper.appendChild(chartGroup);
+          }
+        }
+
         const snapshotStyle = clone.ownerDocument.createElement("style");
         snapshotStyle.textContent = `
           *, *::before, *::after {
@@ -6115,9 +6150,16 @@
         clone.querySelector("head")?.appendChild(snapshotStyle);
       }
 
-      function buildFrozenSnapshotHtml() {
+      function buildFrozenSnapshotHtml(
+        targetViewportHeight,
+        verticalChartShift,
+      ) {
         const clone = document.documentElement.cloneNode(true);
-        prepareExportSnapshotClone(clone);
+        prepareExportSnapshotClone(
+          clone,
+          targetViewportHeight,
+          verticalChartShift,
+        );
         return `<!doctype html>${clone.outerHTML}`;
       }
 
@@ -6164,26 +6206,6 @@
         await waitForDelay(80);
       }
 
-      function compose4kCanvas(sourceCanvas) {
-        if (
-          sourceCanvas.width === EXPORT_RENDER_WIDTH &&
-          sourceCanvas.height === EXPORT_RENDER_HEIGHT
-        ) {
-          return sourceCanvas;
-        }
-
-        const output = document.createElement("canvas");
-        output.width = EXPORT_RENDER_WIDTH;
-        output.height = EXPORT_RENDER_HEIGHT;
-        const context = output.getContext("2d");
-        context.fillStyle = "#ffffff";
-        context.fillRect(0, 0, output.width, output.height);
-        const x = Math.round((output.width - sourceCanvas.width) / 2);
-        const y = Math.round((output.height - sourceCanvas.height) / 2);
-        context.drawImage(sourceCanvas, x, y);
-        return output;
-      }
-
       async function renderCurrentViewToPng(kind, triggerLink) {
         if (triggerLink?.dataset.exporting === "true") return;
 
@@ -6207,7 +6229,14 @@
         // alter this download.
         const snapshotWidth = Math.max(1, window.innerWidth);
         const snapshotHeight = Math.max(1, window.innerHeight);
-        const snapshotHtml = buildFrozenSnapshotHtml();
+        const exportScale = EXPORT_RENDER_WIDTH / snapshotWidth;
+        const targetViewportHeight = EXPORT_RENDER_HEIGHT / exportScale;
+        const verticalChartShift =
+          (targetViewportHeight - snapshotHeight) / 2;
+        const snapshotHtml = buildFrozenSnapshotHtml(
+          targetViewportHeight,
+          verticalChartShift,
+        );
         const filename = buildExportFilename(kind, request);
 
         const originalText = triggerLink?.textContent || "";
@@ -6220,7 +6249,7 @@
         const iframe = createExportFrame(
           snapshotHtml,
           snapshotWidth,
-          snapshotHeight,
+          targetViewportHeight,
         );
 
         try {
@@ -6235,20 +6264,15 @@
 
           await waitForSnapshotFonts(frameDocument);
 
-          const scale = Math.min(
-            EXPORT_RENDER_WIDTH / snapshotWidth,
-            EXPORT_RENDER_HEIGHT / snapshotHeight,
-          );
-
           const capturedCanvas = await window.html2canvas(
             frameDocument.documentElement,
             {
               backgroundColor: "#ffffff",
               width: snapshotWidth,
-              height: snapshotHeight,
+              height: targetViewportHeight,
               windowWidth: snapshotWidth,
-              windowHeight: snapshotHeight,
-              scale,
+              windowHeight: targetViewportHeight,
+              scale: exportScale,
               scrollX: 0,
               scrollY: 0,
               useCORS: true,
@@ -6258,8 +6282,7 @@
             },
           );
 
-          const outputCanvas = compose4kCanvas(capturedCanvas);
-          const pngBlob = await canvasToPngBlob(outputCanvas);
+          const pngBlob = await canvasToPngBlob(capturedCanvas);
           downloadBlob(pngBlob, filename);
         } catch (error) {
           console.error("4K PNG export failed:", error);
@@ -6758,13 +6781,14 @@
 
       function showPopup(popup, opener = document.activeElement) {
         const searchPopup = document.getElementById("popup2");
+        const popupOverlay = document.querySelector(".popup-overlay");
 
         if (opener instanceof HTMLElement && !popup.contains(opener)) {
           popupReturnFocus = opener;
         }
         activePopup = popup;
         popup.style.display = popup === searchPopup ? "flex" : "block";
-        overlay.style.display = "block";
+        if (popupOverlay) popupOverlay.style.display = "block";
         syncVisualViewport();
 
         window.requestAnimationFrame(() => {
