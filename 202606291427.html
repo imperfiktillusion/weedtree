@@ -139,23 +139,6 @@
         border: 0 !important;
       }
 
-      .skip-link {
-        position: fixed;
-        top: calc(8px + var(--safe-area-top));
-        left: calc(8px + var(--safe-area-left));
-        z-index: 3000;
-        padding: 8px 12px;
-        border-radius: 6px;
-        background: #fff;
-        color: #111;
-        font-weight: 600;
-        transform: translateY(-160%);
-      }
-
-      .skip-link:focus {
-        transform: translateY(0);
-      }
-
       .header-ribbon {
         position: relative;
         z-index: 1100;
@@ -1237,6 +1220,14 @@
         outline-offset: 3px;
       }
 
+      /* Programmatic focus restoration after a mouse or touch action should
+         not create a persistent keyboard-style ring. Keyboard navigation still
+         receives the normal focus-visible treatment above. */
+      .suppress-focus-ring:focus,
+      .suppress-focus-ring:focus-visible {
+        outline: none !important;
+      }
+
       .header-menu-panel :focus-visible {
         outline-color: #1268d6;
       }
@@ -1282,7 +1273,6 @@
     </style>
   </head>
   <body>
-    <a class="skip-link" href="#lineageChart">Skip to chart</a>
     <!-- Header -->
     <header class="header-ribbon">
       <h1 class="header-title">
@@ -7337,11 +7327,52 @@
 
       let activePopup = null;
       let popupReturnFocus = null;
+      let lastInteractionWasKeyboard = false;
+
+      document.addEventListener(
+        "keydown",
+        (event) => {
+          if (
+            event.key === "Tab" ||
+            event.key === "Enter" ||
+            event.key === " " ||
+            event.key === "Escape" ||
+            event.key.startsWith("Arrow") ||
+            event.key === "Home" ||
+            event.key === "End"
+          ) {
+            lastInteractionWasKeyboard = true;
+          }
+        },
+        true,
+      );
+
+      document.addEventListener(
+        "pointerdown",
+        () => {
+          lastInteractionWasKeyboard = false;
+        },
+        true,
+      );
+
+      function restorePopupFocus(target) {
+        if (!(target instanceof HTMLElement)) return;
+
+        if (!lastInteractionWasKeyboard) {
+          target.classList.add("suppress-focus-ring");
+          target.addEventListener(
+            "blur",
+            () => target.classList.remove("suppress-focus-ring"),
+            { once: true },
+          );
+        }
+
+        target.focus({ preventScroll: true });
+      }
 
       function setModalBackgroundInert(isInert, activeModal = null) {
         document.body.classList.toggle("modal-open", isInert);
         [
-          document.querySelector(".skip-link"),
           document.querySelector(".header-ribbon"),
           document.querySelector(".container"),
           document.getElementById("infoPanel"),
@@ -7422,7 +7453,7 @@
           const focusTarget = popupReturnFocus?.isConnected
             ? popupReturnFocus
             : document.getElementById("lineageChart");
-          focusTarget?.focus();
+          restorePopupFocus(focusTarget);
           popupReturnFocus = null;
         }
       }
