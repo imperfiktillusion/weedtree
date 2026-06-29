@@ -1161,16 +1161,32 @@
         width: 100%;
       }
 
-      body.panel-bottom-sheet .focused-info-columns {
+      body.panel-bottom-sheet .focused-info-columns,
+      body.panel-bottom-sheet .focused-info-columns.is-related-visible {
         grid-template-columns: minmax(0, 1fr);
+        gap: calc(16px * var(--info-panel-scale));
       }
 
-      body.panel-bottom-sheet .focused-info-columns.is-related-visible {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      body.panel-bottom-sheet .focused-info-column--related {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible;
+        overscroll-behavior: auto;
+        scrollbar-gutter: auto;
+        padding-top: calc(14px * var(--info-panel-scale));
+        padding-left: 0;
+        padding-right: 0;
+        border-top: 1px solid #aaa;
+        border-left: 0;
+      }
+
+      body.panel-bottom-sheet .info-panel.is-collapsed .info-panel-topbar,
+      body.panel-bottom-sheet .info-panel.is-collapsed .info-panel-body {
+        visibility: hidden;
+        pointer-events: none;
       }
 
       @media (max-width: 600px) and (orientation: portrait) {
-        body.panel-bottom-sheet .focused-info-columns,
         body.panel-bottom-sheet .comparison-panel-columns {
           grid-template-columns: minmax(0, 1fr);
           gap: calc(16px * var(--info-panel-scale));
@@ -1181,19 +1197,6 @@
           overscroll-behavior-y: contain;
           -webkit-overflow-scrolling: touch;
           touch-action: pan-y;
-        }
-
-        body.panel-bottom-sheet .focused-info-column--related {
-          height: auto !important;
-          max-height: none !important;
-          overflow: visible;
-          overscroll-behavior: auto;
-          scrollbar-gutter: auto;
-          padding-top: calc(14px * var(--info-panel-scale));
-          padding-left: 0;
-          padding-right: 0;
-          border-top: 1px solid #aaa;
-          border-left: 0;
         }
       }
 
@@ -1414,7 +1417,7 @@
         aria-valuenow="0"
         aria-valuetext="Automatic height"
         tabindex="0"
-        title="Drag or use Up and Down arrows to resize; press Home to reset"
+        title="Drag or use Up and Down arrows to resize; on mobile, drag down or press End to collapse; press Home to reset"
       ></div>
       <div class="info-panel-topbar">
         <div id="infoPanelTitle" class="info-panel-title"></div>
@@ -1457,7 +1460,7 @@
         aria-valuenow="0"
         aria-valuetext="Automatic height"
         tabindex="0"
-        title="Drag or use Up and Down arrows to resize; press Home to reset"
+        title="Drag or use Up and Down arrows to resize; on mobile, drag down or press End to collapse; press Home to reset"
       ></div>
       <div class="info-panel-topbar">
         <div id="comparisonPanelTitle" class="info-panel-title">Shared Ancestor Contributions</div>
@@ -4695,10 +4698,7 @@
       }
 
       function usesStackedInfoPanelColumns() {
-        return Boolean(
-          document.body.classList.contains("panel-bottom-sheet") &&
-          window.matchMedia?.("(max-width: 600px) and (orientation: portrait)").matches
-        );
+        return document.body.classList.contains("panel-bottom-sheet");
       }
 
       function syncFocusedInfoColumnHeight() {
@@ -7625,6 +7625,7 @@
               "is-user-resized",
               "is-auto-height-constrained",
               "is-resizing",
+              "is-collapsed",
             );
           });
         }
@@ -7748,6 +7749,85 @@
         }, 120);
       }
 
+      function getPanelResizeBounds(panel, handle) {
+        const computedPanel = window.getComputedStyle(panel);
+        const panelBottom = parseFloat(computedPanel.bottom) || 0;
+        const computedMaximumHeight = parseFloat(computedPanel.maxHeight);
+        const headerHeight =
+          parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue(
+              "--header-height",
+            ),
+          ) || 0;
+        const fallbackMaximumHeight = Math.max(
+          1,
+          window.innerHeight -
+            headerHeight -
+            panelBottom -
+            CHART_SIZING.infoPanelViewportGap,
+        );
+        const requestedMaximumHeight = Math.min(
+          Number.isFinite(computedMaximumHeight)
+            ? computedMaximumHeight
+            : fallbackMaximumHeight,
+          fallbackMaximumHeight,
+        );
+        const isBottomSheet = document.body.classList.contains(
+          "panel-bottom-sheet",
+        );
+        const collapsedHeight = Math.max(
+          14,
+          Math.ceil(handle.getBoundingClientRect().height) + 1,
+        );
+        const minimumHeight = isBottomSheet
+          ? collapsedHeight
+          : Math.min(180, requestedMaximumHeight);
+        const maximumHeight = Math.max(minimumHeight, requestedMaximumHeight);
+
+        return {
+          isBottomSheet,
+          collapsedHeight,
+          minimumHeight,
+          maximumHeight,
+        };
+      }
+
+      function applyUserPanelHeight(panel, handle, requestedHeight, bounds) {
+        const nextHeight = Math.min(
+          bounds.maximumHeight,
+          Math.max(bounds.minimumHeight, requestedHeight),
+        );
+        const isCollapsed =
+          bounds.isBottomSheet &&
+          nextHeight <= bounds.collapsedHeight + 0.5;
+
+        panel.style.height = `${Math.round(nextHeight)}px`;
+        panel.classList.remove("is-auto-height-constrained");
+        panel.classList.add("is-user-resized");
+        panel.classList.toggle("is-collapsed", isCollapsed);
+
+        const resizeRange = Math.max(
+          1,
+          bounds.maximumHeight - bounds.minimumHeight,
+        );
+        const resizePercent = Math.round(
+          ((nextHeight - bounds.minimumHeight) / resizeRange) * 100,
+        );
+        handle.setAttribute("aria-valuenow", String(resizePercent));
+        handle.setAttribute(
+          "aria-valuetext",
+          isCollapsed
+            ? "Collapsed; drag upward to reopen"
+            : `${Math.round(nextHeight)} pixels high`,
+        );
+
+        if (panel.id === "infoPanel") {
+          window.requestAnimationFrame(syncFocusedInfoColumnHeight);
+        }
+
+        return nextHeight;
+      }
+
       function setupPanelResizeHandles() {
         document.querySelectorAll("[data-panel-resize-handle]").forEach((handle) => {
           const panel = handle.closest(".info-panel");
@@ -7761,28 +7841,7 @@
 
             const startY = event.clientY;
             const startHeight = panel.getBoundingClientRect().height;
-            const computedPanel = window.getComputedStyle(panel);
-            const panelBottom = parseFloat(computedPanel.bottom) || 0;
-            const computedMaximumHeight = parseFloat(computedPanel.maxHeight);
-            const fallbackMaximumHeight =
-              window.innerHeight -
-              (parseFloat(
-                getComputedStyle(document.documentElement).getPropertyValue(
-                  "--header-height",
-                ),
-              ) || 0) -
-              panelBottom -
-              CHART_SIZING.infoPanelViewportGap;
-            const maximumHeight = Math.max(
-              140,
-              Math.min(
-                Number.isFinite(computedMaximumHeight)
-                  ? computedMaximumHeight
-                  : fallbackMaximumHeight,
-                fallbackMaximumHeight,
-              ),
-            );
-            const minimumHeight = Math.min(180, maximumHeight);
+            const bounds = getPanelResizeBounds(panel, handle);
 
             panel.style.height = `${startHeight}px`;
             panel.classList.remove("is-auto-height-constrained");
@@ -7790,24 +7849,7 @@
 
             const handlePointerMove = (moveEvent) => {
               const requestedHeight = startHeight + startY - moveEvent.clientY;
-              const nextHeight = Math.min(
-                maximumHeight,
-                Math.max(minimumHeight, requestedHeight),
-              );
-              panel.style.height = `${Math.round(nextHeight)}px`;
-              const resizeRange = Math.max(1, maximumHeight - minimumHeight);
-              const resizePercent = Math.round(
-                ((nextHeight - minimumHeight) / resizeRange) * 100,
-              );
-              handle.setAttribute("aria-valuenow", String(resizePercent));
-              handle.setAttribute(
-                "aria-valuetext",
-                `${Math.round(nextHeight)} pixels high`,
-              );
-
-              if (panel.id === "infoPanel") {
-                window.requestAnimationFrame(syncFocusedInfoColumnHeight);
-              }
+              applyUserPanelHeight(panel, handle, requestedHeight, bounds);
             };
 
             const finishResize = () => {
@@ -7831,6 +7873,7 @@
               "is-user-resized",
               "is-auto-height-constrained",
               "is-resizing",
+              "is-collapsed",
             );
             handle.setAttribute("aria-valuenow", "0");
             handle.setAttribute("aria-valuetext", "Automatic height");
@@ -7847,40 +7890,29 @@
               return;
             }
 
+            const bounds = getPanelResizeBounds(panel, handle);
+            if (event.key === "End" && bounds.isBottomSheet) {
+              event.preventDefault();
+              applyUserPanelHeight(
+                panel,
+                handle,
+                bounds.collapsedHeight,
+                bounds,
+              );
+              return;
+            }
+
             if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
             event.preventDefault();
             const currentHeight = panel.getBoundingClientRect().height;
             const step = event.shiftKey ? 40 : 16;
             const direction = event.key === "ArrowUp" ? 1 : -1;
-            const computedMaximumHeight = parseFloat(
-              window.getComputedStyle(panel).maxHeight,
+            applyUserPanelHeight(
+              panel,
+              handle,
+              currentHeight + direction * step,
+              bounds,
             );
-            const maximumHeight = Math.max(
-              140,
-              Number.isFinite(computedMaximumHeight)
-                ? computedMaximumHeight
-                : window.innerHeight -
-                    CHART_SIZING.infoPanelViewportGap * 2,
-            );
-            const nextHeight = Math.max(
-              140,
-              Math.min(maximumHeight, currentHeight + direction * step),
-            );
-            panel.style.height = `${Math.round(nextHeight)}px`;
-            panel.classList.remove("is-auto-height-constrained");
-            panel.classList.add("is-user-resized");
-            const resizeRange = Math.max(1, maximumHeight - 140);
-            const resizePercent = Math.round(
-              ((nextHeight - 140) / resizeRange) * 100,
-            );
-            handle.setAttribute("aria-valuenow", String(resizePercent));
-            handle.setAttribute(
-              "aria-valuetext",
-              `${Math.round(nextHeight)} pixels high`,
-            );
-            if (panel.id === "infoPanel") {
-              window.requestAnimationFrame(syncFocusedInfoColumnHeight);
-            }
           });
         });
       }
