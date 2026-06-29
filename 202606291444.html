@@ -4701,6 +4701,28 @@
         return document.body.classList.contains("panel-bottom-sheet");
       }
 
+      function scrollStackedInfoPanelToColumn(column) {
+        if (!usesStackedInfoPanelColumns() || !column || column.hidden) return;
+
+        const body = document.getElementById("infoPanelBody");
+        if (!body) return;
+
+        const bodyRect = body.getBoundingClientRect();
+        const columnRect = column.getBoundingClientRect();
+        const targetTop = Math.max(
+          0,
+          Math.min(
+            body.scrollHeight - body.clientHeight,
+            body.scrollTop + columnRect.top - bodyRect.top - 10,
+          ),
+        );
+
+        body.scrollTo({
+          top: targetTop,
+          behavior: reducedMotionQuery?.matches ? "auto" : "smooth",
+        });
+      }
+
       function syncFocusedInfoColumnHeight() {
         const panel = document.getElementById("infoPanel");
         const body = document.getElementById("infoPanelBody");
@@ -4801,6 +4823,17 @@
               );
               adaptPanelHeightToLineage("info", activeNodes);
               zoomToLineage(chartState.focusedLineage);
+            }
+
+            if (willOpen) {
+              window.requestAnimationFrame(() => {
+                scrollStackedInfoPanelToColumn(relatedColumn);
+              });
+            } else if (usesStackedInfoPanelColumns()) {
+              body.scrollTo({
+                top: 0,
+                behavior: reducedMotionQuery?.matches ? "auto" : "smooth",
+              });
             }
           });
         });
