@@ -3,8 +3,8 @@ name: Update strain data backup
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 3 * * *'
-      timezone: 'Pacific/Auckland'
+    - cron: "17 3 * * *"
+      timezone: "Pacific/Auckland"
 
 permissions:
   contents: write
@@ -41,6 +41,7 @@ jobs:
             --silent \
             --location \
             --retry 3 \
+            --retry-all-errors \
             --retry-delay 5 \
             --connect-timeout 20 \
             --max-time 120 \
@@ -50,6 +51,7 @@ jobs:
           python - "$temp_file" <<'PY'
           import csv
           import sys
+          from collections import Counter
           from pathlib import Path
 
           path = Path(sys.argv[1])
@@ -57,13 +59,19 @@ jobs:
           with path.open("r", encoding="utf-8-sig", newline="") as handle:
               reader = csv.DictReader(handle)
               headers = set(reader.fieldnames or [])
-              required_headers = {"Strain", "Dominance", "Parent1"}
-              missing = required_headers - headers
 
-              if missing:
+              required_headers = {
+                  "Strain",
+                  "Dominance",
+                  "Parent1",
+              }
+
+              missing_headers = required_headers - headers
+
+              if missing_headers:
                   raise SystemExit(
                       "Downloaded CSV is missing required column(s): "
-                      + ", ".join(sorted(missing))
+                      + ", ".join(sorted(missing_headers))
                   )
 
               rows = [
@@ -72,22 +80,32 @@ jobs:
                   if any((value or "").strip() for value in row.values())
               ]
 
-          if len(rows) < 100:
+          if len(rows) < 400:
               raise SystemExit(
-                  f"Downloaded CSV has only {len(rows)} non-empty rows; refusing to replace backup."
+                  f"Downloaded CSV has only {len(rows)} non-empty rows; "
+                  "refusing to replace the backup."
               )
 
-          names = [(row.get("Strain") or "").strip() for row in rows]
-          if any(not name for name in names):
-              raise SystemExit("Downloaded CSV contains a row without a strain name.")
+          strain_names = [
+              (row.get("Strain") or "").strip()
+              for row in rows
+          ]
 
-          duplicate_names = sorted(
-              {name for name in names if names.count(name) > 1}
+          if any(not name for name in strain_names):
+              raise SystemExit(
+                  "Downloaded CSV contains a row without a strain name."
+              )
+
+          counts = Counter(strain_names)
+          duplicates = sorted(
+              name for name, count in counts.items()
+              if count > 1
           )
-          if duplicate_names:
+
+          if duplicates:
               raise SystemExit(
                   "Downloaded CSV contains duplicate strain names: "
-                  + ", ".join(duplicate_names[:10])
+                  + ", ".join(duplicates[:10])
               )
 
           print(f"Validated {len(rows)} non-empty strain rows.")
@@ -97,39 +115,13 @@ jobs:
              cmp --silent "$temp_file" data/strain-data-backup.csv; then
             rm "$temp_file"
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "The live CSV is unchanged."
+            echo "The backup is already current."
             exit 0
           fi
 
           mv "$temp_file" data/strain-data-backup.csv
-
-          python <<'PY'
-          from datetime import datetime
-          from pathlib import Path
-          import re
-          from zoneinfo import ZoneInfo
-
-          html_path = Path("index.html")
-          html = html_path.read_text(encoding="utf-8")
-          backup_date = datetime.now(ZoneInfo("Pacific/Auckland")).strftime("%-d %B %Y")
-
-          updated_html, replacements = re.subn(
-              r'backupDataDate:\s*"[^"]*"',
-              f'backupDataDate: "{backup_date}"',
-              html,
-              count=1,
-          )
-
-          if replacements != 1:
-              raise SystemExit(
-                  "Could not find exactly one backupDataDate setting in index.html."
-              )
-
-          html_path.write_text(updated_html, encoding="utf-8")
-          print(f"Updated backup date to {backup_date}.")
-          PY
-
           echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "The backup CSV has been updated."
 
       - name: Commit updated backup
         if: steps.backup.outputs.changed == 'true'
@@ -137,13 +129,14 @@ jobs:
           set -euo pipefail
 
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add data/strain-data-backup.csv index.html
+          git add data/strain-data-backup.csv
           git commit -m "Update strain data backup"
           git push
 
-      - name: Request GitHub Pages rebuild
+      - name: Publish updated backup to GitHub Pages
         if: steps.backup.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
