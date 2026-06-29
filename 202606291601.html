@@ -445,6 +445,18 @@
         padding: 20px;
       }
 
+
+      #popup3 .about-disclosure {
+        margin-top: 1.4em;
+        color: #666;
+        font-size: 0.7em;
+        line-height: 1.4;
+      }
+
+      #popup3 .about-disclosure a {
+        color: inherit;
+      }
+
       #popup2 {
         top: var(--visual-viewport-quarter-y, 25vh);
         left: 50%;
@@ -1693,25 +1705,11 @@
         or purchasing decisions.
       </p>
 
-      <h3>Anonymous usage statistics</h3>
-
-      <p>
-        WeedTree uses
-        <a href="https://counter.dev/" target="_blank" rel="noopener noreferrer">Counter.dev</a>
-        to collect anonymous, aggregate usage statistics such as visitor numbers,
-        country, referring site, device type, operating system, and screen size.
-        Counter.dev does not use tracking cookies or IP-address fingerprinting.
-        These statistics are used only to understand how the site is being used
-        and to improve it.
-      </p>
-
-      <p>
-        WeedTree normally loads its current lineage data from the live source
-        spreadsheet. If that source is temporarily unavailable, the chart may
-        display a dated backup copy.
-      </p>
-
       <p>Please enjoy exploring the lineages and the patterns they make.</p>
+
+      <p class="about-disclosure">
+        WeedTree uses <a href="https://counter.dev/" target="_blank" rel="noopener noreferrer">Counter.dev</a> to collect anonymous, aggregate usage statistics such as visitor numbers, country, referring site, device type, operating system, and screen size. Counter.dev does not use tracking cookies or IP-address fingerprinting. These statistics are used only to understand how the site is being used and to improve it. WeedTree normally loads its current lineage data from the live source spreadsheet. If that source is temporarily unavailable, the chart may display a dated backup copy.
+      </p>
     </div>
 
     <div id="strainDropdown" role="listbox" aria-label="Strain search results"></div>
