@@ -154,6 +154,7 @@
         --chart-node-stroke: #000;
         --chart-selected: #f0f;
         --chart-hover-highlight: #f0f;
+        --chart-related-product-highlight: #2f9e44;
         --chart-search-highlight: #f00;
         --chart-percentage-background: #000;
         --chart-percentage-text: #fff;
@@ -870,6 +871,24 @@
       .link.compare-shared {
         stroke: var(--chart-hover-highlight) !important;
       }
+      .link.related-product-path {
+        stroke: var(--chart-related-product-highlight) !important;
+        stroke-opacity: 1 !important;
+        stroke-width: 5px !important;
+        opacity: 1 !important;
+      }
+      .node.related-product-path rect,
+      .node.related-product-path text {
+        opacity: 1 !important;
+      }
+      .node.related-product-target .node-background {
+        stroke: var(--chart-related-product-highlight) !important;
+        stroke-width: 7px !important;
+      }
+      .node.related-product-common:not(.related-product-target) .node-background {
+        stroke: var(--chart-related-product-highlight) !important;
+        stroke-width: 4px !important;
+      }
       .node.dimmed rect,
       .node.dimmed text,
       .link.dimmed { opacity: var(--chart-dimmed-opacity); }
@@ -1101,6 +1120,18 @@
         font-weight: 400;
         line-height: 1.3;
         overflow-wrap: anywhere;
+      }
+
+      .related-product-name.is-lineage-preview-source {
+        margin: 0 -4px;
+        padding-right: 4px;
+        border-radius: 4px;
+        cursor: crosshair;
+      }
+
+      .related-product-name.is-lineage-preview-source:hover,
+      .related-product-name.is-lineage-preview-source:focus {
+        background: rgba(47, 158, 68, 0.12);
       }
 
       .related-products-empty {
@@ -1728,6 +1759,7 @@
         productStroke: "#000",
         selected: "#f0f",
         hoverHighlight: "#f0f",
+        relatedProductHighlight: "#2f9e44",
         compareFirstLink: "#1976d2",
         compareSecondLink: "#ef8b17",
         searchHighlight: "#f00",
@@ -1833,6 +1865,7 @@
         standardNodeWidth: CHART_SIZING.minimumNodeWidth,
         isDragging: false,
         hoveredNodeElement: null,
+        relatedProductPreview: null,
         keyboardNodeId: null,
         isPrepared: false,
         isUsingBackupData: false,
@@ -1889,6 +1922,7 @@
         relatedContent: null,
         relatedSourceLabel: null,
         rolloverNode: null,
+        relatedProductPreviewClearTimer: null,
       };
 
       const DOMINANCE_ORDER = Object.freeze({
@@ -1938,6 +1972,8 @@
           "--chart-product-stroke": CHART_COLOURS.productStroke,
           "--chart-selected": CHART_COLOURS.selected,
           "--chart-hover-highlight": CHART_COLOURS.hoverHighlight,
+          "--chart-related-product-highlight":
+            CHART_COLOURS.relatedProductHighlight,
           "--chart-compare-first-link": CHART_COLOURS.compareFirstLink,
           "--chart-compare-second-link": CHART_COLOURS.compareSecondLink,
           "--chart-search-highlight": CHART_COLOURS.searchHighlight,
@@ -3146,8 +3182,15 @@
       function updateVisibleGraph() {
         const focusedLineage = getFocusedChartLineage();
 
-        chartState.visibleNodes = focusedLineage
-          ? chartState.nodes.filter((node) => focusedLineage.has(node.id))
+        const visibleLineage = focusedLineage
+          ? new Set([
+              ...focusedLineage,
+              ...(chartState.relatedProductPreview?.nodeIds || []),
+            ])
+          : null;
+
+        chartState.visibleNodes = visibleLineage
+          ? chartState.nodes.filter((node) => visibleLineage.has(node.id))
           : [...chartState.nodes];
 
         const visibleNodeIds = new Set(
@@ -3851,11 +3894,7 @@
         });
       }
 
-      function applySingleSelectionPresentation(
-        node,
-        lineage,
-        { zoom = true } = {},
-      ) {
+      function applySingleSelectionChartPresentation(node, lineage) {
         clearComparisonClasses();
         chartState.nodeSelection
           .classed("dimmed", (candidate) => !lineage.has(candidate.id))
@@ -3892,12 +3931,30 @@
         );
 
         renderContributionPills(node, allContributions);
-        renderInfoPanel(node, ancestorContributions);
-        adaptPanelHeightToLineage(
-          "info",
-          chartState.visibleNodes.filter((candidate) => lineage.has(candidate.id)),
-        );
         syncNodeAccessibilityState();
+        return ancestorContributions;
+      }
+
+      function applySingleSelectionPresentation(
+        node,
+        lineage,
+        { zoom = true, renderPanel = true } = {},
+      ) {
+        const ancestorContributions = applySingleSelectionChartPresentation(
+          node,
+          lineage,
+        );
+
+        if (renderPanel) {
+          renderInfoPanel(node, ancestorContributions);
+          adaptPanelHeightToLineage(
+            "info",
+            chartState.visibleNodes.filter((candidate) =>
+              lineage.has(candidate.id),
+            ),
+          );
+        }
+
         if (zoom) zoomToLineage(lineage);
       }
 
@@ -4100,6 +4157,7 @@
       }
 
       function removeChartOverlays() {
+        clearRelatedProductPreview({ restoreChart: false });
         chartState.group?.selectAll(".pct-pill, .pct-pill-text").remove();
         clearInfoPanel();
         clearComparisonPanel();
@@ -4687,6 +4745,7 @@
           group.products.push({
             product: match.product,
             text: match.displayText,
+            strain: match.strain,
           });
         });
 
@@ -4727,8 +4786,25 @@
 
           group.products.forEach((product) => {
             const productName = document.createElement("div");
-            productName.className = "related-product-name";
+            productName.className =
+              "related-product-name is-lineage-preview-source";
             productName.textContent = product.text;
+            productName.tabIndex = 0;
+            productName.title = `Show the lineage connection to ${product.strain.name}`;
+            productName.addEventListener("pointerenter", () =>
+              previewRelatedProductLineage(product.strain),
+            );
+            productName.addEventListener("focus", () =>
+              previewRelatedProductLineage(product.strain),
+            );
+            productName.addEventListener(
+              "pointerleave",
+              scheduleRelatedProductPreviewClear,
+            );
+            productName.addEventListener(
+              "blur",
+              scheduleRelatedProductPreviewClear,
+            );
             products.appendChild(productName);
           });
 
@@ -4785,6 +4861,216 @@
         );
       }
 
+      function getLineageLinkKey(sourceId, targetId) {
+        return `${sourceId}\u0000${targetId}`;
+      }
+
+      function findShortestPathToAncestor(startNode, ancestorId) {
+        if (!startNode) return null;
+
+        const queue = [{ node: startNode, path: [startNode.id] }];
+        const visited = new Set();
+
+        while (queue.length) {
+          const { node, path } = queue.shift();
+          if (!node || visited.has(node.id)) continue;
+          if (node.id === ancestorId) return path;
+          visited.add(node.id);
+
+          getParentNodes(node, chartState.indexes).forEach((parent) => {
+            if (!visited.has(parent.id)) {
+              queue.push({ node: parent, path: [...path, parent.id] });
+            }
+          });
+        }
+
+        return null;
+      }
+
+      function getRelatedProductLineageConnection(focusedNode, productNode) {
+        if (!focusedNode || !productNode) return null;
+
+        const focusedDepths = getAncestorDepths(focusedNode);
+        const productDepths = getAncestorDepths(productNode);
+        const sharedAncestors = [];
+
+        focusedDepths.forEach((focusedDepth, nodeId) => {
+          const productDepth = productDepths.get(nodeId);
+          const ancestor = chartState.indexes.nodesById.get(nodeId);
+          if (productDepth === undefined || !ancestor) return;
+
+          sharedAncestors.push({
+            ancestor,
+            focusedDepth,
+            productDepth,
+            combinedDepth: focusedDepth + productDepth,
+            maximumDepth: Math.max(focusedDepth, productDepth),
+          });
+        });
+
+        if (!sharedAncestors.length) return null;
+
+        sharedAncestors.sort(
+          (a, b) =>
+            a.combinedDepth - b.combinedDepth ||
+            a.maximumDepth - b.maximumDepth ||
+            a.focusedDepth - b.focusedDepth ||
+            a.productDepth - b.productDepth ||
+            a.ancestor.name.localeCompare(b.ancestor.name),
+        );
+
+        const closest = sharedAncestors[0];
+        const nearestSharedAncestors = sharedAncestors.filter(
+          (candidate) =>
+            candidate.focusedDepth === closest.focusedDepth &&
+            candidate.productDepth === closest.productDepth,
+        );
+        const nodeIds = new Set([focusedNode.id, productNode.id]);
+        const linkKeys = new Set();
+        const commonAncestorIds = new Set();
+
+        nearestSharedAncestors.forEach(({ ancestor }) => {
+          commonAncestorIds.add(ancestor.id);
+
+          [focusedNode, productNode].forEach((startNode) => {
+            const path = findShortestPathToAncestor(startNode, ancestor.id);
+            if (!path) return;
+
+            path.forEach((nodeId) => nodeIds.add(nodeId));
+            for (let index = 0; index < path.length - 1; index += 1) {
+              const childId = path[index];
+              const parentId = path[index + 1];
+              linkKeys.add(getLineageLinkKey(parentId, childId));
+            }
+          });
+        });
+
+        return {
+          nodeIds,
+          linkKeys,
+          targetNodeId: productNode.id,
+          commonAncestorIds,
+          expandedFocusedGraph: false,
+        };
+      }
+
+      function clearRelatedProductPreviewClasses() {
+        chartState.nodeSelection
+          ?.classed("related-product-path", false)
+          .classed("related-product-target", false)
+          .classed("related-product-common", false);
+        chartState.linkSelection?.classed("related-product-path", false);
+      }
+
+      function applyRelatedProductPreviewClasses() {
+        const preview = chartState.relatedProductPreview;
+        clearRelatedProductPreviewClasses();
+        if (!preview) return;
+
+        chartState.nodeSelection
+          ?.classed("related-product-path", (node) =>
+            preview.nodeIds.has(node.id),
+          )
+          .classed(
+            "related-product-target",
+            (node) => node.id === preview.targetNodeId,
+          )
+          .classed("related-product-common", (node) =>
+            preview.commonAncestorIds.has(node.id),
+          );
+        chartState.linkSelection?.classed("related-product-path", (link) =>
+          preview.linkKeys.has(getLineageLinkKey(link.source, link.target)),
+        );
+      }
+
+      function restoreFocusedChartAfterRelatedProductPreview(previewLineage) {
+        const focusedNode = chartState.focusedNode;
+        if (!focusedNode) return;
+
+        const normalLineage = collectLineage(
+          focusedNode,
+          chartState.nodes,
+          chartState.indexes,
+        );
+        renderChartCanvas();
+        applySingleSelectionPresentation(focusedNode, normalLineage, {
+          zoom: false,
+          renderPanel: false,
+        });
+        applyRelatedProductPreviewClasses();
+        zoomToLineage(previewLineage || normalLineage);
+      }
+
+      function previewRelatedProductLineage(productNode) {
+        window.clearTimeout(infoPanelState.relatedProductPreviewClearTimer);
+        infoPanelState.relatedProductPreviewClearTimer = null;
+
+        const focusedNode = infoPanelState.focusedNode;
+        const connection = getRelatedProductLineageConnection(
+          focusedNode,
+          productNode,
+        );
+        if (!connection) {
+          clearRelatedProductPreview();
+          return;
+        }
+
+        const previousPreview = chartState.relatedProductPreview;
+        const normalFocusedLineage = getFocusedChartLineage();
+        connection.expandedFocusedGraph = Boolean(
+          normalFocusedLineage &&
+            [...connection.nodeIds].some(
+              (nodeId) => !normalFocusedLineage.has(nodeId),
+            ),
+        );
+        chartState.relatedProductPreview = connection;
+
+        if (
+          isFocusedChartLayoutActive() &&
+          (previousPreview?.expandedFocusedGraph ||
+            connection.expandedFocusedGraph)
+        ) {
+          restoreFocusedChartAfterRelatedProductPreview(
+            new Set([
+              ...(normalFocusedLineage || []),
+              ...connection.nodeIds,
+            ]),
+          );
+          return;
+        }
+
+        applyRelatedProductPreviewClasses();
+      }
+
+      function clearRelatedProductPreview({ restoreChart = true } = {}) {
+        window.clearTimeout(infoPanelState.relatedProductPreviewClearTimer);
+        infoPanelState.relatedProductPreviewClearTimer = null;
+
+        const preview = chartState.relatedProductPreview;
+        chartState.relatedProductPreview = null;
+        if (!preview) return;
+
+        if (
+          restoreChart &&
+          preview.expandedFocusedGraph &&
+          isFocusedChartLayoutActive() &&
+          chartState.focusedNode
+        ) {
+          restoreFocusedChartAfterRelatedProductPreview();
+          return;
+        }
+
+        clearRelatedProductPreviewClasses();
+      }
+
+      function scheduleRelatedProductPreviewClear() {
+        window.clearTimeout(infoPanelState.relatedProductPreviewClearTimer);
+        infoPanelState.relatedProductPreviewClearTimer = window.setTimeout(
+          () => clearRelatedProductPreview(),
+          40,
+        );
+      }
+
       function renderRelatedProductsModeContent() {
         const panel = document.getElementById("infoPanel");
         const content = infoPanelState.relatedContent;
@@ -4838,6 +5124,8 @@
       function setRelatedProductsMode(mode) {
         if (mode !== "list" && mode !== "rollover") return;
 
+        clearRelatedProductPreview();
+
         if (pageState.relatedProductsMode !== mode) {
           infoPanelState.rolloverNode = null;
         }
@@ -4849,6 +5137,7 @@
       function previewRelatedProductsForNode(node) {
         if (pageState.relatedProductsMode !== "rollover" || !node) return;
 
+        clearRelatedProductPreview();
         infoPanelState.rolloverNode = node;
         renderRelatedProductsModeContent();
       }
@@ -5009,6 +5298,7 @@
         productsToggle.addEventListener("click", (event) => {
           event.preventDefault();
           const willOpen = relatedColumn.hidden;
+          if (!willOpen) clearRelatedProductPreview();
           relatedColumn.hidden = !willOpen;
           columns.classList.toggle("is-related-visible", willOpen);
           productsToggle.textContent = willOpen
@@ -7208,6 +7498,7 @@
       }
 
       function rerenderChartForCurrentSelection() {
+        clearRelatedProductPreview({ restoreChart: false });
         resetAllNodeHoverStates({ animate: false });
         removeChartOverlays();
         renderChartCanvas();
