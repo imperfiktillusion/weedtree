@@ -6396,6 +6396,15 @@
         return `${parts.join("_")}.svg`;
       }
 
+      function getExportDateLabel(date = new Date()) {
+        return new Intl.DateTimeFormat("en-NZ", {
+          timeZone: "Pacific/Auckland",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }).format(date);
+      }
+
       function removePrecedingBreak(element) {
         let sibling = element.previousSibling;
         while (sibling && sibling.nodeType === Node.TEXT_NODE && !sibling.textContent.trim()) {
@@ -6834,6 +6843,22 @@
           headerHeight * uniformScale + contentOffsetY,
           uniformScale,
         );
+
+        const exportDate = document.createElementNS(SVG_NS, "text");
+        exportDate.setAttribute("x", String(exportX + 12 * uniformScale));
+        exportDate.setAttribute(
+          "y",
+          String(headerHeight * uniformScale + 17 * uniformScale),
+        );
+        exportDate.setAttribute("fill", "#666666");
+        exportDate.setAttribute("fill-opacity", "0.82");
+        exportDate.setAttribute("font-family", "Arial, sans-serif");
+        exportDate.setAttribute("font-size", String(11 * uniformScale));
+        exportDate.setAttribute("font-weight", "400");
+        exportDate.setAttribute("text-anchor", "start");
+        exportDate.setAttribute("aria-hidden", "true");
+        exportDate.textContent = getExportDateLabel();
+        rootSvg.appendChild(exportDate);
 
         // Fit the fixed 3840×2160 SVG to the browser viewport once when it
         // first opens. The dimensions are then left as explicit pixel values,
