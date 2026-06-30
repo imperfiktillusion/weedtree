@@ -574,7 +574,7 @@
         border: 0;
         background: transparent;
         color: #434343;
-        font: 2.5em/1 "Roboto", Arial, sans-serif;
+        font: 1.75em/1 "Roboto", Arial, sans-serif;
         text-align: left;
         cursor: pointer;
         transition: background-color 0.2s;
@@ -589,7 +589,7 @@
         display: block;
         margin-top: 0.18em;
         color: #666;
-        font-size: 0.56em;
+        font-size: max(12px, 0.54em);
         line-height: 1.25;
         overflow-wrap: anywhere;
       }
@@ -663,7 +663,7 @@
 
         #strainDropdown [role="option"] {
           padding: 9px 12px;
-          font-size: clamp(18px, 5.8vw, 28px);
+          font-size: clamp(16px, 4.8vw, 23px);
           line-height: 1.08;
         }
 
@@ -7375,8 +7375,8 @@
             });
           };
 
-          appendDetails("Also known as", strain.alsoKnownAs);
-          appendDetails("Product", strain.product);
+          appendDetails("AKA", strain.alsoKnownAs);
+          appendDetails("NZ Products", strain.product);
 
           item.addEventListener("click", () => chooseSearchResult(strain));
           item.addEventListener("pointerenter", () =>
