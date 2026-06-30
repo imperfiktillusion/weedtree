@@ -3,30 +3,123 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <base href="https://www.weedtree.fyi" />
 
-    <script
-      src="https://cdn.counter.dev/script.js"
-      data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993"
-      data-utcoffset="13"
-    ></script>
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-8527SLLPYV"
-    ></script>
+    <meta
+      name="description"
+      content="Explore the family tree of cannabis strains. Trace ancestors, compare lineages, and see how strains such as OG Kush are connected."
+    />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <meta name="theme-color" content="#434343" />
+    <link rel="canonical" href="https://weedtree.fyi/" />
+
+    <meta property="og:site_name" content="WeedTree" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_NZ" />
+    <meta property="og:url" content="https://weedtree.fyi/" />
+    <meta property="og:title" content="WeedTree – The Family Tree of Cannabis Strains" />
+    <meta
+      property="og:description"
+      content="Explore cannabis strain ancestry, follow lineage contributions, and compare how strains are related in an interactive family tree."
+    />
+    <meta property="og:image" content="https://weedtree.fyi/assets/weedtree-social-preview.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The OG Kush lineage displayed in the WeedTree cannabis strain family tree."
+    />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="WeedTree – The Family Tree of Cannabis Strains" />
+    <meta
+      name="twitter:description"
+      content="Explore cannabis strain ancestry, follow lineage contributions, and compare how strains are related in an interactive family tree."
+    />
+    <meta name="twitter:image" content="https://weedtree.fyi/assets/weedtree-social-preview.png" />
+    <meta
+      name="twitter:image:alt"
+      content="The OG Kush lineage displayed in the WeedTree cannabis strain family tree."
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://weedtree.fyi/#website",
+            "url": "https://weedtree.fyi/",
+            "name": "WeedTree",
+            "description": "An interactive cannabis strain family tree for exploring ancestry, lineage contributions, and relationships between strains.",
+            "inLanguage": "en-NZ"
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://weedtree.fyi/#application",
+            "url": "https://weedtree.fyi/",
+            "name": "WeedTree",
+            "applicationCategory": "ReferenceApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires JavaScript and a modern web browser.",
+            "isAccessibleForFree": true,
+            "description": "An interactive cannabis strain family tree for exploring ancestry, lineage contributions, and relationships between strains.",
+            "inLanguage": "en-NZ"
+          }
+        ]
+      }
+    </script>
+
+    <script>
+      // Counter is loaded asynchronously. Reporting dates follow Pacific/Auckland,
+      // including the change between New Zealand standard and daylight-saving time.
+      (() => {
+        function getAucklandUtcOffsetHours(date = new Date()) {
+          const values = Object.fromEntries(
+            new Intl.DateTimeFormat("en-CA", {
+              timeZone: "Pacific/Auckland",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hourCycle: "h23",
+            })
+              .formatToParts(date)
+              .filter((part) => part.type !== "literal")
+              .map((part) => [part.type, part.value]),
+          );
+
+          const aucklandAsUtc = Date.UTC(
+            Number(values.year),
+            Number(values.month) - 1,
+            Number(values.day),
+            Number(values.hour),
+            Number(values.minute),
+            Number(values.second),
+          );
+
+          return Math.round((aucklandAsUtc - date.getTime()) / 3_600_000);
+        }
+
+        const script = document.createElement("script");
+        script.src = "https://cdn.counter.dev/script.js";
+        script.async = true;
+        script.dataset.id = "c89e409b-c7ae-4e59-8da1-bf5116b65993";
+        script.dataset.utcoffset = String(getAucklandUtcOffsetHours());
+        document.head.appendChild(script);
+      })();
+    </script>
     <script src="https://d3js.org/d3.v6.min.js"></script>
 
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-      gtag("js", new Date());
-      gtag("config", "G-8527SLLPYV");
 
       const APP_CONFIG = Object.freeze({
         dataUrl:
           "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoTjN6psMidKhKOaAxqcZQQ_ArKkUTuRgn65c3ncNqjdLASER0J-Z3WYxFNuhFX_gDVoyHyH1PcCZy/pub?output=csv&gid=1070299978",
+        backupDataUrl: "/data/strain-data-backup.csv",
+        backupDataDate: "29 June 2026",
       });
 
       function showCopiedPopup() {
@@ -81,7 +174,7 @@
       }
     </script>
 
-    <title>WeedTree Strain Lineage Chart</title>
+    <title>WeedTree – Cannabis Strain Lineage Chart</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
@@ -353,6 +446,18 @@
         padding: 20px;
       }
 
+
+      #popup3 .about-disclosure {
+        margin-top: 1.4em;
+        color: #666;
+        font-size: 0.7em;
+        line-height: 1.4;
+      }
+
+      #popup3 .about-disclosure a {
+        color: inherit;
+      }
+
       #popup2 {
         top: var(--visual-viewport-quarter-y, 25vh);
         left: 50%;
@@ -563,6 +668,55 @@
         background: rgba(255, 255, 255, 0.8);
         transform: translate(-50%, -50%);
       }
+
+      #loading-message.is-error {
+        box-sizing: border-box;
+        width: min(520px, calc(100vw - 32px));
+        border: 1px solid #9c2f2f;
+        border-radius: 10px;
+        background: rgba(255, 247, 247, 0.98);
+        color: #6f1717;
+        line-height: 1.45;
+        text-align: center;
+      }
+
+      .data-status-message {
+        position: fixed;
+        right: calc(12px + var(--safe-area-right));
+        bottom: calc(12px + var(--safe-area-bottom));
+        z-index: 1002;
+        display: flex;
+        box-sizing: border-box;
+        align-items: flex-start;
+        width: min(520px, calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 24px));
+        padding: 10px 42px 10px 13px;
+        border: 1px solid #9a7a16;
+        border-radius: 8px;
+        background: rgba(255, 249, 218, 0.98);
+        color: #493b0c;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+        font: 13px/1.35 "Poppins", Arial, sans-serif;
+      }
+
+      .data-status-message[hidden] { display: none; }
+
+      .data-status-close {
+        --symbol-size: 13px;
+        --symbol-thickness: 2px;
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: #493b0c;
+        cursor: pointer;
+      }
+
+      .data-status-close:hover { background: rgba(73, 59, 12, 0.1); }
 
       .container {
         display: flex;
@@ -1553,12 +1707,26 @@
       </p>
 
       <p>Please enjoy exploring the lineages and the patterns they make.</p>
+
+      <p class="about-disclosure">
+        WeedTree uses <a href="https://counter.dev/" target="_blank" rel="noopener noreferrer">Counter.dev</a> to collect anonymous, aggregate usage statistics such as visitor numbers, country, referring site, device type, operating system, and screen size. Counter.dev does not use tracking cookies or IP-address fingerprinting. These statistics are used only to understand how the site is being used and to improve it. WeedTree normally loads its current lineage data from the live source spreadsheet. If that source is temporarily unavailable, the chart may display a dated backup copy.
+      </p>
     </div>
 
     <div id="strainDropdown" role="listbox" aria-label="Strain search results"></div>
     <div id="searchResultsStatus" class="visually-hidden" role="status" aria-live="polite"></div>
 
     <div id="loading-message" role="status" aria-live="polite">chart loading...</div>
+    <div id="dataStatusMessage" class="data-status-message" role="status" aria-live="polite" hidden>
+      <span id="dataStatusText"></span>
+      <button
+        id="dataStatusClose"
+        class="data-status-close symbol-button symbol-close"
+        type="button"
+        aria-label="Dismiss data status message"
+        title="Dismiss"
+      ></button>
+    </div>
 
 
     <script>
@@ -1812,14 +1980,50 @@
       // -----------------------------------------------------------------------
 
       function setLoading(isLoading) {
-        document.getElementById("loading-message").style.display = isLoading
-          ? "block"
-          : "none";
+        const loadingMessage = document.getElementById("loading-message");
+        loadingMessage.classList.remove("is-error");
+        loadingMessage.setAttribute("role", "status");
+        loadingMessage.textContent = "chart loading...";
+        loadingMessage.style.display = isLoading ? "block" : "none";
       }
 
       function showError(message) {
-        setLoading(false);
-        alert(message);
+        const loadingMessage = document.getElementById("loading-message");
+        loadingMessage.classList.add("is-error");
+        loadingMessage.setAttribute("role", "alert");
+        loadingMessage.textContent = message;
+        loadingMessage.style.display = "block";
+      }
+
+      function showBackupDataNotice() {
+        document.getElementById("dataStatusText").textContent =
+          `Live data is temporarily unavailable. WeedTree is displaying a backup copy saved ${APP_CONFIG.backupDataDate}.`;
+        document.getElementById("dataStatusMessage").hidden = false;
+      }
+
+      function setupDataStatusMessage() {
+        document.getElementById("dataStatusClose")?.addEventListener("click", () => {
+          document.getElementById("dataStatusMessage").hidden = true;
+        });
+      }
+
+      async function fetchStrainRows(url, options = {}) {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}.`);
+        }
+
+        const rows = parseStrainCsv(await response.text());
+        if (!rows.length || !Object.prototype.hasOwnProperty.call(rows[0], "Strain")) {
+          throw new Error("The data did not contain a valid Strain column.");
+        }
+
+        return rows;
+      }
+
+      function prepareRowsForChart(rows) {
+        chartState.strainData = rows;
+        prepareGraphData();
       }
 
       function parseStrainCsv(csvText) {
@@ -2064,22 +2268,38 @@
 
       async function initialiseChart() {
         setLoading(true);
+        setupDataStatusMessage();
 
         try {
-          const response = await fetch(APP_CONFIG.dataUrl);
-          if (!response.ok) throw new Error("Network response was not ok");
+          const rows = await fetchStrainRows(APP_CONFIG.dataUrl, {
+            cache: "no-store",
+          });
+          prepareRowsForChart(rows);
+        } catch (liveError) {
+          console.warn("Live lineage data could not be used; trying backup.", liveError);
 
-          chartState.strainData = parseStrainCsv(await response.text());
-          if (!chartState.strainData.length) {
-            throw new Error("Not enough data in the spreadsheet.");
+          try {
+            const backupRows = await fetchStrainRows(APP_CONFIG.backupDataUrl);
+            prepareRowsForChart(backupRows);
+            showBackupDataNotice();
+          } catch (backupError) {
+            showError(
+              "WeedTree could not load its lineage data. Please try again later.",
+            );
+            console.error("Live data error:", liveError);
+            console.error("Backup data error:", backupError);
+            return;
           }
+        }
 
-          prepareGraphData();
+        try {
           createLineageChart();
           setupStrainSearch();
         } catch (error) {
-          showError(`Error fetching data: ${error.message}`);
-          console.error("Fetch error:", error);
+          showError(
+            "WeedTree could not prepare its lineage chart. Please try again later.",
+          );
+          console.error("Chart preparation error:", error);
           return;
         }
 
@@ -4701,6 +4921,28 @@
         return document.body.classList.contains("panel-bottom-sheet");
       }
 
+      function scrollStackedInfoPanelToColumn(column) {
+        if (!usesStackedInfoPanelColumns() || !column || column.hidden) return;
+
+        const body = document.getElementById("infoPanelBody");
+        if (!body) return;
+
+        const bodyRect = body.getBoundingClientRect();
+        const columnRect = column.getBoundingClientRect();
+        const targetTop = Math.max(
+          0,
+          Math.min(
+            body.scrollHeight - body.clientHeight,
+            body.scrollTop + columnRect.top - bodyRect.top - 10,
+          ),
+        );
+
+        body.scrollTo({
+          top: targetTop,
+          behavior: reducedMotionQuery?.matches ? "auto" : "smooth",
+        });
+      }
+
       function syncFocusedInfoColumnHeight() {
         const panel = document.getElementById("infoPanel");
         const body = document.getElementById("infoPanelBody");
@@ -4801,6 +5043,17 @@
               );
               adaptPanelHeightToLineage("info", activeNodes);
               zoomToLineage(chartState.focusedLineage);
+            }
+
+            if (willOpen) {
+              window.requestAnimationFrame(() => {
+                scrollStackedInfoPanelToColumn(relatedColumn);
+              });
+            } else if (usesStackedInfoPanelColumns()) {
+              body.scrollTo({
+                top: 0,
+                behavior: reducedMotionQuery?.matches ? "auto" : "smooth",
+              });
             }
           });
         });
@@ -5104,128 +5357,9 @@
         return getComparisonRelationshipStatements(firstNode, secondNode)[0];
       }
 
-      function getRelationshipSortRank(firstNode, secondNode) {
-        if (
-          firstNode.variant === secondNode.name ||
-          secondNode.variant === firstNode.name ||
-          (firstNode.variant &&
-            secondNode.variant &&
-            firstNode.variant === secondNode.variant)
-        ) {
-          return 0;
-        }
-
-        const maximumDepth =
-          CHART_BEHAVIOUR.comparisonRelationshipMaximumGenerations;
-        const firstDepths = getAncestorDepths(firstNode);
-        const secondDepths = getAncestorDepths(secondNode);
-        const firstFromSecond = secondDepths.get(firstNode.id);
-        const secondFromFirst = firstDepths.get(secondNode.id);
-        const directDepth = [firstFromSecond, secondFromFirst]
-          .filter((depth) => depth > 0 && depth <= maximumDepth)
-          .sort((a, b) => a - b)[0];
-
-        if (directDepth === 1) return 1;
-        if (directDepth === 2) return 4;
-        if (directDepth === 3) return 8;
-
-        const candidates = [];
-        firstDepths.forEach((firstDepth, nodeId) => {
-          const secondDepth = secondDepths.get(nodeId);
-          const ancestor = chartState.indexes.nodesById.get(nodeId);
-          if (
-            secondDepth === undefined ||
-            firstDepth < 1 ||
-            secondDepth < 1 ||
-            Math.max(firstDepth, secondDepth) > maximumDepth ||
-            !ancestor ||
-            ancestor.name.toLowerCase().includes("unknown")
-          ) {
-            return;
-          }
-
-          candidates.push({
-            firstDepth,
-            secondDepth,
-            combinedDepth: firstDepth + secondDepth,
-            maximumDepth: Math.max(firstDepth, secondDepth),
-          });
-        });
-
-        if (!candidates.length) return Number.POSITIVE_INFINITY;
-
-        candidates.sort(
-          (a, b) =>
-            a.combinedDepth - b.combinedDepth ||
-            a.maximumDepth - b.maximumDepth,
-        );
-
-        const closest = candidates[0];
-        if (closest.firstDepth === 1 && closest.secondDepth === 1) {
-          const firstParents = new Set(
-            getParentNodes(firstNode, chartState.indexes).map(
-              (parent) => parent.id,
-            ),
-          );
-          const secondParents = new Set(
-            getParentNodes(secondNode, chartState.indexes).map(
-              (parent) => parent.id,
-            ),
-          );
-          const sameParents =
-            firstParents.size > 0 &&
-            firstParents.size === secondParents.size &&
-            [...firstParents].every((parentId) =>
-              secondParents.has(parentId),
-            );
-          return sameParents ? 2 : 3;
-        }
-
-        if (closest.firstDepth === 2 && closest.secondDepth === 2) return 5;
-
-        const lowerDepth = Math.min(
-          closest.firstDepth,
-          closest.secondDepth,
-        );
-        const removal = Math.abs(
-          closest.firstDepth - closest.secondDepth,
-        );
-        if (lowerDepth === 2 && removal === 1) return 6;
-        if (closest.firstDepth === 3 && closest.secondDepth === 3) return 7;
-
-        return 8;
-      }
-
-      function getCompactRelationshipStatement(firstNode, secondNode) {
-        const fullStatement = getComparisonRelationshipStatement(
-          firstNode,
-          secondNode,
-        );
-
-        let compactStatement = fullStatement
-          .replace(/^These strains are /, "")
-          .replace(/^These strains share /, "Share ");
-
-        return compactStatement.charAt(0).toUpperCase() + compactStatement.slice(1);
-      }
-
 
       function capitaliseFirst(value) {
         return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
-      }
-
-      function getDescendantRelationshipLabel(depth) {
-        if (depth === 1) return "child";
-        if (depth === 2) return "grandchild";
-        if (depth === 3) return "great-grandchild";
-        return `${depth - 2}× great-grandchild`;
-      }
-
-      function getDirectRelationshipRank(depth) {
-        if (depth === 1) return 1;
-        if (depth === 2) return 4;
-        if (depth === 3) return 8;
-        return Number.POSITIVE_INFINITY;
       }
 
       function formatRelatedContributionPercentage(value) {
@@ -5459,16 +5593,6 @@
         }
 
         return null;
-      }
-
-      function getRelatedProductRelationshipGroupLabel(
-        focusedNode,
-        candidateNode,
-      ) {
-        return getRelatedProductRelationshipMetadata(
-          focusedNode,
-          candidateNode,
-        )?.groupLabel;
       }
 
       function getRelatedProductMatches(focusedNode, exactProducts = []) {
@@ -7021,9 +7145,10 @@
         const searchInput = document.getElementById("strainSearch");
         const dropdown = document.getElementById("strainDropdown");
         searchInput.setAttribute("aria-expanded", String(isExpanded));
+        dropdown.style.display = isExpanded ? "block" : "none";
+
         if (!isExpanded) {
           searchInput.setAttribute("aria-activedescendant", "");
-          dropdown.style.display = "none";
           searchState.activeIndex = -1;
         }
       }
