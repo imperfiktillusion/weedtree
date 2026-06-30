@@ -580,6 +580,24 @@
         transition: background-color 0.2s;
       }
 
+      .search-result-name {
+        display: block;
+        line-height: 1.08;
+      }
+
+      .search-result-detail {
+        display: block;
+        margin-top: 0.18em;
+        color: #666;
+        font-size: 0.56em;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+
+      .search-result-detail-label {
+        font-weight: 700;
+      }
+
       #strainDropdown [role="option"]:hover,
       #strainDropdown [role="option"][aria-selected="true"] {
         background: #e8e8e8;
@@ -7337,20 +7355,28 @@
           item.setAttribute("role", "option");
           item.setAttribute("aria-selected", "false");
           item.tabIndex = -1;
-          item.append(document.createTextNode(strain.name));
 
-          if (strain.product) {
-            item.append(
-              document.createElement("br"),
-              document.createTextNode(`(${strain.product})`),
-            );
-          }
+          const name = document.createElement("span");
+          name.className = "search-result-name";
+          name.textContent = strain.name;
+          item.appendChild(name);
 
-          if (strain.alsoKnownAs) {
-            item.append(
-              document.createTextNode(` [${strain.alsoKnownAs}]`),
-            );
-          }
+          const appendDetails = (label, values) => {
+            parseSemicolonSeparatedValues(values).forEach((value) => {
+              const detail = document.createElement("span");
+              detail.className = "search-result-detail";
+
+              const detailLabel = document.createElement("span");
+              detailLabel.className = "search-result-detail-label";
+              detailLabel.textContent = `${label}: `;
+
+              detail.append(detailLabel, document.createTextNode(value));
+              item.appendChild(detail);
+            });
+          };
+
+          appendDetails("Also known as", strain.alsoKnownAs);
+          appendDetails("Product", strain.product);
 
           item.addEventListener("click", () => chooseSearchResult(strain));
           item.addEventListener("pointerenter", () =>
