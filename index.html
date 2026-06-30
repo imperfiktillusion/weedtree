@@ -22,7 +22,6 @@
       content="Explore cannabis strain ancestry, follow lineage contributions, and compare how strains are related in an interactive family tree."
     />
     <meta property="og:image" content="https://weedtree.fyi/assets/weedtree-social-preview.png" />
-    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
@@ -5357,9 +5356,128 @@
         return getComparisonRelationshipStatements(firstNode, secondNode)[0];
       }
 
+      function getRelationshipSortRank(firstNode, secondNode) {
+        if (
+          firstNode.variant === secondNode.name ||
+          secondNode.variant === firstNode.name ||
+          (firstNode.variant &&
+            secondNode.variant &&
+            firstNode.variant === secondNode.variant)
+        ) {
+          return 0;
+        }
+
+        const maximumDepth =
+          CHART_BEHAVIOUR.comparisonRelationshipMaximumGenerations;
+        const firstDepths = getAncestorDepths(firstNode);
+        const secondDepths = getAncestorDepths(secondNode);
+        const firstFromSecond = secondDepths.get(firstNode.id);
+        const secondFromFirst = firstDepths.get(secondNode.id);
+        const directDepth = [firstFromSecond, secondFromFirst]
+          .filter((depth) => depth > 0 && depth <= maximumDepth)
+          .sort((a, b) => a - b)[0];
+
+        if (directDepth === 1) return 1;
+        if (directDepth === 2) return 4;
+        if (directDepth === 3) return 8;
+
+        const candidates = [];
+        firstDepths.forEach((firstDepth, nodeId) => {
+          const secondDepth = secondDepths.get(nodeId);
+          const ancestor = chartState.indexes.nodesById.get(nodeId);
+          if (
+            secondDepth === undefined ||
+            firstDepth < 1 ||
+            secondDepth < 1 ||
+            Math.max(firstDepth, secondDepth) > maximumDepth ||
+            !ancestor ||
+            ancestor.name.toLowerCase().includes("unknown")
+          ) {
+            return;
+          }
+
+          candidates.push({
+            firstDepth,
+            secondDepth,
+            combinedDepth: firstDepth + secondDepth,
+            maximumDepth: Math.max(firstDepth, secondDepth),
+          });
+        });
+
+        if (!candidates.length) return Number.POSITIVE_INFINITY;
+
+        candidates.sort(
+          (a, b) =>
+            a.combinedDepth - b.combinedDepth ||
+            a.maximumDepth - b.maximumDepth,
+        );
+
+        const closest = candidates[0];
+        if (closest.firstDepth === 1 && closest.secondDepth === 1) {
+          const firstParents = new Set(
+            getParentNodes(firstNode, chartState.indexes).map(
+              (parent) => parent.id,
+            ),
+          );
+          const secondParents = new Set(
+            getParentNodes(secondNode, chartState.indexes).map(
+              (parent) => parent.id,
+            ),
+          );
+          const sameParents =
+            firstParents.size > 0 &&
+            firstParents.size === secondParents.size &&
+            [...firstParents].every((parentId) =>
+              secondParents.has(parentId),
+            );
+          return sameParents ? 2 : 3;
+        }
+
+        if (closest.firstDepth === 2 && closest.secondDepth === 2) return 5;
+
+        const lowerDepth = Math.min(
+          closest.firstDepth,
+          closest.secondDepth,
+        );
+        const removal = Math.abs(
+          closest.firstDepth - closest.secondDepth,
+        );
+        if (lowerDepth === 2 && removal === 1) return 6;
+        if (closest.firstDepth === 3 && closest.secondDepth === 3) return 7;
+
+        return 8;
+      }
+
+      function getCompactRelationshipStatement(firstNode, secondNode) {
+        const fullStatement = getComparisonRelationshipStatement(
+          firstNode,
+          secondNode,
+        );
+
+        let compactStatement = fullStatement
+          .replace(/^These strains are /, "")
+          .replace(/^These strains share /, "Share ");
+
+        return compactStatement.charAt(0).toUpperCase() + compactStatement.slice(1);
+      }
+
 
       function capitaliseFirst(value) {
         return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+      }
+
+      function getDescendantRelationshipLabel(depth) {
+        if (depth === 1) return "child";
+        if (depth === 2) return "grandchild";
+        if (depth === 3) return "great-grandchild";
+        return `${depth - 2}× great-grandchild`;
+      }
+
+      function getDirectRelationshipRank(depth) {
+        if (depth === 1) return 1;
+        if (depth === 2) return 4;
+        if (depth === 3) return 8;
+        return Number.POSITIVE_INFINITY;
       }
 
       function formatRelatedContributionPercentage(value) {
@@ -5593,6 +5711,16 @@
         }
 
         return null;
+      }
+
+      function getRelatedProductRelationshipGroupLabel(
+        focusedNode,
+        candidateNode,
+      ) {
+        return getRelatedProductRelationshipMetadata(
+          focusedNode,
+          candidateNode,
+        )?.groupLabel;
       }
 
       function getRelatedProductMatches(focusedNode, exactProducts = []) {
