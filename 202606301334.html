@@ -7340,7 +7340,37 @@
         });
       }
 
-      function renderStrainDropdown(matches) {
+      function getSearchResultPresentation(strain, searchText) {
+        const normalisedSearch = searchText.trim().toLowerCase();
+        const alternateNames = parseSemicolonSeparatedValues(strain.alsoKnownAs);
+        const canonicalNameMatches =
+          normalisedSearch && strain.name.toLowerCase().includes(normalisedSearch);
+        const matchedAlternateName = canonicalNameMatches
+          ? null
+          : alternateNames.find((name) =>
+              name.toLowerCase().includes(normalisedSearch),
+            );
+
+        if (!matchedAlternateName) {
+          return {
+            primaryName: strain.name,
+            alternateNames,
+          };
+        }
+
+        return {
+          primaryName: matchedAlternateName,
+          alternateNames: [
+            strain.name,
+            ...alternateNames.filter(
+              (name) =>
+                name.toLowerCase() !== matchedAlternateName.toLowerCase(),
+            ),
+          ],
+        };
+      }
+
+      function renderStrainDropdown(matches, searchText) {
         const dropdown = document.getElementById("strainDropdown");
         dropdown.replaceChildren();
         searchState.matches = matches;
@@ -7356,13 +7386,14 @@
           item.setAttribute("aria-selected", "false");
           item.tabIndex = -1;
 
+          const presentation = getSearchResultPresentation(strain, searchText);
           const name = document.createElement("span");
           name.className = "search-result-name";
-          name.textContent = strain.name;
+          name.textContent = presentation.primaryName;
           item.appendChild(name);
 
-          const appendDetails = (label, values) => {
-            parseSemicolonSeparatedValues(values).forEach((value) => {
+          const appendDetailValues = (label, values) => {
+            values.forEach((value) => {
               const detail = document.createElement("span");
               detail.className = "search-result-detail";
 
@@ -7375,8 +7406,11 @@
             });
           };
 
-          appendDetails("AKA", strain.alsoKnownAs);
-          appendDetails("NZ Products", strain.product);
+          appendDetailValues("AKA", presentation.alternateNames);
+          appendDetailValues(
+            "NZ Products",
+            parseSemicolonSeparatedValues(strain.product),
+          );
 
           item.addEventListener("click", () => chooseSearchResult(strain));
           item.addEventListener("pointerenter", () =>
@@ -7421,7 +7455,7 @@
         }
 
         updateStrainDropdownPosition();
-        renderStrainDropdown(getMatchingStrains(searchText));
+        renderStrainDropdown(getMatchingStrains(searchText), searchText);
       }
 
       function handleStrainSearchKeydown(event) {
