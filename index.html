@@ -7640,12 +7640,11 @@
 
         const searchPopup = document.getElementById("popup2");
         const aboutPopup = document.getElementById("popup3");
-        const suppressAutomaticSearchPopup = Boolean(
-          getRequestedChartLocation(),
-        );
+        let openSearchAfterInitialAbout = !getRequestedChartLocation();
 
         function closeAboutPopup() {
-          const openSearchNext = !suppressAutomaticSearchPopup;
+          const openSearchNext = openSearchAfterInitialAbout;
+          openSearchAfterInitialAbout = false;
           hidePopup(aboutPopup, !openSearchNext);
           if (openSearchNext) {
             showPopup(
