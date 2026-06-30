@@ -70,47 +70,7 @@
       }
     </script>
 
-    <script>
-      // Counter is loaded asynchronously. Reporting dates follow Pacific/Auckland,
-      // including the change between New Zealand standard and daylight-saving time.
-      (() => {
-        function getAucklandUtcOffsetHours(date = new Date()) {
-          const values = Object.fromEntries(
-            new Intl.DateTimeFormat("en-CA", {
-              timeZone: "Pacific/Auckland",
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              hourCycle: "h23",
-            })
-              .formatToParts(date)
-              .filter((part) => part.type !== "literal")
-              .map((part) => [part.type, part.value]),
-          );
-
-          const aucklandAsUtc = Date.UTC(
-            Number(values.year),
-            Number(values.month) - 1,
-            Number(values.day),
-            Number(values.hour),
-            Number(values.minute),
-            Number(values.second),
-          );
-
-          return Math.round((aucklandAsUtc - date.getTime()) / 3_600_000);
-        }
-
-        const script = document.createElement("script");
-        script.src = "https://cdn.counter.dev/script.js";
-        script.async = true;
-        script.dataset.id = "c89e409b-c7ae-4e59-8da1-bf5116b65993";
-        script.dataset.utcoffset = String(getAucklandUtcOffsetHours());
-        document.head.appendChild(script);
-      })();
-    </script>
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="de1d1c53-c724-4e57-832a-a13dbff87026"></script>
     <script src="https://d3js.org/d3.v6.min.js"></script>
 
     <script>
@@ -1727,7 +1687,7 @@
       <p>Please enjoy exploring the lineages and the patterns they make.</p>
 
       <p class="about-disclosure">
-        WeedTree uses <a href="https://counter.dev/" target="_blank" rel="noopener noreferrer">Counter.dev</a> to collect anonymous, aggregate usage statistics such as visitor numbers, country, referring site, device type, operating system, and screen size. Counter.dev does not use tracking cookies or IP-address fingerprinting. These statistics are used only to understand how the site is being used and to improve it. WeedTree normally loads its current lineage data from the live source spreadsheet. If that source is temporarily unavailable, the chart may display a dated backup copy.
+        WeedTree uses Umami Analytics to collect anonymous visitor statistics. Umami does not use tracking cookies or store personal information. These statistics are used only to understand how the site is being used and to improve it. WeedTree loads its lineage data from a live source spreadsheet. If that source is temporarily unavailable, the chart may display a dated backup copy.
       </p>
     </div>
 
@@ -1875,6 +1835,7 @@
         hoveredNodeElement: null,
         keyboardNodeId: null,
         isPrepared: false,
+        isUsingBackupData: false,
         indexes: {
           nodesById: new Map(),
           nodesByName: new Map(),
@@ -2292,12 +2253,14 @@
           const rows = await fetchStrainRows(APP_CONFIG.dataUrl, {
             cache: "no-store",
           });
+          chartState.isUsingBackupData = false;
           prepareRowsForChart(rows);
         } catch (liveError) {
           console.warn("Live lineage data could not be used; trying backup.", liveError);
 
           try {
             const backupRows = await fetchStrainRows(APP_CONFIG.backupDataUrl);
+            chartState.isUsingBackupData = true;
             prepareRowsForChart(backupRows);
             showBackupDataNotice();
           } catch (backupError) {
@@ -6397,6 +6360,10 @@
       }
 
       function getExportDateLabel(date = new Date()) {
+        if (chartState.isUsingBackupData) {
+          return APP_CONFIG.backupDataDate;
+        }
+
         return new Intl.DateTimeFormat("en-NZ", {
           timeZone: "Pacific/Auckland",
           day: "numeric",
