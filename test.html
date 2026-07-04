@@ -4746,12 +4746,21 @@
             product: match.product,
             text: match.displayText,
             strain: match.strain,
+            sortPercentage: match.sortPercentage,
           });
         });
 
-        return [...groupsByRelationship.values()].sort(
-          (a, b) => a.relationshipRank - b.relationshipRank,
-        );
+        return [...groupsByRelationship.values()]
+          .map((group) => ({
+            ...group,
+            products: group.products.sort(
+              (a, b) =>
+                (b.sortPercentage ?? -1) - (a.sortPercentage ?? -1) ||
+                a.strain.name.localeCompare(b.strain.name) ||
+                a.product.localeCompare(b.product),
+            ),
+          }))
+          .sort((a, b) => a.relationshipRank - b.relationshipRank);
       }
 
       function appendRelatedProductsResults(
@@ -5712,6 +5721,7 @@
               getGenerationRelationshipLabel(candidateFromFocused),
             ),
             rank: candidateFromFocused - 1,
+            sortPercentage: contribution,
             lineDetail: ` - ${candidateNode.name} (${formatRelatedContributionPercentage(
               contribution,
             )} of ${focusedNode.name})`,
@@ -5743,6 +5753,7 @@
               groupLabels[focusedFromCandidate] ||
               `${focusedFromCandidate - 2}× great-grandchildren`,
             rank: 40 + focusedFromCandidate - 1,
+            sortPercentage: contribution,
             lineDetail: ` - ${candidateNode.name} (${formatRelatedContributionPercentage(
               contribution,
             )} from ${focusedNode.name})`,
@@ -5753,6 +5764,7 @@
           return {
             groupLabel: "Variants",
             rank: 10,
+            sortPercentage: null,
             lineDetail: ` - ${candidateNode.name}`,
           };
         }
@@ -5760,6 +5772,7 @@
           return {
             groupLabel: "Base strain",
             rank: 11,
+            sortPercentage: null,
             lineDetail: ` - ${candidateNode.name}`,
           };
         }
@@ -5771,6 +5784,7 @@
           return {
             groupLabel: `Variants of ${focusedNode.variant}`,
             rank: 12,
+            sortPercentage: null,
             lineDetail: ` - ${candidateNode.name}`,
           };
         }
@@ -5826,6 +5840,11 @@
             closestGroup,
             candidateContributions,
           );
+          const sharedContributionPercentage = closestGroup.reduce(
+            (total, candidate) =>
+              total + (candidateContributions.get(candidate.ancestor.id) || 0),
+            0,
+          );
 
           // Keep siblings and first cousins only. Removed cousins, second cousins
           // and unequal-depth fallback relationships are intentionally excluded.
@@ -5850,6 +5869,7 @@
             return {
               groupLabel: `${sameParents ? "Full siblings" : "Half-siblings"} through ${sharedAncestorNames}`,
               rank: sameParents ? 20 : 21,
+              sortPercentage: sharedContributionPercentage,
               lineDetail: ` (${contributionDetail})`,
             };
           }
@@ -5858,6 +5878,7 @@
             return {
               groupLabel: `First cousins through ${sharedAncestorNames}`,
               rank: 30,
+              sortPercentage: sharedContributionPercentage,
               lineDetail: ` (${contributionDetail})`,
             };
           }
@@ -5902,6 +5923,11 @@
               strain: candidateNode,
               relationshipGroup: relationshipMetadata.groupLabel,
               relationshipRank: relationshipMetadata.rank,
+              sortPercentage: Number.isFinite(
+                relationshipMetadata.sortPercentage,
+              )
+                ? relationshipMetadata.sortPercentage
+                : null,
               displayText: `${product}${relationshipMetadata.lineDetail || ""}`,
             };
 
@@ -5910,6 +5936,11 @@
               !currentBest ||
               match.relationshipRank < currentBest.relationshipRank ||
               (match.relationshipRank === currentBest.relationshipRank &&
+                (match.sortPercentage ?? -1) >
+                  (currentBest.sortPercentage ?? -1)) ||
+              (match.relationshipRank === currentBest.relationshipRank &&
+                (match.sortPercentage ?? -1) ===
+                  (currentBest.sortPercentage ?? -1) &&
                 match.strain.name.localeCompare(currentBest.strain.name) < 0)
             ) {
               bestMatchByProduct.set(productKey, match);
@@ -5918,7 +5949,11 @@
         });
 
         return [...bestMatchByProduct.values()].sort(
-          (a, b) => a.relationshipRank - b.relationshipRank,
+          (a, b) =>
+            a.relationshipRank - b.relationshipRank ||
+            (b.sortPercentage ?? -1) - (a.sortPercentage ?? -1) ||
+            a.strain.name.localeCompare(b.strain.name) ||
+            a.product.localeCompare(b.product),
         );
       }
 
