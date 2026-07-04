@@ -4726,6 +4726,25 @@
         return actions;
       }
 
+      function getDisplayedRelatedProductPercentage(product) {
+        const displayedMatch = product.text.match(
+          /\((<\s*)?(\d+(?:\.\d+)?)%\s+(?:of|from)\b/i,
+        );
+
+        if (displayedMatch) {
+          const displayedPercentage = Number(displayedMatch[2]);
+          if (Number.isFinite(displayedPercentage)) {
+            return displayedMatch[1]
+              ? Math.max(0, displayedPercentage - 0.5)
+              : displayedPercentage;
+          }
+        }
+
+        return Number.isFinite(product.sortPercentage)
+          ? product.sortPercentage
+          : Number.NEGATIVE_INFINITY;
+      }
+
       function groupRelatedProductsByRelationship(relatedProducts) {
         const groupsByRelationship = new Map();
 
@@ -4753,12 +4772,18 @@
         return [...groupsByRelationship.values()]
           .map((group) => ({
             ...group,
-            products: group.products.sort(
-              (a, b) =>
-                (b.sortPercentage ?? -1) - (a.sortPercentage ?? -1) ||
-                a.strain.name.localeCompare(b.strain.name) ||
-                a.product.localeCompare(b.product),
-            ),
+            products: group.products.sort((a, b) => {
+              const percentageDifference =
+                getDisplayedRelatedProductPercentage(b) -
+                getDisplayedRelatedProductPercentage(a);
+
+              return (
+                percentageDifference ||
+                a.text.localeCompare(b.text, undefined, {
+                  sensitivity: "base",
+                })
+              );
+            }),
           }))
           .sort((a, b) => a.relationshipRank - b.relationshipRank);
       }
