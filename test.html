@@ -69,7 +69,7 @@
         ]
       }
     </script>
-
+<script src="https://cdn.counter.dev/script.js" data-id="c89e409b-c7ae-4e59-8da1-bf5116b65993" data-utcoffset="12"></script>
     <script defer src="https://cloud.umami.is/script.js" data-website-id="de1d1c53-c724-4e57-832a-a13dbff87026"></script>
     <script src="https://d3js.org/d3.v6.min.js"></script>
 
@@ -1718,7 +1718,7 @@
       <p>Please enjoy exploring the lineages and the patterns they make.</p>
 
       <p class="about-disclosure">
-        WeedTree uses Umami Analytics to collect anonymous visitor statistics. Umami does not use tracking cookies or store personal information. These statistics are used only to understand how the site is being used and to improve it. WeedTree loads its lineage data from a live source spreadsheet. If that source is temporarily unavailable, the chart may display a dated backup copy.
+        WeedTree uses Umami Analytics & Counter.dev to collect anonymous visitor statistics. They do not use tracking cookies or store personal information. These statistics are used only to understand how the site is being used and to improve it. WeedTree loads its lineage data from a live source spreadsheet. If that source is temporarily unavailable, the chart may display a dated backup copy.
       </p>
     </div>
 
@@ -2275,6 +2275,7 @@
         chartState.indexes = buildGraphIndexes(chartState.nodes);
         validateGraphData(chartState.nodes, chartState.indexes);
         assignGenerations(chartState.nodes, chartState.indexes);
+        calculateLineageColours(chartState.nodes, chartState.indexes);
         chartState.links = buildLinks(chartState.nodes, chartState.indexes);
         chartState.visibleNodes = [...chartState.nodes];
         chartState.visibleLinks = [...chartState.links];
@@ -3111,6 +3112,83 @@
         );
       }
 
+      function getUnknownStrainColour(node) {
+        const dominance = node?.dominance?.trim().toLowerCase();
+        return dominance && DOMINANCE_COLOURS[dominance]
+          ? DOMINANCE_COLOURS[dominance]
+          : DOMINANCE_COLOURS.unknown;
+      }
+
+      function mixLineageColours(colours) {
+        const labColours = colours
+          .map((colour) => d3.lab(colour))
+          .filter(
+            (colour) =>
+              Number.isFinite(colour.l) &&
+              Number.isFinite(colour.a) &&
+              Number.isFinite(colour.b),
+          );
+
+        if (!labColours.length) return DOMINANCE_COLOURS.default;
+        if (labColours.length === 1) return labColours[0].toString();
+
+        return d3
+          .lab(
+            d3.mean(labColours, (colour) => colour.l),
+            d3.mean(labColours, (colour) => colour.a),
+            d3.mean(labColours, (colour) => colour.b),
+          )
+          .toString();
+      }
+
+      function calculateLineageColours(
+        nodes,
+        indexes = buildGraphIndexes(nodes),
+      ) {
+        const colourCache = new Map();
+        const activePath = new Set();
+
+        function resolveColour(node) {
+          if (!node) return DOMINANCE_COLOURS.default;
+          if (colourCache.has(node.id)) return colourCache.get(node.id);
+          if (activePath.has(node.id)) return DOMINANCE_COLOURS.default;
+
+          activePath.add(node.id);
+          let colour;
+
+          if (node.variant) {
+            const baseNode = indexes.nodesByName.get(node.variant);
+            colour = baseNode
+              ? resolveColour(baseNode)
+              : DOMINANCE_COLOURS.default;
+          } else if (node.generation === 0) {
+            colour = getDominanceColour(node.dominance);
+          } else if (node.name.toLowerCase().includes("unknown")) {
+            colour = getUnknownStrainColour(node);
+          } else {
+            const parentColours = node.parents
+              .map((parentId) => indexes.nodesById.get(parentId))
+              .filter(Boolean)
+              .map(resolveColour);
+
+            colour = parentColours.length
+              ? mixLineageColours(parentColours)
+              : DOMINANCE_COLOURS.default;
+          }
+
+          activePath.delete(node.id);
+          colourCache.set(node.id, colour);
+          node.lineageColour = colour;
+          return colour;
+        }
+
+        nodes.forEach(resolveColour);
+      }
+
+      function getNodeLineageColour(node) {
+        return node?.lineageColour || DOMINANCE_COLOURS.default;
+      }
+
       function darkenColour(colour, amount) {
         return d3
           .color(colour)
@@ -3418,7 +3496,7 @@
               link.source,
             );
             return darkenColour(
-              getDominanceColour(sourceNode?.dominance),
+              getNodeLineageColour(sourceNode),
               CHART_BEHAVIOUR.linkDarkenAmount,
             );
           })
@@ -3492,24 +3570,11 @@
           .attr("height", CHART_SIZING.nodeHeight)
           .attr("x", (node) => -getNodeWidth(node) / 2)
           .attr("y", -CHART_SIZING.nodeHeight / 2)
-          .attr("fill", (node) => {
-            if (node.variant) {
-              const parentNode = chartState.indexes.nodesByName.get(
-                node.variant,
-              );
-              if (parentNode) {
-                return blendToWhite(
-                  getDominanceColour(parentNode.dominance),
-                  CHART_BEHAVIOUR.variantBlendAmount,
-                );
-              }
-            }
-            return getDominanceColour(node.dominance);
-          })
+          .attr("fill", (node) => getNodeLineageColour(node))
           .attr("stroke", (node) =>
             node.product
               ? CHART_COLOURS.productStroke
-              : getDominanceColour(node.dominance),
+              : getNodeLineageColour(node),
           )
           .attr("stroke-width", CHART_SIZING.nodeStrokeWidth);
       }
@@ -4671,8 +4736,8 @@
 
             const dot = document.createElement("div");
             dot.className = "c-dot";
-            dot.style.backgroundColor = getDominanceColour(
-              contributor.dominance,
+            dot.style.backgroundColor = getNodeLineageColour(
+              contributor.node,
             );
 
             const name = document.createElement("div");
@@ -6045,7 +6110,7 @@
 
           const dot = document.createElement("div");
           dot.className = "c-dot";
-          dot.style.backgroundColor = getDominanceColour(ancestor.dominance);
+          dot.style.backgroundColor = getNodeLineageColour(ancestor);
 
           const name = document.createElement("div");
           name.className = "c-name";
