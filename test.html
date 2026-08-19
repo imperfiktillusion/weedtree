@@ -846,6 +846,14 @@
       }
       .node-background { pointer-events: none; }
       .strain-name { font: 700 15px "Roboto", Arial, sans-serif; }
+      .dominance-distance-marker { pointer-events: none; }
+      .dominance-distance-marker text {
+        fill: #000;
+        font: 700 8px "Roboto", Arial, sans-serif;
+        text-anchor: middle;
+        dominant-baseline: central;
+        pointer-events: none;
+      }
       .is-condensed { font-family: "Roboto Condensed", Arial, sans-serif; }
 
       .node.clicked .node-background { stroke: var(--chart-selected); stroke-width: 8px; }
@@ -3280,6 +3288,56 @@
           : a.name.localeCompare(b.name);
       }
 
+      function getDominanceIndicaSativaPosition(dominance) {
+        const normalised = dominance?.trim().toLowerCase();
+        if (normalised === "indica dominant") return 0;
+        if (normalised === "sativa dominant") return 1;
+        return 0.5;
+      }
+
+      function getNodeIndicaSativaPosition(node) {
+        const contributions = node?.lineageColourContributions;
+        if (!contributions?.size) return 0.5;
+
+        let weightedPosition = 0;
+        let totalWeight = 0;
+
+        contributions.forEach((amount, sourceId) => {
+          if (!(amount > 0)) return;
+          const sourceNode = chartState.indexes.nodesById.get(sourceId);
+          const sourcePosition = sourceNode
+            ? getDominanceIndicaSativaPosition(sourceNode.dominance)
+            : 0.5;
+          weightedPosition += sourcePosition * amount;
+          totalWeight += amount;
+        });
+
+        return totalWeight > 0 ? weightedPosition / totalWeight : 0.5;
+      }
+
+      function getDominanceDistanceMarkerData(node) {
+        if (!node || node.generation < 2) return null;
+
+        const position = Math.max(
+          0,
+          Math.min(1, getNodeIndicaSativaPosition(node)),
+        );
+        const difference = position - 0.5;
+        const percentagePoints = Math.round(Math.abs(difference) * 100);
+        const colour =
+          percentagePoints === 0
+            ? getUndesignatedUnknownColour()
+            : difference < 0
+              ? getDominanceColour("indica dominant")
+              : getDominanceColour("sativa dominant");
+
+        return {
+          percentagePoints,
+          label: `${percentagePoints}%`,
+          colour,
+        };
+      }
+
       function darkenColour(colour, amount) {
         return d3
           .color(colour)
@@ -3615,6 +3673,7 @@
 
         renderNodeBackgrounds();
         renderNodeLabels();
+        renderDominanceDistanceMarkers();
         attachNodeInteractions();
       }
 
@@ -3662,6 +3721,33 @@
               d3.select(this).classed("is-condensed", true);
             }
           });
+      }
+
+      function renderDominanceDistanceMarkers() {
+        const markerRadius = 11;
+        const capRadius = CHART_SIZING.nodeHeight / 2;
+
+        const markers = chartState.nodeVisualSelection
+          .filter((node) => node.generation >= 2)
+          .append("g")
+          .attr("class", "dominance-distance-marker")
+          .attr("aria-hidden", "true")
+          .attr(
+            "transform",
+            (node) =>
+              `translate(${getNodeWidth(node) / 2 - capRadius},0)`,
+          );
+
+        markers
+          .append("circle")
+          .attr("r", markerRadius)
+          .attr("fill", (node) => getDominanceDistanceMarkerData(node).colour);
+
+        markers
+          .append("text")
+          .attr("x", 0)
+          .attr("y", 0.5)
+          .text((node) => getDominanceDistanceMarkerData(node).label);
       }
 
       function renderChartCanvas() {
@@ -8643,3 +8729,4 @@
     </script>
   </body>
 </html>
+  
