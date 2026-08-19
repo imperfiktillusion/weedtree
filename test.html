@@ -3121,7 +3121,9 @@
 
       function getUnknownStrainColour(node) {
         const dominance = node?.dominance?.trim().toLowerCase();
-        return dominance && DOMINANCE_COLOURS[dominance]
+        const isHybridDominance =
+          dominance === "hybrid" || dominance === "balanced hybrid";
+        return dominance && !isHybridDominance && DOMINANCE_COLOURS[dominance]
           ? DOMINANCE_COLOURS[dominance]
           : getUndesignatedUnknownColour();
       }
