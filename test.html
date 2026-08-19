@@ -2748,7 +2748,7 @@
                 node.special?.toLowerCase() === "landrace") &&
               !node.variant,
           )
-          .sort(sortByDominanceAndLandrace);
+          .sort(sortByLineageColour);
       }
 
       function getFocusedColumnSpacing(generation, nonVariantNodeCount) {
@@ -2786,12 +2786,7 @@
           let generationNodes = nodes.filter(
             (node) => node.generation === generation,
           );
-          generationNodes = barycentricSort(
-            generationNodes,
-            nodes,
-            "parents",
-            chartState.indexes,
-          );
+          generationNodes.sort(sortByLineageColour);
 
           const nonVariantNodes = generationNodes.filter(
             (node) => !node.variant,
@@ -3189,6 +3184,33 @@
         return node?.lineageColour || DOMINANCE_COLOURS.default;
       }
 
+      function getLineageColourSortPosition(node) {
+        const colour = d3.lab(getNodeLineageColour(node));
+        const blue = d3.lab(getDominanceColour("indica dominant"));
+        const yellow = d3.lab(getDominanceColour("sativa dominant"));
+        const axisL = yellow.l - blue.l;
+        const axisA = yellow.a - blue.a;
+        const axisB = yellow.b - blue.b;
+        const axisLengthSquared =
+          axisL * axisL + axisA * axisA + axisB * axisB;
+
+        if (!axisLengthSquared) return 0;
+
+        return (
+          (colour.l - blue.l) * axisL +
+          (colour.a - blue.a) * axisA +
+          (colour.b - blue.b) * axisB
+        ) / axisLengthSquared;
+      }
+
+      function sortByLineageColour(a, b) {
+        const colourDifference =
+          getLineageColourSortPosition(a) - getLineageColourSortPosition(b);
+        return Math.abs(colourDifference) > 1e-9
+          ? colourDifference
+          : a.name.localeCompare(b.name);
+      }
+
       function darkenColour(colour, amount) {
         return d3
           .color(colour)
@@ -3317,43 +3339,8 @@
             node.x = generation * columnWidth;
           });
 
-          if (generation === 1) {
-            generationNodes.sort(sortByDominanceAndLandrace);
-          } else if (generation >= 2) {
-            if (isFocusedChartLayoutActive()) {
-              // In focused mode, review the complete visible column together
-              // so lineage geometry takes priority over the full-chart
-              // dominance bands. The subsequent positioning pass then places
-              // each node as close as possible to its parents' midpoint.
-              generationNodes = barycentricSort(
-                generationNodes,
-                nodes,
-                "parents",
-                chartState.indexes,
-              );
-            } else {
-              const dominanceGroups = d3.groups(
-                generationNodes,
-                (node) => node.dominance?.toLowerCase() || "unknown",
-              );
-
-              dominanceGroups.sort(
-                ([aDominance], [bDominance]) =>
-                  (DOMINANCE_ORDER[aDominance] ?? 99) -
-                  (DOMINANCE_ORDER[bDominance] ?? 99),
-              );
-
-              generationNodes = dominanceGroups
-                .map(([, groupNodes]) =>
-                  barycentricSort(
-                    groupNodes,
-                    nodes,
-                    "parents",
-                    chartState.indexes,
-                  ),
-                )
-                .flat();
-            }
+          if (generation > 0) {
+            generationNodes.sort(sortByLineageColour);
           }
 
           const nonVariantNodes = generationNodes.filter(
