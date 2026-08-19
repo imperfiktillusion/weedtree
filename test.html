@@ -2748,7 +2748,7 @@
                 node.special?.toLowerCase() === "landrace") &&
               !node.variant,
           )
-          .sort(sortByLineageColour);
+          .sort(sortByDominanceAndLandrace);
       }
 
       function getFocusedColumnSpacing(generation, nonVariantNodeCount) {
@@ -2810,7 +2810,6 @@
           );
         }
 
-        calculateOriginPositions(nodes, chartState.indexes);
       }
 
       function getProjectedFocusedLineageZoomScale(nodes) {
@@ -3339,7 +3338,9 @@
             node.x = generation * columnWidth;
           });
 
-          if (generation > 0) {
+          if (generation === 1) {
+            generationNodes.sort(sortByDominanceAndLandrace);
+          } else if (generation >= 2) {
             generationNodes.sort(sortByLineageColour);
           }
 
@@ -3391,7 +3392,6 @@
           }
         }
 
-        calculateOriginPositions(nodes, chartState.indexes);
 
         if (isFocusedChartLayoutActive()) {
           // The automatic lineage fit can be limited by chart width, which
