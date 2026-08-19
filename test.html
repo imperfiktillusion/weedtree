@@ -6,7 +6,7 @@
 
     <meta
       name="description"
-      content="Explore the family tree of cannabis strains. Trace ancestors, compare lineages, and see how strains such as OG Kush are connected."
+      content="Explore the family tree of cannabis strains. Trace ancestors, compare lineages, and see how strains are connected."
     />
     <meta name="robots" content="index,follow,max-image-preview:large" />
     <meta name="theme-color" content="#434343" />
@@ -27,7 +27,7 @@
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="The OG Kush lineage displayed in the WeedTree cannabis strain family tree."
+      content="The WeedTree cannabis strain family tree."
     />
 
     <meta name="twitter:card" content="summary_large_image" />
@@ -39,7 +39,7 @@
     <meta name="twitter:image" content="https://weedtree.fyi/assets/weedtree-social-preview.png" />
     <meta
       name="twitter:image:alt"
-      content="The OG Kush lineage displayed in the WeedTree cannabis strain family tree."
+      content="The WeedTree cannabis strain family tree."
     />
 
     <script type="application/ld+json">
@@ -1729,7 +1729,7 @@
         or purchasing decisions.
       </p>
 
-      <p>Please enjoy exploring the lineages and the patterns they make.</p>
+      <p>Please enjoy exploring the lineages and the patterns they make. Click on strains for more lineage details.</p>
 
       <p class="about-disclosure">
         WeedTree uses Umami Analytics & Counter.dev to collect anonymous visitor statistics. They do not use tracking cookies or store personal information. These statistics are used only to understand how the site is being used and to improve it. WeedTree loads its lineage data from a live source spreadsheet. If that source is temporarily unavailable, the chart may display a dated backup copy.
@@ -3299,9 +3299,18 @@
       function getDominanceDistanceMarkerData(node) {
         if (!node || node.generation < 2) return null;
 
-        // The marker reports the actual original-lineage percentage for the
-        // strongest known dominance component. Unknown is kept separate and
-        // therefore cannot create an artificial indica/sativa marker.
+        // Marker visibility follows the exact same one-dimensional lineage
+        // position used to sort Gen2+ columns. This restores the original
+        // meaning of an unmarked node: it is genuinely within 5 percentage
+        // points of the neutral midpoint, rather than merely lacking a single
+        // lineage component above 55%.
+        const sortPosition = getLineageColourSortPosition(node);
+        const distanceFromNeutral = Math.abs(sortPosition - 0.5) * 100;
+        if (distanceFromNeutral <= 5) return null;
+
+        // The number itself remains an actual original-lineage percentage.
+        // Unknown stays separate and neutral, so it does not receive a node
+        // marker or masquerade as one of the three known lineage categories.
         const components = [
           {
             side: "indica",
@@ -3318,10 +3327,13 @@
             percentage: node.originalRuderalisPercentage ?? 0,
             colour: getDominanceColour("ruderalis dominant"),
           },
-        ].sort((a, b) => b.percentage - a.percentage);
+        ].sort(
+          (a, b) =>
+            b.percentage - a.percentage || a.side.localeCompare(b.side),
+        );
 
         const dominant = components[0];
-        if (!dominant || dominant.percentage <= 55) return null;
+        if (!dominant || !(dominant.percentage > 0)) return null;
 
         const dominantPercentage = Math.round(dominant.percentage);
         return {
@@ -3329,6 +3341,7 @@
           label: `${dominantPercentage}%`,
           colour: dominant.colour,
           side: dominant.side,
+          sortPosition,
         };
       }
 
