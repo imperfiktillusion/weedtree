@@ -849,7 +849,7 @@
       .dominance-distance-marker { pointer-events: none; }
       .dominance-distance-marker text {
         fill: #000;
-        font: 700 8px "Roboto", Arial, sans-serif;
+        font: 700 9.5px "Roboto", Arial, sans-serif;
         text-anchor: middle;
         dominant-baseline: central;
         pointer-events: none;
@@ -886,6 +886,7 @@
         opacity: 1 !important;
       }
       .node.related-product-path rect,
+      .node.related-product-path circle,
       .node.related-product-path text {
         opacity: 1 !important;
       }
@@ -898,6 +899,7 @@
         stroke-width: 4px !important;
       }
       .node.dimmed rect,
+      .node.dimmed circle,
       .node.dimmed text,
       .link.dimmed { opacity: var(--chart-dimmed-opacity); }
 
@@ -3663,7 +3665,7 @@
       }
 
       function renderDominanceDistanceMarkers() {
-        const markerRadius = 11;
+        const markerRadius = 12.5;
         const capRadius = CHART_SIZING.nodeHeight / 2;
 
         const markers = chartState.nodeVisualSelection
@@ -4314,6 +4316,9 @@
       function removeChartOverlays() {
         clearRelatedProductPreview({ restoreChart: false });
         chartState.group?.selectAll(".pct-pill, .pct-pill-text").remove();
+        chartState.group
+          ?.selectAll(".dominance-distance-marker")
+          .attr("display", null);
         clearInfoPanel();
         clearComparisonPanel();
       }
@@ -4343,6 +4348,14 @@
       }
 
       function renderContributionPills(focusedNode, contributions) {
+        // The contribution pills occupy the same right-end visual space as the
+        // experimental dominance markers. Hide the markers while a lineage
+        // contribution presentation is active, then restore them when overlays
+        // are cleared.
+        chartState.group
+          ?.selectAll(".dominance-distance-marker")
+          .attr("display", "none");
+
         chartState.nodeSelection
           .filter(
             (node) =>
