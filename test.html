@@ -3129,155 +3129,120 @@
 
       function getUnknownStrainColour(node) {
         const dominance = node?.dominance?.trim().toLowerCase();
-        const isHybridDominance =
-          dominance === "hybrid" || dominance === "balanced hybrid";
-        return dominance && !isHybridDominance && DOMINANCE_COLOURS[dominance]
+        const usesNeutralFiftyFifty =
+          !dominance ||
+          dominance === "unknown" ||
+          dominance === "hybrid" ||
+          dominance === "balanced hybrid";
+
+        return !usesNeutralFiftyFifty && DOMINANCE_COLOURS[dominance]
           ? DOMINANCE_COLOURS[dominance]
           : getUndesignatedUnknownColour();
+      }
+
+      function getDominanceIndicaSativaShares(dominance) {
+        const normalised = dominance?.trim().toLowerCase();
+        if (normalised === "indica dominant") {
+          return { indica: 1, sativa: 0 };
+        }
+        if (normalised === "sativa dominant") {
+          return { indica: 0, sativa: 1 };
+        }
+        return { indica: 0.5, sativa: 0.5 };
+      }
+
+      function isOriginalContributorSource(node) {
+        return Boolean(
+          node && (node.generation === 0 || node.name.toLowerCase().includes("unknown")),
+        );
+      }
+
+      function mixIndicaSativaColour(indicaPercentage, sativaPercentage) {
+        const total = Math.max(0.0001, indicaPercentage + sativaPercentage);
+        const indicaWeight = indicaPercentage / total;
+        const sativaWeight = sativaPercentage / total;
+        const indicaColour = d3.lab(getDominanceColour("indica dominant"));
+        const sativaColour = d3.lab(getDominanceColour("sativa dominant"));
+
+        return d3
+          .lab(
+            indicaColour.l * indicaWeight + sativaColour.l * sativaWeight,
+            indicaColour.a * indicaWeight + sativaColour.a * sativaWeight,
+            indicaColour.b * indicaWeight + sativaColour.b * sativaWeight,
+          )
+          .toString();
       }
 
       function calculateLineageColours(
         nodes,
         indexes = buildGraphIndexes(nodes),
       ) {
-        const DEFAULT_SOURCE_ID = "__weedtree_default_lineage_colour__";
-        const contributionCache = new Map();
-        const activePath = new Set();
+        nodes.forEach((node) => {
+          const ancestorContributions = calculateAncestorContributions(
+            node,
+            nodes,
+            indexes,
+          );
+          const originalContributorContributions = new Map();
+          let indicaAmount = 0;
+          let sativaAmount = 0;
+          let totalSourceAmount = 0;
 
-        function cloneContributions(contributions) {
-          return new Map(contributions);
-        }
-
-        function resolveContributions(node) {
-          if (!node) return new Map([[DEFAULT_SOURCE_ID, 1]]);
-          if (contributionCache.has(node.id)) {
-            return cloneContributions(contributionCache.get(node.id));
-          }
-          if (activePath.has(node.id)) {
-            return new Map([[DEFAULT_SOURCE_ID, 1]]);
-          }
-
-          activePath.add(node.id);
-          let contributions;
-
-          if (node.variant) {
-            const baseNode = indexes.nodesByName.get(node.variant);
-            contributions = baseNode
-              ? resolveContributions(baseNode)
-              : new Map([[DEFAULT_SOURCE_ID, 1]]);
-          } else if (
-            node.generation === 0 ||
-            node.name.toLowerCase().includes("unknown")
-          ) {
-            // Origins and explicitly unknown strains are terminal colour sources.
-            contributions = new Map([[node.id, 1]]);
-          } else {
-            const parents = node.parents
-              .map((parentId) => indexes.nodesById.get(parentId))
-              .filter(Boolean);
-
-            if (!parents.length) {
-              contributions = new Map([[DEFAULT_SOURCE_ID, 1]]);
-            } else {
-              contributions = new Map();
-              const parentShare = 1 / parents.length;
-
-              parents.forEach((parent) => {
-                resolveContributions(parent).forEach((amount, sourceId) => {
-                  contributions.set(
-                    sourceId,
-                    (contributions.get(sourceId) || 0) + amount * parentShare,
-                  );
-                });
-              });
-            }
-          }
-
-          activePath.delete(node.id);
-          contributionCache.set(node.id, cloneContributions(contributions));
-          return contributions;
-        }
-
-        function getSourceColour(sourceId) {
-          if (sourceId === DEFAULT_SOURCE_ID) return DOMINANCE_COLOURS.default;
-
-          const sourceNode = indexes.nodesById.get(sourceId);
-          if (!sourceNode) return DOMINANCE_COLOURS.default;
-
-          return sourceNode.name.toLowerCase().includes("unknown")
-            ? getUnknownStrainColour(sourceNode)
-            : getDominanceColour(sourceNode.dominance);
-        }
-
-        function mixOriginalContributorColours(contributions) {
-          const weightedColours = [];
-          let totalWeight = 0;
-
-          contributions.forEach((amount, sourceId) => {
+          ancestorContributions.forEach((amount, ancestorId) => {
             if (!(amount > 0)) return;
-            const colour = d3.lab(getSourceColour(sourceId));
-            if (
-              !Number.isFinite(colour.l) ||
-              !Number.isFinite(colour.a) ||
-              !Number.isFinite(colour.b)
-            ) {
-              return;
-            }
+            const ancestorNode = indexes.nodesById.get(ancestorId);
+            if (!isOriginalContributorSource(ancestorNode)) return;
 
-            weightedColours.push({ colour, amount });
-            totalWeight += amount;
+            originalContributorContributions.set(ancestorId, amount);
+            const shares = getDominanceIndicaSativaShares(
+              ancestorNode.dominance,
+            );
+            indicaAmount += amount * shares.indica;
+            sativaAmount += amount * shares.sativa;
+            totalSourceAmount += amount;
           });
 
-          if (!weightedColours.length || !(totalWeight > 0)) {
-            return DOMINANCE_COLOURS.default;
+          const unaccountedAmount = Math.max(0, 100 - totalSourceAmount);
+          if (unaccountedAmount > 0 || !(totalSourceAmount > 0)) {
+            indicaAmount += unaccountedAmount * 0.5;
+            sativaAmount += unaccountedAmount * 0.5;
+            totalSourceAmount += unaccountedAmount;
           }
 
-          return d3
-            .lab(
-              d3.sum(
-                weightedColours,
-                ({ colour, amount }) => colour.l * amount,
-              ) / totalWeight,
-              d3.sum(
-                weightedColours,
-                ({ colour, amount }) => colour.a * amount,
-              ) / totalWeight,
-              d3.sum(
-                weightedColours,
-                ({ colour, amount }) => colour.b * amount,
-              ) / totalWeight,
-            )
-            .toString();
-        }
+          if (!(totalSourceAmount > 0)) {
+            totalSourceAmount = 100;
+            indicaAmount = 50;
+            sativaAmount = 50;
+          }
 
-        nodes.forEach((node) => {
-          const contributions = resolveContributions(node);
-          node.lineageColourContributions = cloneContributions(contributions);
-          node.lineageColour = mixOriginalContributorColours(contributions);
+          const originalIndicaPercentage =
+            (indicaAmount / totalSourceAmount) * 100;
+          const originalSativaPercentage =
+            (sativaAmount / totalSourceAmount) * 100;
+
+          node.originalContributorContributions =
+            originalContributorContributions;
+          node.lineageColourContributions =
+            new Map(originalContributorContributions);
+          node.originalIndicaPercentage = originalIndicaPercentage;
+          node.originalSativaPercentage = originalSativaPercentage;
+          node.lineageIndicaSativaPosition = originalSativaPercentage / 100;
+          node.lineageColour = mixIndicaSativaColour(
+            originalIndicaPercentage,
+            originalSativaPercentage,
+          );
         });
       }
 
       function getNodeLineageColour(node) {
-        return node?.lineageColour || DOMINANCE_COLOURS.default;
+        return node?.lineageColour || mixIndicaSativaColour(50, 50);
       }
 
       function getLineageColourSortPosition(node) {
-        const colour = d3.lab(getNodeLineageColour(node));
-        const blue = d3.lab(getDominanceColour("indica dominant"));
-        const yellow = d3.lab(getDominanceColour("sativa dominant"));
-        const axisL = yellow.l - blue.l;
-        const axisA = yellow.a - blue.a;
-        const axisB = yellow.b - blue.b;
-        const axisLengthSquared =
-          axisL * axisL + axisA * axisA + axisB * axisB;
-
-        if (!axisLengthSquared) return 0;
-
-        return (
-          (colour.l - blue.l) * axisL +
-          (colour.a - blue.a) * axisA +
-          (colour.b - blue.b) * axisB
-        ) / axisLengthSquared;
+        return Math.max(
+          0,
+          Math.min(1, node?.lineageIndicaSativaPosition ?? 0.5),
+        );
       }
 
       function sortByLineageColour(a, b) {
@@ -3291,14 +3256,16 @@
       function getDominanceDistanceMarkerData(node) {
         if (!node || node.generation < 2) return null;
 
-        const position = Math.max(0, Math.min(1, getLineageColourSortPosition(node)));
-        const difference = position - 0.5;
-        const dominanceDistance = Math.abs(difference) * 100;
+        const indicaPercentage = node.originalIndicaPercentage ?? 50;
+        const sativaPercentage = node.originalSativaPercentage ?? 50;
+        const dominanceDistance = Math.abs(sativaPercentage - 50);
 
         if (dominanceDistance <= 5) return null;
 
-        const isIndicaSide = difference < 0;
-        const dominantPercentage = Math.round((isIndicaSide ? 1 - position : position) * 100);
+        const isIndicaSide = indicaPercentage > sativaPercentage;
+        const dominantPercentage = Math.round(
+          Math.max(indicaPercentage, sativaPercentage),
+        );
 
         return {
           dominantPercentage,
