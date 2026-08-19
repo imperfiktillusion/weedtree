@@ -4348,14 +4348,8 @@
       }
 
       function renderContributionPills(focusedNode, contributions) {
-        // The contribution pills occupy the same right-end visual space as the
-        // experimental dominance markers. Hide the markers while a lineage
-        // contribution presentation is active, then restore them when overlays
-        // are cleared.
-        chartState.group
-          ?.selectAll(".dominance-distance-marker")
-          .attr("display", "none");
-
+        // Dominance markers remain visible on nodes that remain in the active
+        // lineage view; contribution pills are an independent overlay.
         chartState.nodeSelection
           .filter(
             (node) =>
