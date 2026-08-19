@@ -3288,53 +3288,25 @@
           : a.name.localeCompare(b.name);
       }
 
-      function getDominanceIndicaSativaPosition(dominance) {
-        const normalised = dominance?.trim().toLowerCase();
-        if (normalised === "indica dominant") return 0;
-        if (normalised === "sativa dominant") return 1;
-        return 0.5;
-      }
-
-      function getNodeIndicaSativaPosition(node) {
-        const contributions = node?.lineageColourContributions;
-        if (!contributions?.size) return 0.5;
-
-        let weightedPosition = 0;
-        let totalWeight = 0;
-
-        contributions.forEach((amount, sourceId) => {
-          if (!(amount > 0)) return;
-          const sourceNode = chartState.indexes.nodesById.get(sourceId);
-          const sourcePosition = sourceNode
-            ? getDominanceIndicaSativaPosition(sourceNode.dominance)
-            : 0.5;
-          weightedPosition += sourcePosition * amount;
-          totalWeight += amount;
-        });
-
-        return totalWeight > 0 ? weightedPosition / totalWeight : 0.5;
-      }
-
       function getDominanceDistanceMarkerData(node) {
         if (!node || node.generation < 2) return null;
 
-        const position = Math.max(
-          0,
-          Math.min(1, getNodeIndicaSativaPosition(node)),
-        );
+        const position = Math.max(0, Math.min(1, getLineageColourSortPosition(node)));
         const difference = position - 0.5;
-        const percentagePoints = Math.round(Math.abs(difference) * 100);
-        const colour =
-          percentagePoints === 0
-            ? getUndesignatedUnknownColour()
-            : difference < 0
-              ? getDominanceColour("indica dominant")
-              : getDominanceColour("sativa dominant");
+        const dominanceDistance = Math.abs(difference) * 100;
+
+        if (dominanceDistance <= 5) return null;
+
+        const isIndicaSide = difference < 0;
+        const dominantPercentage = Math.round((isIndicaSide ? 1 - position : position) * 100);
 
         return {
-          percentagePoints,
-          label: `${percentagePoints}%`,
-          colour,
+          dominantPercentage,
+          label: `${dominantPercentage}%`,
+          colour: getDominanceColour(
+            isIndicaSide ? "indica dominant" : "sativa dominant",
+          ),
+          side: isIndicaSide ? "indica" : "sativa",
         };
       }
 
@@ -3728,7 +3700,7 @@
         const capRadius = CHART_SIZING.nodeHeight / 2;
 
         const markers = chartState.nodeVisualSelection
-          .filter((node) => node.generation >= 2)
+          .filter((node) => Boolean(getDominanceDistanceMarkerData(node)))
           .append("g")
           .attr("class", "dominance-distance-marker")
           .attr("aria-hidden", "true")
@@ -8729,4 +8701,3 @@
     </script>
   </body>
 </html>
-  
