@@ -1240,6 +1240,10 @@
         overflow-wrap: anywhere;
       }
 
+      .lineage-dominance-grid {
+        margin-bottom: calc(12px * var(--info-panel-scale));
+      }
+
       .comparison-relationships {
         display: grid;
         gap: calc(6px * var(--info-panel-scale));
@@ -3142,21 +3146,15 @@
           : getUndesignatedUnknownColour();
       }
 
-      function getDominanceIndicaSativaShares(dominance) {
-        const normalised = dominance?.trim().toLowerCase();
-        if (normalised === "indica dominant") {
-          return { indica: 1, sativa: 0 };
-        }
-        if (normalised === "sativa dominant") {
-          return { indica: 0, sativa: 1 };
-        }
-        return { indica: 0.5, sativa: 0.5 };
+      function getOriginalContributorDominanceCategory(node) {
+        const normalised = node?.dominance?.trim().toLowerCase();
+        if (normalised === "indica dominant") return "indica";
+        if (normalised === "sativa dominant") return "sativa";
+        return "unknown";
       }
 
-      function isOriginalContributorSource(node) {
-        return Boolean(
-          node && (node.generation === 0 || node.name.toLowerCase().includes("unknown")),
-        );
+      function isTerminalOriginalContributor(node, indexes) {
+        return Boolean(node && getParentNodes(node, indexes).length === 0);
       }
 
       function mixIndicaSativaColour(indicaPercentage, sativaPercentage) {
@@ -3186,41 +3184,45 @@
             indexes,
           );
           const originalContributorContributions = new Map();
-          let indicaAmount = 0;
-          let sativaAmount = 0;
-          let totalSourceAmount = 0;
+          let rawIndicaAmount = 0;
+          let rawSativaAmount = 0;
+          let rawUnknownAmount = 0;
 
           ancestorContributions.forEach((amount, ancestorId) => {
             if (!(amount > 0)) return;
             const ancestorNode = indexes.nodesById.get(ancestorId);
-            if (!isOriginalContributorSource(ancestorNode)) return;
+            if (!isTerminalOriginalContributor(ancestorNode, indexes)) return;
 
             originalContributorContributions.set(ancestorId, amount);
-            const shares = getDominanceIndicaSativaShares(
-              ancestorNode.dominance,
+            const category = getOriginalContributorDominanceCategory(
+              ancestorNode,
             );
-            indicaAmount += amount * shares.indica;
-            sativaAmount += amount * shares.sativa;
-            totalSourceAmount += amount;
+            if (category === "indica") rawIndicaAmount += amount;
+            else if (category === "sativa") rawSativaAmount += amount;
+            else rawUnknownAmount += amount;
           });
 
-          const unaccountedAmount = Math.max(0, 100 - totalSourceAmount);
-          if (unaccountedAmount > 0 || !(totalSourceAmount > 0)) {
-            indicaAmount += unaccountedAmount * 0.5;
-            sativaAmount += unaccountedAmount * 0.5;
-            totalSourceAmount += unaccountedAmount;
-          }
+          let totalSourceAmount =
+            rawIndicaAmount + rawSativaAmount + rawUnknownAmount;
 
           if (!(totalSourceAmount > 0)) {
             totalSourceAmount = 100;
-            indicaAmount = 50;
-            sativaAmount = 50;
+            rawUnknownAmount = 100;
           }
 
           const originalIndicaPercentage =
-            (indicaAmount / totalSourceAmount) * 100;
+            (rawIndicaAmount / totalSourceAmount) * 100;
           const originalSativaPercentage =
-            (sativaAmount / totalSourceAmount) * 100;
+            (rawSativaAmount / totalSourceAmount) * 100;
+          const originalUnknownPercentage =
+            (rawUnknownAmount / totalSourceAmount) * 100;
+
+          // Unknown lineage is deliberately neutral for colour and ordering:
+          // half of it contributes to each side of the indica/sativa axis.
+          const effectiveIndicaPercentage =
+            originalIndicaPercentage + originalUnknownPercentage / 2;
+          const effectiveSativaPercentage =
+            originalSativaPercentage + originalUnknownPercentage / 2;
 
           node.originalContributorContributions =
             originalContributorContributions;
@@ -3228,10 +3230,13 @@
             new Map(originalContributorContributions);
           node.originalIndicaPercentage = originalIndicaPercentage;
           node.originalSativaPercentage = originalSativaPercentage;
-          node.lineageIndicaSativaPosition = originalSativaPercentage / 100;
+          node.originalUnknownPercentage = originalUnknownPercentage;
+          node.effectiveIndicaPercentage = effectiveIndicaPercentage;
+          node.effectiveSativaPercentage = effectiveSativaPercentage;
+          node.lineageIndicaSativaPosition = effectiveSativaPercentage / 100;
           node.lineageColour = mixIndicaSativaColour(
-            originalIndicaPercentage,
-            originalSativaPercentage,
+            effectiveIndicaPercentage,
+            effectiveSativaPercentage,
           );
         });
       }
@@ -3258,8 +3263,8 @@
       function getDominanceDistanceMarkerData(node) {
         if (!node || node.generation < 2) return null;
 
-        const indicaPercentage = node.originalIndicaPercentage ?? 50;
-        const sativaPercentage = node.originalSativaPercentage ?? 50;
+        const indicaPercentage = node.effectiveIndicaPercentage ?? 50;
+        const sativaPercentage = node.effectiveSativaPercentage ?? 50;
         const dominanceDistance = Math.abs(sativaPercentage - 50);
 
         if (dominanceDistance <= 5) return null;
@@ -4807,12 +4812,103 @@
         appendInfoPanelSpacer(container);
       }
 
+      function getRoundedLineageDominanceRows(node) {
+        const rows = [
+          {
+            key: "sativa",
+            label: "Sativa by lineage",
+            exactPercentage: Math.max(0, node.originalSativaPercentage || 0),
+            colour: getDominanceColour("sativa dominant"),
+          },
+          {
+            key: "indica",
+            label: "Indica by lineage",
+            exactPercentage: Math.max(0, node.originalIndicaPercentage || 0),
+            colour: getDominanceColour("indica dominant"),
+          },
+          {
+            key: "unknown",
+            label: "Unknown lineage",
+            exactPercentage: Math.max(0, node.originalUnknownPercentage || 0),
+            colour: getUndesignatedUnknownColour(),
+          },
+        ];
+
+        const exactTotal = d3.sum(rows, (row) => row.exactPercentage);
+        if (!(exactTotal > 0)) {
+          rows.forEach((row) => {
+            row.normalisedPercentage = row.key === "unknown" ? 100 : 0;
+          });
+        } else {
+          rows.forEach((row) => {
+            row.normalisedPercentage =
+              (row.exactPercentage / exactTotal) * 100;
+          });
+        }
+
+        rows.forEach((row) => {
+          row.displayedPercentage = Math.floor(row.normalisedPercentage);
+          row.roundingRemainder =
+            row.normalisedPercentage - row.displayedPercentage;
+        });
+
+        let remaining =
+          100 - d3.sum(rows, (row) => row.displayedPercentage);
+        [...rows]
+          .sort(
+            (a, b) =>
+              b.roundingRemainder - a.roundingRemainder ||
+              b.normalisedPercentage - a.normalisedPercentage,
+          )
+          .forEach((row) => {
+            if (remaining <= 0) return;
+            row.displayedPercentage += 1;
+            remaining -= 1;
+          });
+
+        return rows
+          .filter((row) => row.displayedPercentage > 0)
+          .sort(
+            (a, b) =>
+              b.normalisedPercentage - a.normalisedPercentage ||
+              a.label.localeCompare(b.label),
+          );
+      }
+
+      function appendLineageDominanceSummary(container, node) {
+        const rows = getRoundedLineageDominanceRows(node);
+        if (!rows.length) return;
+
+        const table = document.createElement("div");
+        table.className = "contributors-grid lineage-dominance-grid";
+
+        rows.forEach((row) => {
+          const percentage = document.createElement("div");
+          percentage.className = "c-perc";
+          percentage.textContent = `${row.displayedPercentage}%`;
+
+          const dot = document.createElement("div");
+          dot.className = "c-dot";
+          dot.style.backgroundColor = row.colour;
+
+          const name = document.createElement("div");
+          name.className = "c-name";
+          name.textContent = row.label;
+
+          table.append(percentage, dot, name);
+        });
+
+        container.appendChild(table);
+      }
+
       function appendPrimaryInfoPanelContent(
         container,
         node,
         alsoKnownAs,
         contributors,
       ) {
+        appendLineageDominanceSummary(container, node);
+
         if (alsoKnownAs.length) {
           appendInfoPanelHeading(container, "Also known as");
           appendLineSeparatedValues(container, alsoKnownAs);
