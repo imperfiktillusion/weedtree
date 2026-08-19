@@ -3107,11 +3107,23 @@
         );
       }
 
+      function getUndesignatedUnknownColour() {
+        const indica = d3.lab(getDominanceColour("indica dominant"));
+        const sativa = d3.lab(getDominanceColour("sativa dominant"));
+        return d3
+          .lab(
+            (indica.l + sativa.l) / 2,
+            (indica.a + sativa.a) / 2,
+            (indica.b + sativa.b) / 2,
+          )
+          .toString();
+      }
+
       function getUnknownStrainColour(node) {
         const dominance = node?.dominance?.trim().toLowerCase();
         return dominance && DOMINANCE_COLOURS[dominance]
           ? DOMINANCE_COLOURS[dominance]
-          : DOMINANCE_COLOURS.unknown;
+          : getUndesignatedUnknownColour();
       }
 
       function calculateLineageColours(
