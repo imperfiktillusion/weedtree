@@ -2342,6 +2342,18 @@
       // Global generation, lineage, contribution, and sorting calculations
       // -----------------------------------------------------------------------
 
+      function usesUnknownLineageGenerationRules(node) {
+        const lowerName = node.name.toLowerCase();
+        const lowerSpecial = node.special?.toLowerCase();
+
+        return (
+          lowerName.includes("unknown") ||
+          (lowerSpecial === "disputed" &&
+            node.parents.length === 0 &&
+            !node.variant)
+        );
+      }
+
       function assignGenerations(nodes, indexes = buildGraphIndexes(nodes)) {
         const maximumPasses = Math.max(nodes.length * 4, 20);
         let changed = true;
@@ -2388,7 +2400,7 @@
               return;
             }
 
-            if (lowerName.includes("unknown")) {
+            if (usesUnknownLineageGenerationRules(node)) {
               if (node.generation < 2) {
                 node.generation = 2;
                 changed = true;
@@ -2436,7 +2448,10 @@
                   .includes("unknown"),
               );
 
-            if (!lowerName.includes("unknown") && !hasOnlyUnknownParents) {
+            if (
+              !usesUnknownLineageGenerationRules(node) &&
+              !hasOnlyUnknownParents
+            ) {
               return;
             }
 
