@@ -3288,12 +3288,55 @@
         );
       }
 
+      function getDominanceMarkerSortData(node) {
+        const marker = getDominanceDistanceMarkerData(node);
+
+        if (!marker) {
+          return {
+            group: 2,
+            percentageOrder: 0,
+          };
+        }
+
+        if (marker.side === "indica") {
+          return {
+            group: 0,
+            // Stronger Indica belongs nearer the top of the column.
+            percentageOrder: -marker.dominantPercentage,
+          };
+        }
+
+        if (marker.side === "ruderalis") {
+          return {
+            group: 1,
+            // Preserve the original Indica → Ruderalis → neutral → Sativa
+            // progression, while ordering Ruderalis nodes by the percentage
+            // actually shown in their marker.
+            percentageOrder: -marker.dominantPercentage,
+          };
+        }
+
+        return {
+          group: 3,
+          // On the Sativa side, weaker percentages sit nearest the neutral
+          // centre and stronger percentages progress downward toward 100%.
+          percentageOrder: marker.dominantPercentage,
+        };
+      }
+
       function sortByLineageColour(a, b) {
-        const colourDifference =
-          getLineageColourSortPosition(a) - getLineageColourSortPosition(b);
-        return Math.abs(colourDifference) > 1e-9
-          ? colourDifference
-          : a.name.localeCompare(b.name);
+        const aSort = getDominanceMarkerSortData(a);
+        const bSort = getDominanceMarkerSortData(b);
+
+        if (aSort.group !== bSort.group) {
+          return aSort.group - bSort.group;
+        }
+
+        if (aSort.percentageOrder !== bSort.percentageOrder) {
+          return aSort.percentageOrder - bSort.percentageOrder;
+        }
+
+        return a.name.localeCompare(b.name);
       }
 
       function getDominanceDistanceMarkerData(node) {
