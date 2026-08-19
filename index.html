@@ -846,6 +846,14 @@
       }
       .node-background { pointer-events: none; }
       .strain-name { font: 700 15px "Roboto", Arial, sans-serif; }
+      .dominance-distance-marker { pointer-events: none; }
+      .dominance-distance-marker text {
+        fill: #000;
+        font: 700 9.5px "Roboto", Arial, sans-serif;
+        text-anchor: middle;
+        dominant-baseline: central;
+        pointer-events: none;
+      }
       .is-condensed { font-family: "Roboto Condensed", Arial, sans-serif; }
 
       .node.clicked .node-background { stroke: var(--chart-selected); stroke-width: 8px; }
@@ -878,6 +886,7 @@
         opacity: 1 !important;
       }
       .node.related-product-path rect,
+      .node.related-product-path circle,
       .node.related-product-path text {
         opacity: 1 !important;
       }
@@ -890,6 +899,7 @@
         stroke-width: 4px !important;
       }
       .node.dimmed rect,
+      .node.dimmed circle,
       .node.dimmed text,
       .link.dimmed { opacity: var(--chart-dimmed-opacity); }
 
@@ -2275,6 +2285,7 @@
         chartState.indexes = buildGraphIndexes(chartState.nodes);
         validateGraphData(chartState.nodes, chartState.indexes);
         assignGenerations(chartState.nodes, chartState.indexes);
+        calculateLineageColours(chartState.nodes, chartState.indexes);
         chartState.links = buildLinks(chartState.nodes, chartState.indexes);
         chartState.visibleNodes = [...chartState.nodes];
         chartState.visibleLinks = [...chartState.links];
@@ -2785,12 +2796,7 @@
           let generationNodes = nodes.filter(
             (node) => node.generation === generation,
           );
-          generationNodes = barycentricSort(
-            generationNodes,
-            nodes,
-            "parents",
-            chartState.indexes,
-          );
+          generationNodes.sort(sortByLineageColour);
 
           const nonVariantNodes = generationNodes.filter(
             (node) => !node.variant,
@@ -3111,6 +3117,168 @@
         );
       }
 
+      function getUndesignatedUnknownColour() {
+        const indica = d3.lab(getDominanceColour("indica dominant"));
+        const sativa = d3.lab(getDominanceColour("sativa dominant"));
+        return d3
+          .lab(
+            (indica.l + sativa.l) / 2,
+            (indica.a + sativa.a) / 2,
+            (indica.b + sativa.b) / 2,
+          )
+          .toString();
+      }
+
+      function getUnknownStrainColour(node) {
+        const dominance = node?.dominance?.trim().toLowerCase();
+        const usesNeutralFiftyFifty =
+          !dominance ||
+          dominance === "unknown" ||
+          dominance === "hybrid" ||
+          dominance === "balanced hybrid";
+
+        return !usesNeutralFiftyFifty && DOMINANCE_COLOURS[dominance]
+          ? DOMINANCE_COLOURS[dominance]
+          : getUndesignatedUnknownColour();
+      }
+
+      function getDominanceIndicaSativaShares(dominance) {
+        const normalised = dominance?.trim().toLowerCase();
+        if (normalised === "indica dominant") {
+          return { indica: 1, sativa: 0 };
+        }
+        if (normalised === "sativa dominant") {
+          return { indica: 0, sativa: 1 };
+        }
+        return { indica: 0.5, sativa: 0.5 };
+      }
+
+      function isOriginalContributorSource(node) {
+        return Boolean(
+          node && (node.generation === 0 || node.name.toLowerCase().includes("unknown")),
+        );
+      }
+
+      function mixIndicaSativaColour(indicaPercentage, sativaPercentage) {
+        const total = Math.max(0.0001, indicaPercentage + sativaPercentage);
+        const indicaWeight = indicaPercentage / total;
+        const sativaWeight = sativaPercentage / total;
+        const indicaColour = d3.lab(getDominanceColour("indica dominant"));
+        const sativaColour = d3.lab(getDominanceColour("sativa dominant"));
+
+        return d3
+          .lab(
+            indicaColour.l * indicaWeight + sativaColour.l * sativaWeight,
+            indicaColour.a * indicaWeight + sativaColour.a * sativaWeight,
+            indicaColour.b * indicaWeight + sativaColour.b * sativaWeight,
+          )
+          .toString();
+      }
+
+      function calculateLineageColours(
+        nodes,
+        indexes = buildGraphIndexes(nodes),
+      ) {
+        nodes.forEach((node) => {
+          const ancestorContributions = calculateAncestorContributions(
+            node,
+            nodes,
+            indexes,
+          );
+          const originalContributorContributions = new Map();
+          let indicaAmount = 0;
+          let sativaAmount = 0;
+          let totalSourceAmount = 0;
+
+          ancestorContributions.forEach((amount, ancestorId) => {
+            if (!(amount > 0)) return;
+            const ancestorNode = indexes.nodesById.get(ancestorId);
+            if (!isOriginalContributorSource(ancestorNode)) return;
+
+            originalContributorContributions.set(ancestorId, amount);
+            const shares = getDominanceIndicaSativaShares(
+              ancestorNode.dominance,
+            );
+            indicaAmount += amount * shares.indica;
+            sativaAmount += amount * shares.sativa;
+            totalSourceAmount += amount;
+          });
+
+          const unaccountedAmount = Math.max(0, 100 - totalSourceAmount);
+          if (unaccountedAmount > 0 || !(totalSourceAmount > 0)) {
+            indicaAmount += unaccountedAmount * 0.5;
+            sativaAmount += unaccountedAmount * 0.5;
+            totalSourceAmount += unaccountedAmount;
+          }
+
+          if (!(totalSourceAmount > 0)) {
+            totalSourceAmount = 100;
+            indicaAmount = 50;
+            sativaAmount = 50;
+          }
+
+          const originalIndicaPercentage =
+            (indicaAmount / totalSourceAmount) * 100;
+          const originalSativaPercentage =
+            (sativaAmount / totalSourceAmount) * 100;
+
+          node.originalContributorContributions =
+            originalContributorContributions;
+          node.lineageColourContributions =
+            new Map(originalContributorContributions);
+          node.originalIndicaPercentage = originalIndicaPercentage;
+          node.originalSativaPercentage = originalSativaPercentage;
+          node.lineageIndicaSativaPosition = originalSativaPercentage / 100;
+          node.lineageColour = mixIndicaSativaColour(
+            originalIndicaPercentage,
+            originalSativaPercentage,
+          );
+        });
+      }
+
+      function getNodeLineageColour(node) {
+        return node?.lineageColour || mixIndicaSativaColour(50, 50);
+      }
+
+      function getLineageColourSortPosition(node) {
+        return Math.max(
+          0,
+          Math.min(1, node?.lineageIndicaSativaPosition ?? 0.5),
+        );
+      }
+
+      function sortByLineageColour(a, b) {
+        const colourDifference =
+          getLineageColourSortPosition(a) - getLineageColourSortPosition(b);
+        return Math.abs(colourDifference) > 1e-9
+          ? colourDifference
+          : a.name.localeCompare(b.name);
+      }
+
+      function getDominanceDistanceMarkerData(node) {
+        if (!node || node.generation < 2) return null;
+
+        const indicaPercentage = node.originalIndicaPercentage ?? 50;
+        const sativaPercentage = node.originalSativaPercentage ?? 50;
+        const dominanceDistance = Math.abs(sativaPercentage - 50);
+
+        if (dominanceDistance <= 5) return null;
+
+        const isIndicaSide = indicaPercentage > sativaPercentage;
+        const dominantPercentage = Math.round(
+          Math.max(indicaPercentage, sativaPercentage),
+        );
+
+        return {
+          dominantPercentage,
+          label: `${dominantPercentage}%`,
+          colour: getDominanceColour(
+            isIndicaSide ? "indica dominant" : "sativa dominant",
+          ),
+          side: isIndicaSide ? "indica" : "sativa",
+        };
+      }
+
       function darkenColour(colour, amount) {
         return d3
           .color(colour)
@@ -3242,40 +3410,7 @@
           if (generation === 1) {
             generationNodes.sort(sortByDominanceAndLandrace);
           } else if (generation >= 2) {
-            if (isFocusedChartLayoutActive()) {
-              // In focused mode, review the complete visible column together
-              // so lineage geometry takes priority over the full-chart
-              // dominance bands. The subsequent positioning pass then places
-              // each node as close as possible to its parents' midpoint.
-              generationNodes = barycentricSort(
-                generationNodes,
-                nodes,
-                "parents",
-                chartState.indexes,
-              );
-            } else {
-              const dominanceGroups = d3.groups(
-                generationNodes,
-                (node) => node.dominance?.toLowerCase() || "unknown",
-              );
-
-              dominanceGroups.sort(
-                ([aDominance], [bDominance]) =>
-                  (DOMINANCE_ORDER[aDominance] ?? 99) -
-                  (DOMINANCE_ORDER[bDominance] ?? 99),
-              );
-
-              generationNodes = dominanceGroups
-                .map(([, groupNodes]) =>
-                  barycentricSort(
-                    groupNodes,
-                    nodes,
-                    "parents",
-                    chartState.indexes,
-                  ),
-                )
-                .flat();
-            }
+            generationNodes.sort(sortByLineageColour);
           }
 
           const nonVariantNodes = generationNodes.filter(
@@ -3418,7 +3553,7 @@
               link.source,
             );
             return darkenColour(
-              getDominanceColour(sourceNode?.dominance),
+              getNodeLineageColour(sourceNode),
               CHART_BEHAVIOUR.linkDarkenAmount,
             );
           })
@@ -3479,6 +3614,7 @@
 
         renderNodeBackgrounds();
         renderNodeLabels();
+        renderDominanceDistanceMarkers();
         attachNodeInteractions();
       }
 
@@ -3492,24 +3628,18 @@
           .attr("height", CHART_SIZING.nodeHeight)
           .attr("x", (node) => -getNodeWidth(node) / 2)
           .attr("y", -CHART_SIZING.nodeHeight / 2)
-          .attr("fill", (node) => {
-            if (node.variant) {
-              const parentNode = chartState.indexes.nodesByName.get(
-                node.variant,
-              );
-              if (parentNode) {
-                return blendToWhite(
-                  getDominanceColour(parentNode.dominance),
+          .attr("fill", (node) =>
+            node.variant
+              ? blendToWhite(
+                  getNodeLineageColour(node),
                   CHART_BEHAVIOUR.variantBlendAmount,
-                );
-              }
-            }
-            return getDominanceColour(node.dominance);
-          })
+                )
+              : getNodeLineageColour(node),
+          )
           .attr("stroke", (node) =>
             node.product
               ? CHART_COLOURS.productStroke
-              : getDominanceColour(node.dominance),
+              : getNodeLineageColour(node),
           )
           .attr("stroke-width", CHART_SIZING.nodeStrokeWidth);
       }
@@ -3532,6 +3662,33 @@
               d3.select(this).classed("is-condensed", true);
             }
           });
+      }
+
+      function renderDominanceDistanceMarkers() {
+        const markerRadius = 12.5;
+        const capRadius = CHART_SIZING.nodeHeight / 2;
+
+        const markers = chartState.nodeVisualSelection
+          .filter((node) => Boolean(getDominanceDistanceMarkerData(node)))
+          .append("g")
+          .attr("class", "dominance-distance-marker")
+          .attr("aria-hidden", "true")
+          .attr(
+            "transform",
+            (node) =>
+              `translate(${getNodeWidth(node) / 2 - capRadius},0)`,
+          );
+
+        markers
+          .append("circle")
+          .attr("r", markerRadius)
+          .attr("fill", (node) => getDominanceDistanceMarkerData(node).colour);
+
+        markers
+          .append("text")
+          .attr("x", 0)
+          .attr("y", 0.5)
+          .text((node) => getDominanceDistanceMarkerData(node).label);
       }
 
       function renderChartCanvas() {
@@ -4159,6 +4316,9 @@
       function removeChartOverlays() {
         clearRelatedProductPreview({ restoreChart: false });
         chartState.group?.selectAll(".pct-pill, .pct-pill-text").remove();
+        chartState.group
+          ?.selectAll(".dominance-distance-marker")
+          .attr("display", null);
         clearInfoPanel();
         clearComparisonPanel();
       }
@@ -4188,6 +4348,14 @@
       }
 
       function renderContributionPills(focusedNode, contributions) {
+        // The contribution pills occupy the same right-end visual space as the
+        // experimental dominance markers. Hide the markers while a lineage
+        // contribution presentation is active, then restore them when overlays
+        // are cleared.
+        chartState.group
+          ?.selectAll(".dominance-distance-marker")
+          .attr("display", "none");
+
         chartState.nodeSelection
           .filter(
             (node) =>
@@ -4671,8 +4839,8 @@
 
             const dot = document.createElement("div");
             dot.className = "c-dot";
-            dot.style.backgroundColor = getDominanceColour(
-              contributor.dominance,
+            dot.style.backgroundColor = getNodeLineageColour(
+              contributor.node,
             );
 
             const name = document.createElement("div");
@@ -6045,7 +6213,7 @@
 
           const dot = document.createElement("div");
           dot.className = "c-dot";
-          dot.style.backgroundColor = getDominanceColour(ancestor.dominance);
+          dot.style.backgroundColor = getNodeLineageColour(ancestor);
 
           const name = document.createElement("div");
           name.className = "c-name";
