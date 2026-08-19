@@ -2810,6 +2810,7 @@
           );
         }
 
+        calculateOriginPositions(nodes, chartState.indexes);
       }
 
       function getProjectedFocusedLineageZoomScale(nodes) {
@@ -3113,70 +3114,125 @@
           : DOMINANCE_COLOURS.unknown;
       }
 
-      function mixLineageColours(colours) {
-        const labColours = colours
-          .map((colour) => d3.lab(colour))
-          .filter(
-            (colour) =>
-              Number.isFinite(colour.l) &&
-              Number.isFinite(colour.a) &&
-              Number.isFinite(colour.b),
-          );
-
-        if (!labColours.length) return DOMINANCE_COLOURS.default;
-        if (labColours.length === 1) return labColours[0].toString();
-
-        return d3
-          .lab(
-            d3.mean(labColours, (colour) => colour.l),
-            d3.mean(labColours, (colour) => colour.a),
-            d3.mean(labColours, (colour) => colour.b),
-          )
-          .toString();
-      }
-
       function calculateLineageColours(
         nodes,
         indexes = buildGraphIndexes(nodes),
       ) {
-        const colourCache = new Map();
+        const DEFAULT_SOURCE_ID = "__weedtree_default_lineage_colour__";
+        const contributionCache = new Map();
         const activePath = new Set();
 
-        function resolveColour(node) {
-          if (!node) return DOMINANCE_COLOURS.default;
-          if (colourCache.has(node.id)) return colourCache.get(node.id);
-          if (activePath.has(node.id)) return DOMINANCE_COLOURS.default;
+        function cloneContributions(contributions) {
+          return new Map(contributions);
+        }
+
+        function resolveContributions(node) {
+          if (!node) return new Map([[DEFAULT_SOURCE_ID, 1]]);
+          if (contributionCache.has(node.id)) {
+            return cloneContributions(contributionCache.get(node.id));
+          }
+          if (activePath.has(node.id)) {
+            return new Map([[DEFAULT_SOURCE_ID, 1]]);
+          }
 
           activePath.add(node.id);
-          let colour;
+          let contributions;
 
           if (node.variant) {
             const baseNode = indexes.nodesByName.get(node.variant);
-            colour = baseNode
-              ? resolveColour(baseNode)
-              : DOMINANCE_COLOURS.default;
-          } else if (node.generation === 0) {
-            colour = getDominanceColour(node.dominance);
-          } else if (node.name.toLowerCase().includes("unknown")) {
-            colour = getUnknownStrainColour(node);
+            contributions = baseNode
+              ? resolveContributions(baseNode)
+              : new Map([[DEFAULT_SOURCE_ID, 1]]);
+          } else if (
+            node.generation === 0 ||
+            node.name.toLowerCase().includes("unknown")
+          ) {
+            // Origins and explicitly unknown strains are terminal colour sources.
+            contributions = new Map([[node.id, 1]]);
           } else {
-            const parentColours = node.parents
+            const parents = node.parents
               .map((parentId) => indexes.nodesById.get(parentId))
-              .filter(Boolean)
-              .map(resolveColour);
+              .filter(Boolean);
 
-            colour = parentColours.length
-              ? mixLineageColours(parentColours)
-              : DOMINANCE_COLOURS.default;
+            if (!parents.length) {
+              contributions = new Map([[DEFAULT_SOURCE_ID, 1]]);
+            } else {
+              contributions = new Map();
+              const parentShare = 1 / parents.length;
+
+              parents.forEach((parent) => {
+                resolveContributions(parent).forEach((amount, sourceId) => {
+                  contributions.set(
+                    sourceId,
+                    (contributions.get(sourceId) || 0) + amount * parentShare,
+                  );
+                });
+              });
+            }
           }
 
           activePath.delete(node.id);
-          colourCache.set(node.id, colour);
-          node.lineageColour = colour;
-          return colour;
+          contributionCache.set(node.id, cloneContributions(contributions));
+          return contributions;
         }
 
-        nodes.forEach(resolveColour);
+        function getSourceColour(sourceId) {
+          if (sourceId === DEFAULT_SOURCE_ID) return DOMINANCE_COLOURS.default;
+
+          const sourceNode = indexes.nodesById.get(sourceId);
+          if (!sourceNode) return DOMINANCE_COLOURS.default;
+
+          return sourceNode.name.toLowerCase().includes("unknown")
+            ? getUnknownStrainColour(sourceNode)
+            : getDominanceColour(sourceNode.dominance);
+        }
+
+        function mixOriginalContributorColours(contributions) {
+          const weightedColours = [];
+          let totalWeight = 0;
+
+          contributions.forEach((amount, sourceId) => {
+            if (!(amount > 0)) return;
+            const colour = d3.lab(getSourceColour(sourceId));
+            if (
+              !Number.isFinite(colour.l) ||
+              !Number.isFinite(colour.a) ||
+              !Number.isFinite(colour.b)
+            ) {
+              return;
+            }
+
+            weightedColours.push({ colour, amount });
+            totalWeight += amount;
+          });
+
+          if (!weightedColours.length || !(totalWeight > 0)) {
+            return DOMINANCE_COLOURS.default;
+          }
+
+          return d3
+            .lab(
+              d3.sum(
+                weightedColours,
+                ({ colour, amount }) => colour.l * amount,
+              ) / totalWeight,
+              d3.sum(
+                weightedColours,
+                ({ colour, amount }) => colour.a * amount,
+              ) / totalWeight,
+              d3.sum(
+                weightedColours,
+                ({ colour, amount }) => colour.b * amount,
+              ) / totalWeight,
+            )
+            .toString();
+        }
+
+        nodes.forEach((node) => {
+          const contributions = resolveContributions(node);
+          node.lineageColourContributions = cloneContributions(contributions);
+          node.lineageColour = mixOriginalContributorColours(contributions);
+        });
       }
 
       function getNodeLineageColour(node) {
@@ -3392,6 +3448,7 @@
           }
         }
 
+        calculateOriginPositions(nodes, chartState.indexes);
 
         if (isFocusedChartLayoutActive()) {
           // The automatic lineage fit can be limited by chart width, which
@@ -3557,7 +3614,14 @@
           .attr("height", CHART_SIZING.nodeHeight)
           .attr("x", (node) => -getNodeWidth(node) / 2)
           .attr("y", -CHART_SIZING.nodeHeight / 2)
-          .attr("fill", (node) => getNodeLineageColour(node))
+          .attr("fill", (node) =>
+            node.variant
+              ? blendToWhite(
+                  getNodeLineageColour(node),
+                  CHART_BEHAVIOUR.variantBlendAmount,
+                )
+              : getNodeLineageColour(node),
+          )
           .attr("stroke", (node) =>
             node.product
               ? CHART_COLOURS.productStroke
