@@ -3288,20 +3288,72 @@
         );
       }
 
+      function getDominanceMarkerSortData(node) {
+        const marker = getDominanceDistanceMarkerData(node);
+
+        if (!marker) {
+          return {
+            group: 2,
+            percentageOrder: 0,
+          };
+        }
+
+        if (marker.side === "indica") {
+          return {
+            group: 0,
+            // Stronger Indica belongs nearer the top of the column.
+            percentageOrder: -marker.dominantPercentage,
+          };
+        }
+
+        if (marker.side === "ruderalis") {
+          return {
+            group: 1,
+            // Preserve the original Indica → Ruderalis → neutral → Sativa
+            // progression, while ordering Ruderalis nodes by the percentage
+            // actually shown in their marker.
+            percentageOrder: -marker.dominantPercentage,
+          };
+        }
+
+        return {
+          group: 3,
+          // On the Sativa side, weaker percentages sit nearest the neutral
+          // centre and stronger percentages progress downward toward 100%.
+          percentageOrder: marker.dominantPercentage,
+        };
+      }
+
       function sortByLineageColour(a, b) {
-        const colourDifference =
-          getLineageColourSortPosition(a) - getLineageColourSortPosition(b);
-        return Math.abs(colourDifference) > 1e-9
-          ? colourDifference
-          : a.name.localeCompare(b.name);
+        const aSort = getDominanceMarkerSortData(a);
+        const bSort = getDominanceMarkerSortData(b);
+
+        if (aSort.group !== bSort.group) {
+          return aSort.group - bSort.group;
+        }
+
+        if (aSort.percentageOrder !== bSort.percentageOrder) {
+          return aSort.percentageOrder - bSort.percentageOrder;
+        }
+
+        return a.name.localeCompare(b.name);
       }
 
       function getDominanceDistanceMarkerData(node) {
         if (!node || node.generation < 2) return null;
 
-        // The marker reports the actual original-lineage percentage for the
-        // strongest known dominance component. Unknown is kept separate and
-        // therefore cannot create an artificial indica/sativa marker.
+        // Marker visibility follows the exact same one-dimensional lineage
+        // position used to sort Gen2+ columns. This restores the original
+        // meaning of an unmarked node: it is genuinely within 5 percentage
+        // points of the neutral midpoint, rather than merely lacking a single
+        // lineage component above 55%.
+        const sortPosition = getLineageColourSortPosition(node);
+        const distanceFromNeutral = Math.abs(sortPosition - 0.5) * 100;
+        if (distanceFromNeutral <= 5) return null;
+
+        // The number itself remains an actual original-lineage percentage.
+        // Unknown stays separate and neutral, so it does not receive a node
+        // marker or masquerade as one of the three known lineage categories.
         const components = [
           {
             side: "indica",
@@ -3318,10 +3370,13 @@
             percentage: node.originalRuderalisPercentage ?? 0,
             colour: getDominanceColour("ruderalis dominant"),
           },
-        ].sort((a, b) => b.percentage - a.percentage);
+        ].sort(
+          (a, b) =>
+            b.percentage - a.percentage || a.side.localeCompare(b.side),
+        );
 
         const dominant = components[0];
-        if (!dominant || dominant.percentage <= 55) return null;
+        if (!dominant || !(dominant.percentage > 0)) return null;
 
         const dominantPercentage = Math.round(dominant.percentage);
         return {
@@ -3329,6 +3384,7 @@
           label: `${dominantPercentage}%`,
           colour: dominant.colour,
           side: dominant.side,
+          sortPosition,
         };
       }
 
