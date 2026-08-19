@@ -3150,6 +3150,7 @@
         const normalised = node?.dominance?.trim().toLowerCase();
         if (normalised === "indica dominant") return "indica";
         if (normalised === "sativa dominant") return "sativa";
+        if (normalised === "ruderalis dominant") return "ruderalis";
         return "unknown";
       }
 
@@ -3157,18 +3158,35 @@
         return Boolean(node && getParentNodes(node, indexes).length === 0);
       }
 
-      function mixIndicaSativaColour(indicaPercentage, sativaPercentage) {
-        const total = Math.max(0.0001, indicaPercentage + sativaPercentage);
+      function mixLineageDominanceColour(
+        indicaPercentage,
+        sativaPercentage,
+        ruderalisPercentage = 0,
+      ) {
+        const total = Math.max(
+          0.0001,
+          indicaPercentage + sativaPercentage + ruderalisPercentage,
+        );
         const indicaWeight = indicaPercentage / total;
         const sativaWeight = sativaPercentage / total;
+        const ruderalisWeight = ruderalisPercentage / total;
         const indicaColour = d3.lab(getDominanceColour("indica dominant"));
         const sativaColour = d3.lab(getDominanceColour("sativa dominant"));
+        const ruderalisColour = d3.lab(
+          getDominanceColour("ruderalis dominant"),
+        );
 
         return d3
           .lab(
-            indicaColour.l * indicaWeight + sativaColour.l * sativaWeight,
-            indicaColour.a * indicaWeight + sativaColour.a * sativaWeight,
-            indicaColour.b * indicaWeight + sativaColour.b * sativaWeight,
+            indicaColour.l * indicaWeight +
+              sativaColour.l * sativaWeight +
+              ruderalisColour.l * ruderalisWeight,
+            indicaColour.a * indicaWeight +
+              sativaColour.a * sativaWeight +
+              ruderalisColour.a * ruderalisWeight,
+            indicaColour.b * indicaWeight +
+              sativaColour.b * sativaWeight +
+              ruderalisColour.b * ruderalisWeight,
           )
           .toString();
       }
@@ -3186,6 +3204,7 @@
           const originalContributorContributions = new Map();
           let rawIndicaAmount = 0;
           let rawSativaAmount = 0;
+          let rawRuderalisAmount = 0;
           let rawUnknownAmount = 0;
 
           ancestorContributions.forEach((amount, ancestorId) => {
@@ -3199,11 +3218,15 @@
             );
             if (category === "indica") rawIndicaAmount += amount;
             else if (category === "sativa") rawSativaAmount += amount;
+            else if (category === "ruderalis") rawRuderalisAmount += amount;
             else rawUnknownAmount += amount;
           });
 
           let totalSourceAmount =
-            rawIndicaAmount + rawSativaAmount + rawUnknownAmount;
+            rawIndicaAmount +
+            rawSativaAmount +
+            rawRuderalisAmount +
+            rawUnknownAmount;
 
           if (!(totalSourceAmount > 0)) {
             totalSourceAmount = 100;
@@ -3214,15 +3237,19 @@
             (rawIndicaAmount / totalSourceAmount) * 100;
           const originalSativaPercentage =
             (rawSativaAmount / totalSourceAmount) * 100;
+          const originalRuderalisPercentage =
+            (rawRuderalisAmount / totalSourceAmount) * 100;
           const originalUnknownPercentage =
             (rawUnknownAmount / totalSourceAmount) * 100;
 
-          // Unknown lineage is deliberately neutral for colour and ordering:
-          // half of it contributes to each side of the indica/sativa axis.
+          // Preserve the existing Unknown behaviour: Unknown remains neutral
+          // on the indica/sativa axis, contributing half to each. Ruderalis is
+          // now a genuine third lineage component and retains its own colour.
           const effectiveIndicaPercentage =
             originalIndicaPercentage + originalUnknownPercentage / 2;
           const effectiveSativaPercentage =
             originalSativaPercentage + originalUnknownPercentage / 2;
+          const effectiveRuderalisPercentage = originalRuderalisPercentage;
 
           node.originalContributorContributions =
             originalContributorContributions;
@@ -3230,19 +3257,28 @@
             new Map(originalContributorContributions);
           node.originalIndicaPercentage = originalIndicaPercentage;
           node.originalSativaPercentage = originalSativaPercentage;
+          node.originalRuderalisPercentage = originalRuderalisPercentage;
           node.originalUnknownPercentage = originalUnknownPercentage;
           node.effectiveIndicaPercentage = effectiveIndicaPercentage;
           node.effectiveSativaPercentage = effectiveSativaPercentage;
-          node.lineageIndicaSativaPosition = effectiveSativaPercentage / 100;
-          node.lineageColour = mixIndicaSativaColour(
+          node.effectiveRuderalisPercentage = effectiveRuderalisPercentage;
+
+          // One-dimensional Gen2+ ordering: Indica = 0, Ruderalis = 0.25,
+          // neutral Unknown = 0.5 (via its existing 50/50 split), Sativa = 1.
+          node.lineageIndicaSativaPosition =
+            (effectiveSativaPercentage + effectiveRuderalisPercentage * 0.25) /
+            100;
+
+          node.lineageColour = mixLineageDominanceColour(
             effectiveIndicaPercentage,
             effectiveSativaPercentage,
+            effectiveRuderalisPercentage,
           );
         });
       }
 
       function getNodeLineageColour(node) {
-        return node?.lineageColour || mixIndicaSativaColour(50, 50);
+        return node?.lineageColour || mixLineageDominanceColour(50, 50, 0);
       }
 
       function getLineageColourSortPosition(node) {
@@ -3263,24 +3299,36 @@
       function getDominanceDistanceMarkerData(node) {
         if (!node || node.generation < 2) return null;
 
-        const indicaPercentage = node.effectiveIndicaPercentage ?? 50;
-        const sativaPercentage = node.effectiveSativaPercentage ?? 50;
-        const dominanceDistance = Math.abs(sativaPercentage - 50);
+        // The marker reports the actual original-lineage percentage for the
+        // strongest known dominance component. Unknown is kept separate and
+        // therefore cannot create an artificial indica/sativa marker.
+        const components = [
+          {
+            side: "indica",
+            percentage: node.originalIndicaPercentage ?? 0,
+            colour: getDominanceColour("indica dominant"),
+          },
+          {
+            side: "sativa",
+            percentage: node.originalSativaPercentage ?? 0,
+            colour: getDominanceColour("sativa dominant"),
+          },
+          {
+            side: "ruderalis",
+            percentage: node.originalRuderalisPercentage ?? 0,
+            colour: getDominanceColour("ruderalis dominant"),
+          },
+        ].sort((a, b) => b.percentage - a.percentage);
 
-        if (dominanceDistance <= 5) return null;
+        const dominant = components[0];
+        if (!dominant || dominant.percentage <= 55) return null;
 
-        const isIndicaSide = indicaPercentage > sativaPercentage;
-        const dominantPercentage = Math.round(
-          Math.max(indicaPercentage, sativaPercentage),
-        );
-
+        const dominantPercentage = Math.round(dominant.percentage);
         return {
           dominantPercentage,
           label: `${dominantPercentage}%`,
-          colour: getDominanceColour(
-            isIndicaSide ? "indica dominant" : "sativa dominant",
-          ),
-          side: isIndicaSide ? "indica" : "sativa",
+          colour: dominant.colour,
+          side: dominant.side,
         };
       }
 
@@ -4825,6 +4873,15 @@
             label: "Indica by lineage",
             exactPercentage: Math.max(0, node.originalIndicaPercentage || 0),
             colour: getDominanceColour("indica dominant"),
+          },
+          {
+            key: "ruderalis",
+            label: "Ruderalis by lineage",
+            exactPercentage: Math.max(
+              0,
+              node.originalRuderalisPercentage || 0,
+            ),
+            colour: getDominanceColour("ruderalis dominant"),
           },
           {
             key: "unknown",
