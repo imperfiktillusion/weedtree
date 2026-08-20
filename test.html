@@ -1033,6 +1033,15 @@
         line-height: 1.3;
       }
 
+      .parent-weighting-note {
+        margin-bottom: calc(8px * var(--info-panel-scale));
+        color: #555;
+        font-size: calc(13px * var(--info-panel-scale));
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+      }
+      .parent-weighting-note-label { font-weight: 700; }
+
       .info-panel-heading {
         font-weight: 700;
         white-space: normal;
@@ -1714,12 +1723,13 @@
       </p>
 
       <p>
-        Ancestor contribution percentages are calculated directly from the
-        relationships recorded in the chart. They are useful for exploring
-        lineage, but they should not be interpreted as measured genetic
-        composition. They cannot account for selective breeding, gene expression,
-        phenotype selection, backcrossing, or inaccuracies in the underlying
-        pedigree information.
+        Ancestor contribution percentages are calculated from the relationships
+        recorded in the chart. Where explicit parent weightings are provided,
+        those weightings are used; otherwise recorded parents are treated as equal
+        contributors. They are useful for exploring lineage, but they should not
+        be interpreted as measured genetic composition. They cannot account for
+        selective breeding, gene expression, phenotype selection, backcrossing,
+        or inaccuracies in the underlying pedigree information.
       </p>
 
       <p>
@@ -2077,22 +2087,75 @@
           : [];
       }
 
+      function getSpreadsheetParentPercentageValue(strain, parentNumber) {
+        const candidateColumns = [
+          `P${parentNumber}%`,
+          `P${parentNumber} %`,
+          `Parent${parentNumber}%`,
+          `Parent${parentNumber} %`,
+        ];
+
+        for (const column of candidateColumns) {
+          if (Object.prototype.hasOwnProperty.call(strain, column)) {
+            return strain[column];
+          }
+        }
+
+        return "";
+      }
+
+      function parseSpreadsheetParentPercentage(value) {
+        const text = String(value ?? "").trim();
+        if (!text) return null;
+
+        const numericValue = Number(text.replace(/%/g, "").trim());
+        return Number.isFinite(numericValue) ? numericValue : NaN;
+      }
+
       function convertSpreadsheetRowsToNodes(rows) {
-        const convertedNodes = rows.map((strain) => ({
-          id: strain.Strain,
-          name: strain.Strain,
-          displayName: strain.Strain,
-          dominance: strain.Dominance,
-          parents: Array.from(
+        const convertedNodes = rows.map((strain) => {
+          const parentWeightingEntries = Array.from(
             { length: 10 },
-            (_, index) => strain[`Parent${index + 1}`],
-          ).filter(Boolean),
-          generation: 0,
-          special: strain.Special,
-          product: strain.Product,
-          variant: strain.Variant,
-          alsoKnownAs: strain["Also Known As"],
-        }));
+            (_, index) => {
+              const parentNumber = index + 1;
+              const parentId = strain[`Parent${parentNumber}`] || "";
+              const rawPercentage = getSpreadsheetParentPercentageValue(
+                strain,
+                parentNumber,
+              );
+              const percentage = parseSpreadsheetParentPercentage(rawPercentage);
+
+              return {
+                parentNumber,
+                parentId,
+                rawPercentage,
+                percentage,
+              };
+            },
+          );
+
+          const hasExplicitParentWeighting = parentWeightingEntries.some(
+            (entry) => String(entry.rawPercentage ?? "").trim() !== "",
+          );
+          const parents = parentWeightingEntries
+            .map((entry) => entry.parentId)
+            .filter(Boolean);
+
+          return {
+            id: strain.Strain,
+            name: strain.Strain,
+            displayName: strain.Strain,
+            dominance: strain.Dominance,
+            parents,
+            parentWeightingEntries,
+            hasExplicitParentWeighting,
+            generation: 0,
+            special: strain.Special,
+            product: strain.Product,
+            variant: strain.Variant,
+            alsoKnownAs: strain["Also Known As"],
+          };
+        });
 
         const parentNames = new Set(
           convertedNodes.flatMap((node) => node.parents),
@@ -2153,17 +2216,68 @@
         return indexes;
       }
 
-      function getParentNodes(node, indexes) {
-        const parents = node.parents
-          .map((parentId) => indexes.nodesById.get(parentId))
-          .filter(Boolean);
+      function getParentRelationships(node, indexes) {
+        if (!node) return [];
 
+        // A variant is treated as the same lineage as its base strain, so its
+        // lineage contribution from the base is always 100%.
         if (node.variant) {
           const baseNode = indexes.nodesByName.get(node.variant);
-          if (baseNode) parents.push(baseNode);
+          return baseNode
+            ? [
+                {
+                  parent: baseNode,
+                  percentage: 100,
+                  isExplicit: false,
+                  isVariantBase: true,
+                },
+              ]
+            : [];
         }
 
-        return [...new Set(parents)];
+        const entries =
+          node.parentWeightingEntries?.filter((entry) => entry.parentId) ||
+          node.parents.map((parentId, index) => ({
+            parentNumber: index + 1,
+            parentId,
+            rawPercentage: "",
+            percentage: null,
+          }));
+        const resolvedEntries = entries
+          .map((entry) => ({
+            entry,
+            parent: indexes.nodesById.get(entry.parentId),
+          }))
+          .filter(({ parent }) => Boolean(parent));
+        const resolvedParentCount = resolvedEntries.length;
+        if (!resolvedParentCount) return [];
+
+        return resolvedEntries.map(({ entry, parent }) => ({
+          parent,
+          percentage: node.hasExplicitParentWeighting
+            ? entry.percentage
+            : 100 / resolvedParentCount,
+          isExplicit: Boolean(node.hasExplicitParentWeighting),
+          isVariantBase: false,
+        }));
+      }
+
+      function getParentNodes(node, indexes) {
+        return getParentRelationships(node, indexes).map(
+          (relationship) => relationship.parent,
+        );
+      }
+
+      function getParentContributionPercentage(childNode, parentNode, indexes) {
+        const parentId =
+          typeof parentNode === "string" ? parentNode : parentNode?.id;
+        if (!parentId) return 0;
+
+        return (
+          getParentRelationships(childNode, indexes).find(
+            (relationship) => relationship.parent.id === parentId,
+          )?.percentage || 0
+        );
       }
 
       function getChildNodes(node, indexes) {
@@ -2208,6 +2322,60 @@
             warnings.push(
               `${node.name} references missing variant base ${node.variant}.`,
             );
+          }
+
+          if (node.hasExplicitParentWeighting) {
+            const populatedEntries = node.parentWeightingEntries.filter(
+              (entry) => entry.parentId,
+            );
+            let weightingIsValid = true;
+
+            node.parentWeightingEntries.forEach((entry) => {
+              const hasParent = Boolean(entry.parentId);
+              const hasPercentage =
+                String(entry.rawPercentage ?? "").trim() !== "";
+
+              if (!hasParent && hasPercentage) {
+                weightingIsValid = false;
+                errors.push(
+                  `${node.name} has P${entry.parentNumber}% without Parent${entry.parentNumber}.`,
+                );
+                return;
+              }
+
+              if (hasParent && !hasPercentage) {
+                weightingIsValid = false;
+                errors.push(
+                  `${node.name} uses weighted parents but Parent${entry.parentNumber} has no P${entry.parentNumber}% value.`,
+                );
+                return;
+              }
+
+              if (
+                hasParent &&
+                hasPercentage &&
+                (!Number.isFinite(entry.percentage) ||
+                  entry.percentage <= 0 ||
+                  entry.percentage > 100)
+              ) {
+                weightingIsValid = false;
+                errors.push(
+                  `${node.name} has an invalid P${entry.parentNumber}% value: ${entry.rawPercentage}.`,
+                );
+              }
+            });
+
+            if (weightingIsValid && populatedEntries.length) {
+              const totalPercentage = populatedEntries.reduce(
+                (total, entry) => total + entry.percentage,
+                0,
+              );
+              if (Math.abs(totalPercentage - 100) > 0.01) {
+                errors.push(
+                  `${node.name} weighted parent percentages total ${totalPercentage}% instead of 100%.`,
+                );
+              }
+            }
           }
         });
 
@@ -3034,12 +3202,14 @@
             (contributions.get(node.id) || 0) + amount,
           );
 
-          const parents = getParentNodes(node, indexes);
-          if (!parents.length) return;
+          const parentRelationships = getParentRelationships(node, indexes);
+          if (!parentRelationships.length) return;
 
           activePath.add(node.id);
-          const splitAmount = amount / parents.length;
-          parents.forEach((parent) => walk(parent, splitAmount, activePath));
+          parentRelationships.forEach(({ parent, percentage }) => {
+            if (!(percentage > 0)) return;
+            walk(parent, amount * (percentage / 100), activePath);
+          });
           activePath.delete(node.id);
         }
 
@@ -3068,8 +3238,21 @@
 
           activePath.add(node.id);
           children.forEach((child) => {
-            const parentCount =
-              (child.parents?.length || 0) + (child.variant ? 1 : 0);
+            if (child.hasExplicitParentWeighting || child.variant) {
+              const parentPercentage = getParentContributionPercentage(
+                child,
+                node,
+                indexes,
+              );
+              if (parentPercentage > 0) {
+                walk(child, amount * (parentPercentage / 100), activePath);
+              }
+              return;
+            }
+
+            // Preserve the established equal-parent fallback for unweighted
+            // rows, including its treatment of currently unresolved parents.
+            const parentCount = child.parents?.length || 0;
             if (parentCount) walk(child, amount / parentCount, activePath);
           });
           activePath.delete(node.id);
@@ -5003,6 +5186,41 @@
           );
       }
 
+      function formatExplicitParentWeightPercentage(value) {
+        if (!Number.isFinite(value)) return "";
+        return `${Number(value.toFixed(4))}%`;
+      }
+
+      function appendParentWeightingNote(container, node) {
+        if (!node.hasExplicitParentWeighting) return;
+
+        const weightedParents = node.parentWeightingEntries
+          .filter(
+            (entry) =>
+              entry.parentId &&
+              Number.isFinite(entry.percentage) &&
+              entry.percentage > 0,
+          )
+          .map(
+            (entry) =>
+              `${entry.parentId} ${formatExplicitParentWeightPercentage(
+                entry.percentage,
+              )}`,
+          );
+
+        if (!weightedParents.length) return;
+
+        const note = document.createElement("div");
+        note.className = "parent-weighting-note";
+
+        const label = document.createElement("span");
+        label.className = "parent-weighting-note-label";
+        label.textContent = "Parent weighting: ";
+
+        note.append(label, document.createTextNode(weightedParents.join(" · ")));
+        container.appendChild(note);
+      }
+
       function appendLineageDominanceSummary(container, node) {
         const rows = getRoundedLineageDominanceRows(node);
         if (!rows.length) return;
@@ -5035,6 +5253,7 @@
         alsoKnownAs,
         contributors,
       ) {
+        appendParentWeightingNote(container, node);
         appendLineageDominanceSummary(container, node);
 
         if (alsoKnownAs.length) {
