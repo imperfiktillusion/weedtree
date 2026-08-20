@@ -2589,12 +2589,20 @@
       // Global generation, lineage, contribution, and sorting calculations
       // -----------------------------------------------------------------------
 
+      function isUnknownLayoutIdentity(node) {
+        if (!node) return false;
+
+        const lowerName = node.name?.toLowerCase() || "";
+        const lowerSpecial = node.special?.toLowerCase();
+
+        return lowerName.includes("unknown") || lowerSpecial === "bag seed";
+      }
+
       function usesUnknownLineageGenerationRules(node) {
-        const lowerName = node.name.toLowerCase();
         const lowerSpecial = node.special?.toLowerCase();
 
         return (
-          lowerName.includes("unknown") ||
+          isUnknownLayoutIdentity(node) ||
           (lowerSpecial === "disputed" &&
             node.parents.length === 0 &&
             !node.variant)
@@ -2689,10 +2697,7 @@
             const hasOnlyUnknownParents =
               node.parents.length > 0 &&
               node.parents.every((parentId) =>
-                indexes.nodesById
-                  .get(parentId)
-                  ?.name.toLowerCase()
-                  .includes("unknown"),
+                isUnknownLayoutIdentity(indexes.nodesById.get(parentId)),
               );
 
             if (
