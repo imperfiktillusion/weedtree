@@ -2087,17 +2087,24 @@
           : [];
       }
 
-      function getSpreadsheetParentPercentageValue(strain, parentNumber) {
-        const candidateColumns = [
-          `P${parentNumber}%`,
-          `P${parentNumber} %`,
-          `Parent${parentNumber}%`,
-          `Parent${parentNumber} %`,
-        ];
+      function normaliseSpreadsheetColumnName(value) {
+        return String(value ?? "")
+          .trim()
+          .replace(/\s+/g, "")
+          .toLowerCase();
+      }
 
-        for (const column of candidateColumns) {
-          if (Object.prototype.hasOwnProperty.call(strain, column)) {
-            return strain[column];
+      function getSpreadsheetParentPercentageValue(strain, parentNumber) {
+        const candidateColumns = new Set(
+          [
+            `P${parentNumber}%`,
+            `Parent${parentNumber}%`,
+          ].map(normaliseSpreadsheetColumnName),
+        );
+
+        for (const [column, value] of Object.entries(strain)) {
+          if (candidateColumns.has(normaliseSpreadsheetColumnName(column))) {
+            return value;
           }
         }
 
@@ -2106,10 +2113,23 @@
 
       function parseSpreadsheetParentPercentage(value) {
         const text = String(value ?? "").trim();
-        if (!text) return null;
+        if (!text) {
+          return { percentage: null, hasPercentSign: false };
+        }
 
-        const numericValue = Number(text.replace(/%/g, "").trim());
-        return Number.isFinite(numericValue) ? numericValue : NaN;
+        // Published Google Sheets CSV can expose percentage cells either as
+        // displayed values (for example 25%) or as fractional numeric values
+        // (for example 0.25). Row-level normalisation below handles both forms.
+        const normalisedNumberText = text
+          .replace(/%/g, "")
+          .replace(/,(?=\d+$)/, ".")
+          .trim();
+        const numericValue = Number(normalisedNumberText);
+
+        return {
+          percentage: Number.isFinite(numericValue) ? numericValue : NaN,
+          hasPercentSign: text.includes("%"),
+        };
       }
 
       function convertSpreadsheetRowsToNodes(rows) {
@@ -2123,13 +2143,15 @@
                 strain,
                 parentNumber,
               );
-              const percentage = parseSpreadsheetParentPercentage(rawPercentage);
+              const parsedPercentage =
+                parseSpreadsheetParentPercentage(rawPercentage);
 
               return {
                 parentNumber,
                 parentId,
                 rawPercentage,
-                percentage,
+                percentage: parsedPercentage.percentage,
+                hasPercentSign: parsedPercentage.hasPercentSign,
               };
             },
           );
@@ -2137,6 +2159,32 @@
           const hasExplicitParentWeighting = parentWeightingEntries.some(
             (entry) => String(entry.rawPercentage ?? "").trim() !== "",
           );
+
+          if (hasExplicitParentWeighting) {
+            const enteredPercentages = parentWeightingEntries.filter(
+              (entry) => String(entry.rawPercentage ?? "").trim() !== "",
+            );
+            const rawTotal = enteredPercentages.reduce(
+              (total, entry) =>
+                total + (Number.isFinite(entry.percentage) ? entry.percentage : 0),
+              0,
+            );
+            const looksLikeFractionalCsvPercentages =
+              enteredPercentages.length > 0 &&
+              enteredPercentages.every(
+                (entry) =>
+                  !entry.hasPercentSign && Number.isFinite(entry.percentage),
+              ) &&
+              rawTotal > 0 &&
+              rawTotal <= 1.0001;
+
+            if (looksLikeFractionalCsvPercentages) {
+              enteredPercentages.forEach((entry) => {
+                entry.percentage *= 100;
+              });
+            }
+          }
+
           const parents = parentWeightingEntries
             .map((entry) => entry.parentId)
             .filter(Boolean);
@@ -2464,18 +2512,33 @@
         chartState.isPrepared = true;
       }
 
+      function showLiveDataValidationError(error) {
+        const details = String(error?.message || error || "")
+          .replace(/^Invalid lineage data:\s*/i, "")
+          .split("\n")
+          .filter(Boolean)
+          .slice(0, 3)
+          .join(" ");
+        const suffix = details ? ` ${details}` : "";
+        showError(
+          `WeedTree loaded the live spreadsheet, but found invalid lineage data.${suffix}`,
+        );
+      }
+
       async function initialiseChart() {
         setLoading(true);
         setupDataStatusMessage();
 
+        let liveRows;
         try {
-          const rows = await fetchStrainRows(APP_CONFIG.dataUrl, {
+          liveRows = await fetchStrainRows(APP_CONFIG.dataUrl, {
             cache: "no-store",
           });
-          chartState.isUsingBackupData = false;
-          prepareRowsForChart(rows);
-        } catch (liveError) {
-          console.warn("Live lineage data could not be used; trying backup.", liveError);
+        } catch (liveFetchError) {
+          console.warn(
+            "Live lineage data could not be fetched; trying backup.",
+            liveFetchError,
+          );
 
           try {
             const backupRows = await fetchStrainRows(APP_CONFIG.backupDataUrl);
@@ -2486,8 +2549,19 @@
             showError(
               "WeedTree could not load its lineage data. Please try again later.",
             );
-            console.error("Live data error:", liveError);
+            console.error("Live data fetch error:", liveFetchError);
             console.error("Backup data error:", backupError);
+            return;
+          }
+        }
+
+        if (liveRows) {
+          chartState.isUsingBackupData = false;
+          try {
+            prepareRowsForChart(liveRows);
+          } catch (liveDataError) {
+            showLiveDataValidationError(liveDataError);
+            console.error("Live lineage data validation error:", liveDataError);
             return;
           }
         }
