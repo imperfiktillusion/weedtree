@@ -1040,7 +1040,12 @@
         line-height: 1.3;
         overflow-wrap: anywhere;
       }
-      .parent-weighting-note-label { font-weight: 700; }
+      .parent-weighting-note-label {
+        display: block;
+        margin-bottom: calc(2px * var(--info-panel-scale));
+        font-weight: 700;
+      }
+      .parent-weighting-note-entry { display: block; }
 
       .info-panel-heading {
         font-weight: 700;
@@ -5268,19 +5273,12 @@
       function appendParentWeightingNote(container, node) {
         if (!node.hasExplicitParentWeighting) return;
 
-        const weightedParents = node.parentWeightingEntries
-          .filter(
-            (entry) =>
-              entry.parentId &&
-              Number.isFinite(entry.percentage) &&
-              entry.percentage > 0,
-          )
-          .map(
-            (entry) =>
-              `${entry.parentId} ${formatExplicitParentWeightPercentage(
-                entry.percentage,
-              )}`,
-          );
+        const weightedParents = node.parentWeightingEntries.filter(
+          (entry) =>
+            entry.parentId &&
+            Number.isFinite(entry.percentage) &&
+            entry.percentage > 0,
+        );
 
         if (!weightedParents.length) return;
 
@@ -5289,9 +5287,18 @@
 
         const label = document.createElement("span");
         label.className = "parent-weighting-note-label";
-        label.textContent = "Parent weighting: ";
+        label.textContent = "Breeder-reported lineage weighting:";
+        note.appendChild(label);
 
-        note.append(label, document.createTextNode(weightedParents.join(" · ")));
+        weightedParents.forEach((entry) => {
+          const line = document.createElement("span");
+          line.className = "parent-weighting-note-entry";
+          line.textContent = `${entry.parentId} ${formatExplicitParentWeightPercentage(
+            entry.percentage,
+          )}`;
+          note.appendChild(line);
+        });
+
         container.appendChild(note);
       }
 
