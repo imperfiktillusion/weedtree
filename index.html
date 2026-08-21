@@ -2213,11 +2213,15 @@
         const parentNames = new Set(
           convertedNodes.flatMap((node) => node.parents),
         );
+        const variantBaseNames = new Set(
+          convertedNodes.map((node) => node.variant).filter(Boolean),
+        );
 
         return convertedNodes
           .filter(
             (node) =>
               parentNames.has(node.name) ||
+              variantBaseNames.has(node.name) ||
               node.parents.length > 0 ||
               node.variant,
           )
@@ -2622,6 +2626,49 @@
         );
       }
 
+      // Variants occupy the same generation as their base strain. For layout
+      // purposes, a pedigree branch that begins from a variant therefore also
+      // belongs to the base strain. Walk through any chain of variants and
+      // return the first real pedigree children without treating the variants
+      // themselves as a later generation.
+      function getPedigreeChildrenThroughVariants(node, indexes) {
+        if (!node) return [];
+
+        const children = new Map();
+        const visited = new Set();
+
+        function collect(baseNode) {
+          if (!baseNode || visited.has(baseNode.id)) return;
+          visited.add(baseNode.id);
+
+          (indexes.childrenByParentId.get(baseNode.id) || []).forEach((child) => {
+            children.set(child.id, child);
+          });
+
+          (indexes.variantsByBaseName.get(baseNode.name) || []).forEach(collect);
+        }
+
+        collect(node);
+        return [...children.values()];
+      }
+
+      function syncVariantGenerations(baseNode, indexes) {
+        if (!baseNode) return;
+
+        const visited = new Set();
+        function sync(node) {
+          if (!node || visited.has(node.id)) return;
+          visited.add(node.id);
+
+          (indexes.variantsByBaseName.get(node.name) || []).forEach((variant) => {
+            variant.generation = baseNode.generation;
+            sync(variant);
+          });
+        }
+
+        sync(baseNode);
+      }
+
       function assignGenerations(nodes, indexes = buildGraphIndexes(nodes)) {
         const maximumPasses = Math.max(nodes.length * 4, 20);
         let changed = true;
@@ -2720,7 +2767,7 @@
               return;
             }
 
-            const children = indexes.childrenByParentId.get(node.id) || [];
+            const children = getPedigreeChildrenThroughVariants(node, indexes);
             if (!children.length) return;
 
             const generation = Math.max(
@@ -2730,6 +2777,7 @@
 
             if (node.generation !== generation) {
               node.generation = generation;
+              syncVariantGenerations(node, indexes);
               specialCaseChanged = true;
             }
           });
