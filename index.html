@@ -3800,8 +3800,62 @@
         );
       }
 
+      function collectTraversedLineageLinkKeys(startNode, { descendants = false } = {}) {
+        const linkKeys = new Set();
+        const visited = new Set();
+
+        function walk(node) {
+          if (!node || visited.has(node.id)) return;
+          visited.add(node.id);
+
+          if (descendants) {
+            getChildNodes(node, chartState.indexes).forEach((child) => {
+              linkKeys.add(getLineageLinkKey(node.id, child.id));
+              walk(child);
+            });
+            return;
+          }
+
+          getParentNodes(node, chartState.indexes).forEach((parent) => {
+            linkKeys.add(getLineageLinkKey(parent.id, node.id));
+            walk(parent);
+          });
+        }
+
+        walk(startNode);
+        return linkKeys;
+      }
+
+      function getFocusedChartRelevantLinkKeys() {
+        if (!isFocusedChartLayoutActive()) return null;
+
+        if (pageState.selectionMode === "compare") {
+          const { firstLineage, secondLineage } = chartState.comparison;
+          return new Set(
+            chartState.links
+              .filter(
+                (link) =>
+                  (firstLineage.has(link.source) && firstLineage.has(link.target)) ||
+                  (secondLineage.has(link.source) && secondLineage.has(link.target)),
+              )
+              .map((link) => getLineageLinkKey(link.source, link.target)),
+          );
+        }
+
+        const ancestorLinkKeys = collectTraversedLineageLinkKeys(
+          chartState.focusedNode,
+        );
+        const descendantLinkKeys = collectTraversedLineageLinkKeys(
+          chartState.focusedNode,
+          { descendants: true },
+        );
+
+        return new Set([...ancestorLinkKeys, ...descendantLinkKeys]);
+      }
+
       function updateVisibleGraph() {
         const focusedLineage = getFocusedChartLineage();
+        const focusedLinkKeys = getFocusedChartRelevantLinkKeys();
 
         const visibleLineage = focusedLineage
           ? new Set([
@@ -3817,10 +3871,27 @@
         const visibleNodeIds = new Set(
           chartState.visibleNodes.map((node) => node.id),
         );
-        chartState.visibleLinks = chartState.links.filter(
-          (link) =>
-            visibleNodeIds.has(link.source) && visibleNodeIds.has(link.target),
-        );
+        const previewLinkKeys = chartState.relatedProductPreview?.linkKeys;
+
+        chartState.visibleLinks = chartState.links.filter((link) => {
+          if (
+            !visibleNodeIds.has(link.source) ||
+            !visibleNodeIds.has(link.target)
+          ) {
+            return false;
+          }
+
+          // Full mode keeps every link between visible nodes. Focused mode only
+          // keeps links actually traversed by the isolated lineage, plus any
+          // temporary path used by the related-product rollover preview.
+          if (!focusedLinkKeys) return true;
+
+          const linkKey = getLineageLinkKey(link.source, link.target);
+          return (
+            focusedLinkKeys.has(linkKey) ||
+            Boolean(previewLinkKeys?.has(linkKey))
+          );
+        });
       }
 
       function calculateChartLayout() {
