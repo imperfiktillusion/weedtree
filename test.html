@@ -1983,7 +1983,7 @@
         "Indonesia Sativa Landraces",
         "African Sativa Landraces",
         "North African Sativa Landraces",
-        "East African Sativa landraces",
+        "East African Sativa Landraces",
         "South African Sativa Landraces",
         "Jamaican Sativa Landraces",
         "California Sativa Landraces",
@@ -2219,7 +2219,6 @@
             (node) =>
               parentNames.has(node.name) ||
               node.parents.length > 0 ||
-              node.special ||
               node.variant,
           )
           .map((node) => ({
@@ -2589,17 +2588,31 @@
       // Global generation, lineage, contribution, and sorting calculations
       // -----------------------------------------------------------------------
 
-      function isUnknownLayoutIdentity(node) {
+      function getSpecialType(node) {
+        return node?.special?.trim().toLowerCase() || "";
+      }
+
+      function isUnknownIdentity(node) {
         if (!node) return false;
 
         const lowerName = node.name?.toLowerCase() || "";
-        const lowerSpecial = node.special?.toLowerCase();
+        return (
+          getSpecialType(node) === "unknown" ||
+          lowerName.includes("unknown")
+        );
+      }
 
-        return lowerName.includes("unknown") || lowerSpecial === "bag seed";
+      function isUnknownLayoutIdentity(node) {
+        if (!node) return false;
+
+        return (
+          isUnknownIdentity(node) ||
+          getSpecialType(node) === "bag seed"
+        );
       }
 
       function usesUnknownLineageGenerationRules(node) {
-        const lowerSpecial = node.special?.toLowerCase();
+        const lowerSpecial = getSpecialType(node);
 
         return (
           isUnknownLayoutIdentity(node) ||
@@ -2620,7 +2633,7 @@
 
           nodes.forEach((node) => {
             const lowerName = node.name.toLowerCase();
-            const lowerSpecial = node.special?.toLowerCase();
+            const lowerSpecial = getSpecialType(node);
 
             if (lowerName.includes("unknown lineages")) {
               if (node.generation !== 2) {
@@ -6142,7 +6155,7 @@
             secondDepth < 1 ||
             Math.max(firstDepth, secondDepth) > maximumDepth ||
             !ancestor ||
-            ancestor.name.toLowerCase().includes("unknown")
+            isUnknownIdentity(ancestor)
           ) {
             return;
           }
@@ -6517,7 +6530,7 @@
             Math.max(focusedDepth, candidateDepth) > maximumDepth ||
             !ancestor ||
             ancestor.generation === 0 ||
-            ancestor.name.toLowerCase().includes("unknown")
+            isUnknownIdentity(ancestor)
           ) {
             return;
           }
@@ -8346,7 +8359,7 @@
         return chartState.nodes
           .filter(
             (node) =>
-              !node.name.toLowerCase().includes("unknown") &&
+              !isUnknownIdentity(node) &&
               node.id !== chartState.comparisonSelections[0]?.id &&
               (node.name.toLowerCase().includes(normalisedSearch) ||
                 node.product?.toLowerCase().includes(normalisedSearch) ||
