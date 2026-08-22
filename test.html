@@ -1511,7 +1511,7 @@
             Compare strains
           </button>
         </div>
-        <button id="btn2" class="btn go-to-strain-button" type="button" aria-label="Go to strain" title="Go to strain">
+        <button id="btn2" class="btn go-to-strain-button" type="button" aria-label="Go to strain" aria-keyshortcuts="/" title="Go to strain (/)">
           <svg class="search-button-icon" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="10.5" cy="10.5" r="6.5"></circle>
             <line x1="15.5" y1="15.5" x2="21" y2="21"></line>
@@ -1576,7 +1576,7 @@
           tabindex="-1"
         ></div>
         <p id="chartKeyboardHelp" class="visually-hidden">
-          Use the strain search or Tab to enter the chart. Within the chart, use the arrow keys to move between strains, Home or End to move to the first or last visible strain, and Enter or Space to select one.
+          Press / to open the strain search, or use Tab to enter the chart. Within the chart, use the arrow keys to move between strains, Home or End to move to the first or last visible strain, and Enter or Space to select one.
         </p>
         <p
           id="comparisonSelectionMessage"
@@ -1963,8 +1963,8 @@
       });
 
       const INDICA_ORDER = Object.freeze([
-        "Afghan/Pakistan Indica Landraces",
         "Purple Afghan Indica Landraces",
+        "Afghan/Pakistan Indica Landraces",
         "Hindu Kush Landraces",
         "Nepalese Indica Landraces",
         "India Indica Landraces",
@@ -1974,21 +1974,21 @@
       ]);
 
       const SATIVA_ORDER = Object.freeze([
+        "Kashmir Sativa Landraces",
         "South India Sativa Landraces",
         "Burmese Sativa Landraces",
-        "Cambodia Sativa Landraces",
         "Thai Sativa Landraces",
         "Chocolate Thai Sativa Landraces",
         "Purple Thai Sativa Landraces",
+        "Cambodia Sativa Landraces",
         "Indonesia Sativa Landraces",
-        "African Sativa Landraces",
         "North African Sativa Landraces",
         "Central African Sativa Landraces",
         "East African Sativa Landraces",
         "South African Sativa Landraces",
-        "Jamaican Sativa Landraces",
-        "Mexico Sativa Landraces",
         "American Pacific Sativa Landraces",  
+        "Mexico Sativa Landraces",
+        "Jamaican Sativa Landraces",
         "Panama Sativa Landraces",
         "Colombian Sativa Landraces",
         "Brazil Sativa Landraces",
@@ -8479,7 +8479,7 @@
         return chartState.nodes
           .filter(
             (node) =>
-              !isUnknownIdentity(node) &&
+              !node.name.toLowerCase().includes("unknown") &&
               node.id !== chartState.comparisonSelections[0]?.id &&
               (node.name.toLowerCase().includes(normalisedSearch) ||
                 node.product?.toLowerCase().includes(normalisedSearch) ||
@@ -8845,6 +8845,38 @@
             closeHeaderMenu();
             showPopup(searchPopup, opener);
           });
+
+        document.addEventListener("keydown", (event) => {
+          const target = event.target;
+          const isTextEntry =
+            target instanceof HTMLElement &&
+            (target.matches("input, textarea, select") || target.isContentEditable);
+
+          if (
+            event.key !== "/" ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.altKey ||
+            event.repeat ||
+            isTextEntry ||
+            (activePopup && activePopup !== searchPopup)
+          ) {
+            return;
+          }
+
+          event.preventDefault();
+          if (activePopup === searchPopup) {
+            document.getElementById("strainSearch").focus();
+            return;
+          }
+
+          const opener =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : document.getElementById("btn2");
+          closeHeaderMenu();
+          showPopup(searchPopup, opener);
+        });
 
         aboutPopup
           .querySelector(".close-button")
